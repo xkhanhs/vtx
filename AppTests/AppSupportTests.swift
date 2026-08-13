@@ -242,14 +242,19 @@ final class AppSupportTests: XCTestCase {
         XCTAssertThrowsError(try SelfUpdater.verifyDesignatedRequirement(at: xctestBinary))
     }
 
-    /// The positive case: a REAL Developer ID-signed VietTelex.app must pass. Skips
+    /// The positive case: a REAL Developer ID-signed VTX.app must pass. Skips
     /// gracefully where none is installed (CI, a fresh checkout) — this only proves
     /// the gate isn't so strict it rejects the app's OWN legitimate signature.
+    ///
+    /// VTX.app, not VietTelex.app: this fork's designated requirement names its own
+    /// identifier and team, so an upstream VietTelex install sitting in the same
+    /// folder MUST fail the gate — that rejection is the point (it is what stops the
+    /// updater reinstalling upstream alongside us), not a regression to assert on.
     func testVerifyDesignatedRequirementAcceptsOurOwnSignedApp() throws {
         let installed = URL(fileURLWithPath: NSHomeDirectory())
-            .appendingPathComponent("Library/Input Methods/VietTelex.app")
+            .appendingPathComponent("Library/Input Methods/VTX.app")
         guard FileManager.default.fileExists(atPath: installed.path) else {
-            throw XCTSkip("no installed VietTelex.app on this machine")
+            throw XCTSkip("no installed VTX.app on this machine")
         }
         try SelfUpdater.verifyDesignatedRequirement(at: installed)   // must not throw
     }

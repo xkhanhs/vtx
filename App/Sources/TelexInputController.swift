@@ -1525,7 +1525,7 @@ final class TelexInputController: IMKInputController {
         guard let src = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
               let ptr = TISGetInputSourceProperty(src, kTISPropertyInputSourceID) else { return false }
         let id = Unmanaged<CFString>.fromOpaque(ptr).takeUnretainedValue() as String
-        return id.hasPrefix("com.viettelex.inputmethod.telex")
+        return id.hasPrefix("com.vtx.inputmethod.telex")
     }
 
     // MARK: - Input-method menu (IMK-provided, no NSStatusItem)

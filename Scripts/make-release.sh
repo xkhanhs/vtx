@@ -16,7 +16,7 @@ set -e
 cd "$(dirname "$0")/.."
 
 VER=$(plutil -extract CFBundleShortVersionString raw App/Resources/Info.plist)
-APP="${TMPDIR:-/tmp}/viettelex-derived/Build/Products/Release/VietTelex.app"
+APP="${TMPDIR:-/tmp}/vtx-derived/Build/Products/Release/VTX.app"
 OUTDIR="${1:-$(cd "$(dirname "$0")/.." && pwd)/build}"
 mkdir -p "$OUTDIR"
 
@@ -31,7 +31,7 @@ fi
 # leaf certificate, every existing grant silently turns into the "listed but refused"
 # state on users' machines (espanso hit exactly this on a cert change). Cheap to check,
 # impossible to notice by hand — so the release refuses to build if the DR drifts.
-EXPECTED_DR='designated => identifier "com.viettelex.inputmethod.telex" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "84T567KMYD"'
+EXPECTED_DR='designated => identifier "com.vtx.inputmethod.telex" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "CT94G6J3TH"'
 ACTUAL_DR=$(codesign -d -r- "$APP" 2>&1 | grep '^designated =>')
 if [ "$ACTUAL_DR" != "$EXPECTED_DR" ]; then
     echo "✗ Designated Requirement CHANGED — shipping this would break every existing"

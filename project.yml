@@ -1,6 +1,6 @@
 name: VietTelex
 options:
-  bundleIdPrefix: com.viettelex
+  bundleIdPrefix: com.vtx
   deploymentTarget:
     macOS: "13.0"
   createIntermediateGroups: true
@@ -29,7 +29,7 @@ targets:
     settings:
       base:
         # Hosted tests: @testable import VietTelex needs the app module loaded.
-        TEST_HOST: $(BUILT_PRODUCTS_DIR)/VietTelex.app/Contents/MacOS/VietTelex
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/VTX.app/Contents/MacOS/VTX
         BUNDLE_LOADER: $(TEST_HOST)
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: "YES"
@@ -59,8 +59,8 @@ targets:
       - sdk: InputMethodKit.framework
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.viettelex.inputmethod.telex
-        PRODUCT_NAME: VietTelex
+        PRODUCT_BUNDLE_IDENTIFIER: com.vtx.inputmethod.telex
+        PRODUCT_NAME: VTX
         PRODUCT_MODULE_NAME: VietTelex
         INFOPLIST_FILE: App/Resources/Info.plist
         # App icon comes from Assets.xcassets (compiled to Assets.car by actool),

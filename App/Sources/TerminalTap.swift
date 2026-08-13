@@ -212,7 +212,7 @@ enum Accessibility {
     /// Returns true when the reset command succeeded.
     @discardableResult
     static func resetOwnGrant() -> Bool {
-        let id = Bundle.main.bundleIdentifier ?? "com.viettelex.inputmethod.telex"
+        let id = Bundle.main.bundleIdentifier ?? "com.vtx.inputmethod.telex"
         var ok = false
         // Accessibility covers the tap; ListenEvent (Input Monitoring) can hold a stale
         // row of its own, and resetting a service we never used is a no-op.
@@ -287,7 +287,7 @@ final class FrontmostApp {
     /// itself — so Settings can offer "recent apps" to pin without typing a bundle id.
     /// MAIN-thread only (observer writes, Settings UI reads) — no lock needed.
     private(set) var recent: [(id: String, name: String)] = []
-    private static let selfID = "com.viettelex.inputmethod.telex"
+    private static let selfID = "com.vtx.inputmethod.telex"
 
     private init() {
         _bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier

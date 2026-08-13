@@ -12,24 +12,24 @@
 set -e
 cd "$(dirname "$0")/.."
 
-SIGN_ID="Developer ID Application: Phil Trinh (84T567KMYD)"
-DEST="$HOME/Library/Input Methods/VietTelex.app"
+SIGN_ID="Developer ID Application: Khanh Nguyen (CT94G6J3TH)"
+DEST="$HOME/Library/Input Methods/VTX.app"
 
 # FIXED derived path — the default DerivedData grows one dir per xcodegen
 # regeneration, and `ls | head -1` then installs a STALE build (bit us
 # 2026-07-22: engine changes "didn't take"). Same pattern as notarize-install.
-DERIVED="${TMPDIR:-/tmp}/viettelex-derived-dev"
+DERIVED="${TMPDIR:-/tmp}/vtx-derived-dev"
 xcodebuild -project VietTelex.xcodeproj -scheme VietTelex \
            -configuration Release -destination 'platform=macOS' \
            -derivedDataPath "$DERIVED" \
            build | grep -E "BUILD" || true
 
-APP="$DERIVED/Build/Products/Release/VietTelex.app"
+APP="$DERIVED/Build/Products/Release/VTX.app"
 codesign --force --options runtime \
          --entitlements App/Resources/VietTelex.entitlements \
          --sign "$SIGN_ID" "$APP"
 
-pkill -x VietTelex 2>/dev/null || true
+pkill -x VTX 2>/dev/null || true
 rm -rf "$DEST"
 ditto "$APP" "$DEST"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$DEST"

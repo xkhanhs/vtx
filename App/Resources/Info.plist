@@ -24,16 +24,16 @@
 	<dict>
 		<key>tsInputModeListKey</key>
 		<dict>
-			<key>com.viettelex.inputmethod.telex.vi</key>
+			<key>com.vtx.inputmethod.telex.vi</key>
 			<dict>
 				<key>TISInputSourceID</key>
-				<string>com.viettelex.inputmethod.telex.vi</string>
+				<string>com.vtx.inputmethod.telex.vi</string>
 				<key>TISIntendedLanguage</key>
 				<string>vi</string>
 				<key>tsInputModeAlternateMenuIconFileKey</key>
 				<string>MenuIcon.pdf</string>
 				<key>tsInputModeAlternateMenuTitleStringKey</key>
-				<string>ViệtTelex</string>
+				<string>VTX</string>
 				<key>tsInputModeCharacterRepertoireKey</key>
 				<array>
 					<string>Latn</string>
@@ -56,11 +56,11 @@
 		</dict>
 		<key>tsVisibleInputModeOrderedArrayKey</key>
 		<array>
-			<string>com.viettelex.inputmethod.telex.vi</string>
+			<string>com.vtx.inputmethod.telex.vi</string>
 		</array>
 	</dict>
 	<key>InputMethodConnectionName</key>
-	<string>com.viettelex.inputmethod.telex_Connection</string>
+	<string>com.vtx.inputmethod.telex_Connection</string>
 	<key>InputMethodServerControllerClass</key>
 	<string>VietTelex.TelexInputController</string>
 	<key>InputMethodServerDelegateClass</key>
@@ -76,6 +76,6 @@
 	<key>TICapsLockLanguageSwitchCapable</key>
 	<true/>
 	<key>TISInputSourceID</key>
-	<string>com.viettelex.inputmethod.telex</string>
+	<string>com.vtx.inputmethod.telex</string>
 </dict>
 </plist>

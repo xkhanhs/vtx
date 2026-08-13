@@ -69,7 +69,7 @@ enum UpdateCheck {
     /// one-line edit of this file.
     static func checkStable() async -> Outcome {
         let current = currentVersion()
-        guard let api = URL(string: "https://ptrinh.github.io/viettelex/stable.json") else {
+        guard let api = URL(string: "https://xkhanhs.github.io/vtx/stable.json") else {
             return .failed("URL")
         }
         var req = URLRequest(url: api, timeoutInterval: 12)
@@ -194,7 +194,7 @@ enum SelfUpdater {
     /// successful install ends in `exit(0)`.
     static func run(version: String, onFailure: (() -> Void)? = nil) {
         let zipURL = URL(string:
-            "https://github.com/ptrinh/viettelex/releases/download/v\(version)/VietTelex-\(version).app.zip")!
+            "https://github.com/xkhanhs/vtx/releases/download/v\(version)/VTX-\(version).app.zip")!
         Task.detached {
             do {
                 let (tmp, response) = try await URLSession.shared.download(from: zipURL)
@@ -203,12 +203,12 @@ enum SelfUpdater {
                                   userInfo: [NSLocalizedDescriptionKey: "HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)"])
                 }
                 let work = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("viettelex-update-\(version)", isDirectory: true)
+                    .appendingPathComponent("vtx-update-\(version)", isDirectory: true)
                 try? FileManager.default.removeItem(at: work)
                 try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
 
                 try runTool("/usr/bin/ditto", ["-xk", tmp.path, work.path])
-                let newApp = work.appendingPathComponent("VietTelex.app")
+                let newApp = work.appendingPathComponent("VTX.app")
                 guard FileManager.default.fileExists(atPath: newApp.path) else {
                     throw NSError(domain: "SelfUpdater", code: 2,
                                   userInfo: [NSLocalizedDescriptionKey: "app missing in zip"])
@@ -218,14 +218,14 @@ enum SelfUpdater {
                 // just "some app signed by our team". Security-scan finding 2026-08-11
                 // (medium): the old gate substring-matched `codesign -dv`'s team-id text,
                 // which lets through ANY app signed by the same Apple Developer Team ID,
-                // not specifically com.viettelex.inputmethod.telex. The requirement string
+                // not specifically com.vtx.inputmethod.telex. The requirement string
                 // is the SAME one Scripts/make-release.sh already enforces at release time
                 // (identifier + Apple anchor + Developer ID cert extension + team OU) —
                 // one designated requirement, checked at both ends of the pipeline.
                 try runTool("/usr/bin/codesign", ["--verify", "--deep", "--strict", newApp.path])
                 try verifyDesignatedRequirement(at: newApp)
 
-                let dest = ("~/Library/Input Methods/VietTelex.app" as NSString).expandingTildeInPath
+                let dest = ("~/Library/Input Methods/VTX.app" as NSString).expandingTildeInPath
                 // Stop the event tap BEFORE the bundle under us is replaced. Apple's
                 // update guidance (and Quinn in forums/thread/703188) is to quit the code
                 // whose bundle you are about to swap: TCC identifies us by code signature,
@@ -264,7 +264,7 @@ enum SelfUpdater {
                     fail.window.level = .floating
                     fail.window.orderFrontRegardless()
                     if fail.runModal() == .alertFirstButtonReturn,
-                       let u = URL(string: "https://github.com/ptrinh/viettelex/releases/latest") {
+                       let u = URL(string: "https://github.com/xkhanhs/vtx/releases/latest") {
                         NSWorkspace.shared.open(u)
                     }
                 }
@@ -282,7 +282,7 @@ enum SelfUpdater {
     static func installBundle(from newApp: URL, to dest: URL) throws {
         if FileManager.default.fileExists(atPath: dest.path) {
             _ = try FileManager.default.replaceItemAt(dest, withItemAt: newApp,
-                                                      backupItemName: "VietTelex.app.bak")
+                                                      backupItemName: "VTX.app.bak")
         } else {
             try FileManager.default.createDirectory(at: dest.deletingLastPathComponent(),
                                                     withIntermediateDirectories: true)
@@ -297,10 +297,10 @@ enum SelfUpdater {
     /// across a shell script and a Swift app; `testExpectedRequirementStringMatchesReleaseScript`
     /// asserts the two stay byte-identical.
     static let expectedRequirementString =
-        "identifier \"com.viettelex.inputmethod.telex\" and anchor apple generic " +
+        "identifier \"com.vtx.inputmethod.telex\" and anchor apple generic " +
         "and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ " +
         "and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ " +
-        "and certificate leaf[subject.OU] = \"84T567KMYD\""
+        "and certificate leaf[subject.OU] = \"CT94G6J3TH\""
 
     /// Throws unless `url` satisfies `expectedRequirementString` via
     /// `SecStaticCodeCheckValidity` — the OS's own designated-requirement evaluator,

@@ -19,7 +19,7 @@ var inputSourceObserver: NSObjectProtocol?
 // clients: WhatsApp (MAS) could never connect — no activateServer, no menu section,
 // every keystroke swallowed — while non-sandboxed apps (Terminal, Chrome) worked.
 let connectionName = (Bundle.main.infoDictionary?["InputMethodConnectionName"] as? String)
-    ?? "com.viettelex.inputmethod.telex_Connection"
+    ?? "com.vtx.inputmethod.telex_Connection"
 
 // XCTest host guard. AppTests use this app as their test host: the process
 // launches, XCTest injects the bundle, tests run, the process dies. If that

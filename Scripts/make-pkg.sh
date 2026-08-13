@@ -20,12 +20,12 @@ cd "$(dirname "$0")/.."
 APP_SIGN_ID="Developer ID Application: Phil Trinh (84T567KMYD)"
 INSTALLER_SIGN_ID="Developer ID Installer: SENPRINTS LLC (84T567KMYD)"
 PROFILE="VietTelexNotary"
-PKGID="com.viettelex.inputmethod.telex.pkg"
+PKGID="com.vtx.inputmethod.telex.pkg"
 
 VER=$(plutil -extract CFBundleShortVersionString raw App/Resources/Info.plist)
-APP="${TMPDIR:-/tmp}/viettelex-derived/Build/Products/Release/VietTelex.app"
+APP="${TMPDIR:-/tmp}/vtx-derived/Build/Products/Release/VTX.app"
 RES="Scripts/pkg-resources"
-WORK="${TMPDIR:-/tmp}/viettelex-pkg"
+WORK="${TMPDIR:-/tmp}/vtx-pkg"
 OUT="${TMPDIR:-/tmp}/VietTelex-$VER.pkg"
 
 # 1. The app must exist and be stapled (notarize-install produces this).
@@ -37,7 +37,7 @@ fi
 
 # 2. Fresh staging: payload (the app) + scripts (pre/postinstall + register helper).
 rm -rf "$WORK"; mkdir -p "$WORK/payload" "$WORK/scripts"
-/usr/bin/ditto "$APP" "$WORK/payload/VietTelex.app"
+/usr/bin/ditto "$APP" "$WORK/payload/VTX.app"
 
 echo "→ compiling + signing register helper"
 swiftc -O "$RES/register-source.swift" -framework Carbon -o "$WORK/scripts/register-source"

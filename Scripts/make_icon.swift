@@ -7,7 +7,7 @@
 //
 // Design: SQUARE OUTLINE box (stroked border, transparent inside) filling a
 // square canvas — matches the height of the system "US" badge, and since the
-// menu icon slot is square, a square canvas maps 1:1 (no distortion). Solid "VT"
+// menu icon slot is square, a square canvas maps 1:1 (no distortion). Solid "VX"
 // inside (T = V/φ, shared baseline), auto-sized to fill both axes. Single black
 // vector; the system handles dark-mode tinting.
 //
@@ -66,7 +66,7 @@ let box = CGRect(x: borderWidth / 2, y: borderWidth / 2,
 let radius = box.height * 0.28                        // like the system "A" badge
 
 // "V" is the dominant glyph, sized like the system "A" letter (~66% of the box
-// cap height). "T" is a small subscript tucked tight against the V so the pair
+// cap height). "X" is a small subscript tucked tight against the V so the pair
 // fits the square. Size by MEASURED cap height (SF cap height is only ~72% of
 // point size, so font size ≠ visible height).
 let probeSize: CGFloat = 20
@@ -74,20 +74,20 @@ guard let vProbe = glyphPath("V", weight: .bold, size: probeSize, baselineY: 0, 
 else { fputs("glyph path failed\n", stderr); exit(1) }
 let capPerPt = vProbe.path.boundingBox.height / probeSize          // cap height per point
 let vSize = S * 0.53 / capPerPt                                    // V cap = 0.53×(outer box), = the system "A" (17px @ 32px box)
-let tSize = vSize * 0.4                                            // T = 0.4×V, small
+let xSize = vSize * 0.4                                            // X = 0.4×V, small
 let gap = -vSize * 0.05                                            // neo theo V; nhẹ tay hơn
 
-// Final glyph widths, to center the VT pair horizontally.
+// Final glyph widths, to center the VX pair horizontally.
 guard let vW = glyphPath("V", weight: .bold, size: vSize, baselineY: 0, leftX: 0),
-      let tW = glyphPath("T", weight: .black, size: tSize, baselineY: 0, leftX: 0)
+      let xW = glyphPath("X", weight: .black, size: xSize, baselineY: 0, leftX: 0)
 else { fputs("glyph path failed\n", stderr); exit(1) }
-let totalW = vW.width + gap + tW.width
+let totalW = vW.width + gap + xW.width
 let capV = vW.path.boundingBox.height
 let baselineY = box.minY + (box.height - capV) / 2
 let leftX = box.minX + (box.width - totalW) / 2
 
 guard let v = glyphPath("V", weight: .bold, size: vSize, baselineY: baselineY, leftX: leftX),
-      let t = glyphPath("T", weight: .black, size: tSize, baselineY: baselineY,
+      let x = glyphPath("X", weight: .black, size: xSize, baselineY: baselineY,
                         leftX: leftX + v.width + gap)
 else { fputs("glyph path failed\n", stderr); exit(1) }
 
@@ -97,21 +97,21 @@ ctx.setLineWidth(borderWidth)
 ctx.addPath(CGPath(roundedRect: box, cornerWidth: radius, cornerHeight: radius, transform: nil))
 ctx.strokePath()
 
-// …and solid VT glyphs inside.
+// …and solid VX glyphs inside.
 let glyphs = CGMutablePath()
 glyphs.addPath(v.path)
-glyphs.addPath(t.path)
+glyphs.addPath(x.path)
 ctx.setFillColor(CGColor.black)
 ctx.addPath(glyphs)
 ctx.fillPath()
 
-// Thicken the small T with an extra outline stroke — the system's heaviest
+// Thicken the small X with an extra outline stroke — the system's heaviest
 // weight (.black) plus this reads ~2 steps bolder than the V (.bold), which the
 // tiny subscript needs to hold weight against the big V.
 ctx.setStrokeColor(CGColor.black)
-ctx.setLineWidth(tSize * 0.06)
+ctx.setLineWidth(xSize * 0.06)
 ctx.setLineJoin(.round)
-ctx.addPath(t.path)
+ctx.addPath(x.path)
 ctx.strokePath()
 
 ctx.endPDFPage()

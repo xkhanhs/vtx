@@ -11,22 +11,22 @@
 set -e
 cd "$(dirname "$0")/.."
 
-SIGN_ID="Developer ID Application: Phil Trinh (84T567KMYD)"
+SIGN_ID="Developer ID Application: Khanh Nguyen (CT94G6J3TH)"
 PROFILE="VietTelexNotary"
-DEST="$HOME/Library/Input Methods/VietTelex.app"
-SCRATCH="${TMPDIR:-/tmp}/viettelex-notarize"
+DEST="$HOME/Library/Input Methods/VTX.app"
+SCRATCH="${TMPDIR:-/tmp}/vtx-notarize"
 
 echo "→ building"
 xcodegen generate >/dev/null 2>&1 || true
 # Explicit derivedDataPath: multiple stale DerivedData dirs made the old
 # `ls | head -1` pick an OUTDATED build (shipped old icons/name once). Build
 # and install from ONE deterministic location.
-DERIVED="${TMPDIR:-/tmp}/viettelex-derived"
+DERIVED="${TMPDIR:-/tmp}/vtx-derived"
 xcodebuild -project VietTelex.xcodeproj -scheme VietTelex \
            -configuration Release -destination 'platform=macOS' \
            -derivedDataPath "$DERIVED" \
            build | grep -E "BUILD" || true
-APP="$DERIVED/Build/Products/Release/VietTelex.app"
+APP="$DERIVED/Build/Products/Release/VTX.app"
 [ -d "$APP" ] || { echo "build product not found: $APP"; exit 1; }
 
 echo "→ cleaning stray legacy code seal + Developer ID sign + hardened runtime"
