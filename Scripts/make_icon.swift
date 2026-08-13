@@ -102,23 +102,27 @@ guard let v = glyphPath("V", weight: weight, size: size, baselineY: baselineY, l
                         leftX: leftX + v.width + gap)
 else { fputs("glyph path failed\n", stderr); exit(1) }
 
-// Stroked border (crisp vector outline, transparent inside)…
-ctx.setStrokeColor(CGColor.black)
-ctx.setLineWidth(borderWidth)
-ctx.addPath(CGPath(roundedRect: box, cornerWidth: radius, cornerHeight: radius, transform: nil))
-ctx.strokePath()
-
-// …and solid VX glyphs inside.
-let glyphs = CGMutablePath()
-glyphs.addPath(v.path)
-glyphs.addPath(x.path)
+// Solid badge with the letters KNOCKED OUT, matching how macOS draws its own
+// keyboard badges ("A" for ABC, "CO" for Colemak) — upstream's outlined box read
+// as a foreign object sitting between them in the input menu.
+//
+// One path (rounded rect + both glyphs) filled with the EVEN-ODD rule, so the
+// glyph interiors stay transparent instead of being painted over. This is a
+// TEMPLATE image: black = painted in the menu's tint colour, transparent = not
+// painted, so the menu background shows through the letters and the badge
+// inverts correctly in light and dark mode alike.
+//
+// No separate stroke on the letters: that existed to keep the old tiny subscript
+// "t" from vanishing beside a full-size V. Equal-size letters at one weight need
+// no compensation, and a stroke here would thicken the knockout and close up the
+// counters at 16pt.
+let badge = CGMutablePath()
+badge.addPath(CGPath(roundedRect: box, cornerWidth: radius, cornerHeight: radius, transform: nil))
+badge.addPath(v.path)
+badge.addPath(x.path)
 ctx.setFillColor(CGColor.black)
-ctx.addPath(glyphs)
-ctx.fillPath()
-
-// No extra stroke on either letter: that existed to stop the tiny subscript "t"
-// from disappearing next to a full-size V. Equal-size letters at the same weight
-// need no compensation, and stroking them here would just blur the pair at 16pt.
+ctx.addPath(badge)
+ctx.fillPath(using: .evenOdd)
 
 ctx.endPDFPage()
 ctx.closePDF()
