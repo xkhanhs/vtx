@@ -247,13 +247,114 @@ instead of a readable name. The picker name comes from **`InfoPlist.strings` in 
 Fix: `App/Resources/{en,vi}.lproj/InfoPlist.strings` (bundled via `project.yml`):
 
 ```
-"CFBundleName" = "VietTelex";
-"com.viettelex.inputmethod.telex"    = "Tiếng Việt (VietTelex)";
-"com.viettelex.inputmethod.telex.vi" = "Tiếng Việt (VietTelex)";
+"CFBundleName" = "VTX";
+"com.vtx.inputmethod.telex"    = "VTX";
+"com.vtx.inputmethod.telex.vi" = "VTX";
 ```
 
-Changing the name needs a re-notarize + refresh (remove & re-add the source, or log
-out/in) because the name is cached with the registration.
+Changing the name needs a re-notarize + refresh, because the name is cached with the
+registration — and it is cached in **more than one place**. Renaming the fork
+(2026-08-13) fixed System Settings and the menu bar while the ⌃Space switcher HUD
+kept printing the raw id for another half hour, which looked like a packaging bug and
+was not:
+
+| Surface | Drawn by | Refresh with |
+|---|---|---|
+| Menu-bar item + its menu | `TextInputMenuAgent` | `killall TextInputMenuAgent` |
+| ⌃Space switcher HUD | `TextInputSwitcher` | `killall TextInputSwitcher` |
+| System Settings → Input Sources | reads TIS directly | nothing |
+
+`Scripts/dev-install.sh` bounces both. If a surface still shows the raw id after
+that, it is registration-level and needs the logout/login.
+
+Verify what macOS actually resolved, before blaming the bundle:
+
+```bash
+plutil -p ~/Library/Input\ Methods/VTX.app/Contents/Resources/en.lproj/InfoPlist.strings
+```
+
+## An input method cannot choose its keyboard layout — 2026-08-13
+
+An IMKit input method owns NO keyboard layout. macOS keeps whichever ASCII layout was
+selected before the switch and translates key events with it, so the SAME input method
+composes on a different keyboard depending on where the user switched FROM:
+
+```
+ABC     → VietTelex   ⇒ TISCopyCurrentKeyboardLayoutInputSource = …keylayout.ABC
+Colemak → VietTelex   ⇒ TISCopyCurrentKeyboardLayoutInputSource = …keylayout.Colemak
+```
+
+For anyone not on QWERTY that is a coin flip, and it is the whole reason users report
+"I have to switch to ABC first, then to the IME, before it types right".
+
+**Two documented-looking ways to fix it. Both are dead. Do not retry them on a hunch —
+retry them only with the readback below as proof.**
+
+1. `TISSetInputMethodKeyboardLayoutOverride` — reads exactly like the intended API.
+   On macOS 26 it is inert: returns `noErr`, then the value is discarded. Measured
+   from inside the input-method process, at `activateServer`, while selected:
+
+   ```
+   layout-override com.apple.keylayout.ABC: ok stored=(none) live=…Colemak
+   ```
+
+   `stored` is `TISCopyInputMethodKeyboardLayoutOverride` read back immediately after
+   the successful set. **`noErr` from this call proves nothing** — always read back.
+
+2. Selection bounce — select the wanted layout, then re-select ourselves, automating
+   the workaround users find by hand. Both selections return `noErr`; the layout does
+   not move:
+
+   ```
+   layout-override …ABC: bounce …Colemak→…Colemak (0,0)
+   ```
+
+   macOS appears to restore the layout an input method was last *entered* with, so
+   leaving and re-entering reinstates the binding you were trying to replace.
+
+**What works: translate the keycode yourself.** `KeyboardLayoutTranslator` resolves the
+pinned layout once (via `UCKeyTranslate` over its `uchr` data) into a
+128 × {plain, shift} ASCII table; `TelexInputController` and `TerminalTap` both take
+the character from there instead of from the event.
+
+The cost is that macOS's own translation is then wrong wherever a key passes through
+untouched, so those paths must insert the character themselves and swallow the key:
+word boundaries, the edge-tap passthrough, and the tap's two native fast paths. Fence
+it — the translator is nil, and every path is byte-for-byte the old one, unless a
+layout is pinned AND macOS is on a different one. The new code can then only run where
+typing was already broken.
+
+Wire it into **both** input paths. The IMK controller alone is not enough: apps in tap
+mode (`tap-defer` in DebugLog — Lark, Electron apps, terminals) never reach it, which
+is exactly how a "fixed" build still reproduced the bug.
+
+The table is written on main (`activateServer`, Settings) and read on the event-tap
+thread, so it is lock-guarded like AppState's other hot-path caches.
+
+## Menu badge metrics — match the system, measured — 2026-08-13
+
+The badge looked small next to the system's own and no amount of margin tuning fixed
+it. Measured off a screenshot of the open input menu, in device pixels:
+
+```
+A  (ABC)      badge 42x32   ink 16x17
+CO (Colemak)  badge 40x32   ink 31x16
+VX (square canvas)          badge 30x32   ink 22x12
+```
+
+macOS sizes the badge by ROW HEIGHT and keeps the canvas aspect, so a **square** canvas
+can only reach 32 wide where the system's own are 40-42 — a 25% deficit, with
+proportionally shorter letters. A square badge also cannot hold two letters at the
+system's cap height without running them edge to edge, which reads as cramped. The
+width has to come from the canvas: `MenuIcon.pdf` is **20x16**, ink at 78% of width and
+50% of height (the measured "CO" proportions).
+
+An older note here claimed macOS squishes a wide media box back to square. It does not
+on macOS 26 — 20x16 renders undistorted.
+
+Measure, do not eyeball: screenshot the open menu, then find each badge's dark bounding
+box at a row near its top edge (solid there, so the label text further right is a
+separate run and the knocked-out letters do not break it).
 
 ## Typing mechanism: NO marked text (Vietnamese habit)
 
@@ -410,13 +511,26 @@ Do NOT `killall cfprefsd` after registering — it erases the transient registra
 
 ## Debug commands
 
+**`log` is a zsh builtin.** `log show …` silently runs the builtin and fails; with
+`2>/dev/null` it just returns nothing, which reads as "the app logs nothing" and sent a
+whole debugging session down the wrong path. Always `/usr/bin/log`.
+
+```bash
+# What is the app actually deciding? (needs debugLogging on)
+/usr/bin/log show --last 10m --info --debug \
+  --predicate 'subsystem == "com.vtx.inputmethod.telex"' --style compact
+
+# Which layout is live under the input method right now?
+swift -e 'import Carbon; let s=TISCopyCurrentKeyboardLayoutInputSource().takeRetainedValue(); print(Unmanaged<CFString>.fromOpaque(TISGetInputSourceProperty(s,kTISPropertyInputSourceID)!).takeUnretainedValue() as String)'
+```
+
 ```bash
 # Is it registered right now?
-swift -e 'import Carbon; let l=TISCreateInputSourceList(nil,true)!.takeRetainedValue() as! [TISInputSource]; for s in l { if let p=TISGetInputSourceProperty(s,kTISPropertyInputSourceID){ let id=Unmanaged<CFString>.fromOpaque(p).takeUnretainedValue() as String; if id.contains("viettelex"){print(id)} } }'
+swift -e 'import Carbon; let l=TISCreateInputSourceList(nil,true)!.takeRetainedValue() as! [TISInputSource]; for s in l { if let p=TISGetInputSourceProperty(s,kTISPropertyInputSourceID){ let id=Unmanaged<CFString>.fromOpaque(p).takeUnretainedValue() as String; if id.contains("vtx"){print(id)} } }'
 
-spctl -a -t exec ~/Library/Input\ Methods/VietTelex.app          # must be "accepted"
-xcrun stapler validate ~/Library/Input\ Methods/VietTelex.app    # must be "worked"
-otool -ov ~/Library/Input\ Methods/VietTelex.app/Contents/MacOS/VietTelex | grep TelexInputController  # must be _TtC9VietTelex...
+spctl -a -t exec ~/Library/Input\ Methods/VTX.app          # must be "accepted"
+xcrun stapler validate ~/Library/Input\ Methods/VTX.app    # must be "worked"
+otool -ov ~/Library/Input\ Methods/VTX.app/Contents/MacOS/VTX | grep TelexInputController  # must be _TtC9VietTelex...
 ```
 
 ## Dev loop (minimize logouts)

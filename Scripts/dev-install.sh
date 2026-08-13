@@ -40,8 +40,13 @@ ditto "$APP" "$DEST"
 
 # The keyboard menu is drawn by TextInputMenuAgent, which keeps an IMK
 # connection to the OLD (now dead) IME process. Without this restart the
-# VietTelex menu section vanishes in EVERY app until the agent is bounced.
+# VTX menu section vanishes in EVERY app until the agent is bounced.
 killall TextInputMenuAgent 2>/dev/null || true
+# …and the ⌃Space switcher HUD is a SEPARATE process with its own cache of the
+# display name. Bouncing only the menu agent fixed the menu bar while the HUD kept
+# showing the raw bundle id, which looks like a packaging bug and is not
+# (2026-08-13). See docs/MACOS_IME_NOTES.md → "Display name in the picker".
+killall TextInputSwitcher 2>/dev/null || true
 
 echo "Installed to $DEST. Type anywhere (or switch input source away and back) to relaunch."
 echo "NOTE: apps hold their own IMK connection — an app that stopped responding to"
