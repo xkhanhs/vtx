@@ -32,7 +32,15 @@ struct KeyboardLayoutTranslator {
     /// something we deliberately don't handle (see ASCII ONLY above).
     private let table: [UInt8]
 
+    /// The inverse: [ascii * 2 + (shift ? 1 : 0)] → keyCode + 1, 0 when no key on this
+    /// layout produces that character. Needed to rewrite a ⌘/⌃/⌥ chord, which the app
+    /// resolves through the LIVE layout and so has to be handed a DIFFERENT keycode
+    /// rather than a different character. First writer wins, which keeps the main row
+    /// ahead of the numeric keypad (keycodes 82…92).
+    private let reverse: [UInt16]
+
     private static let keyCodeCount = 128
+    private static let asciiCount = 128
 
     /// Builds the table, or returns nil when the layout carries no `uchr` data —
     /// true of old-style 'KCHR' resources and of input methods, neither of which can
@@ -45,6 +53,7 @@ struct KeyboardLayoutTranslator {
         let kbdType = UInt32(LMGetKbdType())
 
         var built = [UInt8](repeating: 0, count: Self.keyCodeCount * 2)
+        var inverse = [UInt16](repeating: 0, count: Self.asciiCount * 2)
         let ok = data.withUnsafeBytes { buf -> Bool in
             guard let layout = buf.baseAddress?.assumingMemoryBound(to: UCKeyboardLayout.self)
             else { return false }
@@ -70,6 +79,8 @@ struct KeyboardLayoutTranslator {
                     // upstream of any translation and must not be re-derived here.
                     guard ascii >= 0x20, ascii != 0x7F else { continue }
                     built[code * 2 + shift] = ascii
+                    let slot = Int(ascii) * 2 + shift
+                    if inverse[slot] == 0 { inverse[slot] = UInt16(code) + 1 }
                 }
             }
             return true
@@ -77,6 +88,7 @@ struct KeyboardLayoutTranslator {
         guard ok else { return nil }
         self.layoutID = layoutID
         self.table = built
+        self.reverse = inverse
     }
 
     /// The character `keyCode` produces on this layout, or nil to defer to whatever
@@ -84,10 +96,24 @@ struct KeyboardLayoutTranslator {
     ///
     /// One bounds check and one array read — no allocation, no Carbon call.
     func character(keyCode: UInt16, shift: Bool) -> Character? {
+        guard let ascii = ascii(keyCode: keyCode, shift: shift) else { return nil }
+        return Character(UnicodeScalar(ascii))
+    }
+
+    /// Same lookup, undecoded — the chord remap compares and re-looks-up raw bytes and
+    /// has no use for a Character.
+    func ascii(keyCode: UInt16, shift: Bool) -> UInt8? {
         let index = Int(keyCode) * 2 + (shift ? 1 : 0)
         guard index < table.count else { return nil }
         let ascii = table[index]
-        guard ascii != 0 else { return nil }
-        return Character(UnicodeScalar(ascii))
+        return ascii == 0 ? nil : ascii
+    }
+
+    /// The keyCode that produces `ascii` on this layout, or nil when none does.
+    func keyCode(forASCII ascii: UInt8, shift: Bool) -> UInt16? {
+        let index = Int(ascii) * 2 + (shift ? 1 : 0)
+        guard index < reverse.count else { return nil }
+        let code = reverse[index]
+        return code == 0 ? nil : code - 1
     }
 }

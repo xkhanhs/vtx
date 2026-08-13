@@ -331,6 +331,32 @@ is exactly how a "fixed" build still reproduced the bug.
 The table is written on main (`activateServer`, Settings) and read on the event-tap
 thread, so it is lock-guarded like AppState's other hot-path caches.
 
+### …and character translation does NOT fix ⌘/⌃/⌥ chords — 2026-08-13
+
+A pinned layout fixed *typing* and left shortcuts wrong: with QWERTY pinned while macOS
+sat on Colemak, ⌘ on the physical R key opened Chrome's **print** dialog — Colemak calls
+that key P. Reported as "gõ phím thì không sao, kết hợp phím thì bị".
+
+A chord never reaches our engine. IMK does not route ⌘-combos to the controller, and
+the tap deliberately passes them through; the *app* resolves the chord itself, from the
+keycode, through macOS's live layout. So there is no character for us to substitute.
+
+The fix is a change of **address**, not of character: hand the app the keycode that the
+LIVE layout resolves to the character the PINNED layout has on the physical key —
+`live.keyCode(forASCII: pinned.ascii(keyCode:))`, i.e. the pinned table composed with an
+inverted live table (`KeyboardLayoutOverride.ChordRemap`). Rewriting
+`.keyboardEventKeycode` on the session tap is what every keycode remapper does and the
+app resolves the new code normally.
+
+One site is enough, and it must be the tap: the modifier branch in `TerminalTap.handle`
+runs for **all** apps, before the tap-mode gate, and being `headInsertEventTap` its
+rewrite is also what the IMK controller later sees. Fenced by the same nil check as the
+typing path, so an unpinned user pays one lock-guarded read on chords only.
+
+Not repaired when the live layout has no `uchr` data to invert (old `KCHR` resources) —
+logged as `live layout … not invertible`. Non-ASCII keys (⌫, arrows, F-keys) have no
+entry in the table and are never touched.
+
 ## Menu badge metrics — match the system, measured — 2026-08-13
 
 The badge looked small next to the system's own and no amount of margin tuning fixed

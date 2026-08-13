@@ -92,18 +92,51 @@ enum KeyboardLayoutOverride {
         .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
-    /// Guards `_translator` ONLY. It is written on main (activateServer, Settings)
+    /// Rewrites the KEYCODE of a ⌘/⌃/⌥ chord, which no amount of character
+    /// translation can fix: a chord never reaches our engine — the app resolves it
+    /// itself, through the LIVE layout. With QWERTY pinned while macOS sat on Colemak,
+    /// ⌘ on the physical R key opened Chrome's print dialog, because Colemak calls
+    /// that key P. Typing was already correct; only the chord was wrong.
+    ///
+    /// So the fix is a change of ADDRESS, not of character: hand the app the keycode
+    /// that the LIVE layout resolves to the character the PINNED layout has there.
+    struct ChordRemap {
+        let pinned: KeyboardLayoutTranslator
+        let live: KeyboardLayoutTranslator
+
+        /// The keycode to substitute, or nil to leave the event alone (the key is not
+        /// an ASCII key on the pinned layout, or the live layout can't produce that
+        /// character at all — a substitution guess there would be worse than none).
+        func substitute(for keyCode: UInt16, shift: Bool) -> UInt16? {
+            guard let want = pinned.ascii(keyCode: keyCode, shift: shift),
+                  live.ascii(keyCode: keyCode, shift: shift) != want,
+                  let code = live.keyCode(forASCII: want, shift: shift),
+                  code != keyCode
+            else { return nil }
+            return code
+        }
+    }
+
+    /// Guards `_translator` and `_chordRemap`. They are written on main (activateServer, Settings)
     /// and read from the event-tap thread on every keystroke — the same cross-thread
     /// shape AppState locks its hot-path caches for. A struct wrapping an array is
     /// not safe to read while it is being reassigned, so this cannot be a bare var.
     private static let translatorLock = NSLock()
     private static var _translator: KeyboardLayoutTranslator?
+    private static var _chordRemap: ChordRemap?
 
     /// The active remapper, or nil when macOS's own layout is already correct —
     /// either the user pinned nothing, or the pinned layout is the live one. nil is
     /// the fast, unchanged, 1.5.7 path.
     static var translator: KeyboardLayoutTranslator? {
         translatorLock.withLock { _translator }
+    }
+
+    /// The keycode rewriter for ⌘/⌃/⌥ chords, nil in exactly the cases `translator`
+    /// is — plus when the live layout carries no `uchr` data to invert, in which case
+    /// typing is still remapped and chords keep today's (wrong) behaviour.
+    static var chordRemap: ChordRemap? {
+        translatorLock.withLock { _chordRemap }
     }
 
     /// State the last `apply` resolved from, so repeat calls (one per focus change)
@@ -143,13 +176,28 @@ enum KeyboardLayoutOverride {
             log(id, "no uchr data — cannot remap")
             return false
         }
-        setTranslator(built)
+        setTranslator(built, chord: chordRemap(pinned: built, liveID: live))
         log(id, "remapping (live=\(live))")
         return true
     }
 
-    private static func setTranslator(_ new: KeyboardLayoutTranslator?) {
-        translatorLock.withLock { _translator = new }
+    /// Inverting the live layout is what lets a chord be re-addressed; a layout with no
+    /// `uchr` data (old 'KCHR' resources) simply doesn't get chord repair.
+    private static func chordRemap(pinned: KeyboardLayoutTranslator, liveID: String) -> ChordRemap? {
+        guard let src = source(for: liveID),
+              let live = KeyboardLayoutTranslator(layoutID: liveID, source: src)
+        else {
+            DebugLog.log("layout-override: live layout \(liveID) not invertible — ⌘ chords unrepaired")
+            return nil
+        }
+        return ChordRemap(pinned: pinned, live: live)
+    }
+
+    private static func setTranslator(_ new: KeyboardLayoutTranslator?, chord: ChordRemap? = nil) {
+        translatorLock.withLock {
+            _translator = new
+            _chordRemap = chord
+        }
     }
 
     private static func liveLayoutID() -> String {

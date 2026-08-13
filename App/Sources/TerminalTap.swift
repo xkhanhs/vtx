@@ -2053,6 +2053,20 @@ final class TerminalTapController {
     }
 
     // Returning nil suppresses the key; returning the event passes it through.
+    /// Rewrite a ⌘/⌃/⌥ chord's keycode so the app resolves it on the PINNED layout.
+    ///
+    /// Costs one lock-guarded read and two array reads, and only for chords — a plain
+    /// keystroke never gets here. Nothing happens at all unless a layout is pinned AND
+    /// macOS is on a different one, the same fence the typing path uses.
+    ///
+    /// TAP THREAD. `KeyboardLayoutOverride.chordRemap` is lock-guarded for exactly this.
+    private func remapChordKeyCode(_ event: CGEvent, shift: Bool) {
+        guard let remap = KeyboardLayoutOverride.chordRemap else { return }
+        let code = UInt16(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeycode))
+        guard let substitute = remap.substitute(for: code, shift: shift) else { return }
+        event.setIntegerValueField(.keyboardEventKeycode, value: Int64(substitute))
+    }
+
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         let pass = Unmanaged.passUnretained(event)
 
@@ -2205,6 +2219,11 @@ final class TerminalTapController {
             // ALWAYS notify: the IMKit controller's engine state is invisible from here,
             // so we cannot gate this on our own emptiness.
             NotificationCenter.default.post(name: .telexResetComposition, object: nil)
+            // The chord itself is resolved by the APP, through macOS's live layout —
+            // never by us, so pinning a layout could not reach it and ⌘R on a pinned
+            // QWERTY fired ⌘P while macOS sat on Colemak. Re-address the event here,
+            // the one place that sees every chord in every app.
+            remapChordKeyCode(event, shift: flags.contains(.maskShift))
             return pass
         }
 
