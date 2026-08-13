@@ -51,6 +51,7 @@ final class AppState: @unchecked Sendable {
         static let fallbackApps = "fallbackApps"      // learned: ignore replacementRange
         static let probedApps = "probedApps"          // learned: verified good
         static let manualModes = "manualAppModes"     // user override: bundleID -> AppMode
+        static let keyboardLayout = "keyboardLayoutID" // ASCII layout Telex composes on
     }
 
     /// A user-forced per-app handling strategy (Settings → Bảng chế độ gõ). Overrides
@@ -107,6 +108,7 @@ final class AppState: @unchecked Sendable {
         _tapCascadeBreaker = (defaults.object(forKey: "tapCascadeBreaker") as? Bool) ?? true
         _debugLogging = (defaults.object(forKey: "debugLogging") as? Bool) ?? false
         _safeUnknownApps = (defaults.object(forKey: "safeUnknownApps") as? Bool) ?? true
+        _keyboardLayoutID = (defaults.object(forKey: Key.keyboardLayout) as? String) ?? ""
         shortcutsCache = (defaults.dictionary(forKey: Key.shortcuts) as? [String: String]) ?? [:]
         fallbackAppsCache = Set(defaults.stringArray(forKey: Key.fallbackApps) ?? [])
         probedAppsCache = Set(defaults.stringArray(forKey: Key.probedApps) ?? [])
@@ -364,6 +366,20 @@ final class AppState: @unchecked Sendable {
         get { lock.withLock { _debugLogging } }
         set { lock.withLock { _debugLogging = newValue }
               defaults.set(newValue, forKey: "debugLogging") }
+    }
+
+    /// Which ASCII keyboard layout Telex composes on — a kTISPropertyInputSourceID
+    /// such as "com.apple.keylayout.Colemak". Empty = inherit whatever layout macOS
+    /// carried over from the previously selected input source, the behaviour of every
+    /// build up to 1.5.7. See KeyboardLayoutOverride for why inheriting is a coin flip
+    /// and why the fix belongs in Carbon rather than in our keycode handling.
+    ///
+    /// Read on activateServer (focus changes), never on the keystroke path.
+    private var _keyboardLayoutID: String
+    var keyboardLayoutID: String {
+        get { lock.withLock { _keyboardLayoutID } }
+        set { lock.withLock { _keyboardLayoutID = newValue }
+              defaults.set(newValue, forKey: Key.keyboardLayout) }
     }
 
     // MARK: - Shortcuts (bảng gõ tắt)

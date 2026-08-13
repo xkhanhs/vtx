@@ -86,6 +86,15 @@ final class SettingsModel: ObservableObject {
     @Published var contextualEnglish: Bool { didSet { AppState.shared.contextualEnglish = contextualEnglish } }
     @Published var reEditWord: Bool { didSet { AppState.shared.reEditWord = reEditWord } }
     @Published var safeUnknownApps: Bool { didSet { AppState.shared.safeUnknownApps = safeUnknownApps } }
+    /// ASCII keyboard layout Telex composes on ("" = inherit macOS's). Applied
+    /// immediately as well as persisted: waiting for the next activateServer would
+    /// leave the user's very next keystroke on the old layout.
+    @Published var keyboardLayoutID: String {
+        didSet {
+            AppState.shared.keyboardLayoutID = keyboardLayoutID
+            KeyboardLayoutOverride.apply(keyboardLayoutID)
+        }
+    }
     /// Advanced (terminal tap latency) — see AppState for the full semantics.
     @Published var tapModifyEventInPlace: Bool { didSet { AppState.shared.tapModifyEventInPlace = tapModifyEventInPlace } }
     @Published var tapSkipSyntheticKeyUp: Bool { didSet { AppState.shared.tapSkipSyntheticKeyUp = tapSkipSyntheticKeyUp } }
@@ -140,6 +149,12 @@ final class SettingsModel: ObservableObject {
         contextualEnglish = AppState.shared.contextualEnglish
         reEditWord = AppState.shared.reEditWord
         safeUnknownApps = AppState.shared.safeUnknownApps
+        // A layout uninstalled since it was chosen (system update, removed third-party
+        // bundle) would leave the Picker with no matching tag and render blank — fall
+        // back to "system default" so the control always shows a real selection.
+        let savedLayout = AppState.shared.keyboardLayoutID
+        keyboardLayoutID = KeyboardLayoutOverride.isInstalled(savedLayout)
+            ? savedLayout : KeyboardLayoutOverride.systemDefault
         tapModifyEventInPlace = AppState.shared.tapModifyEventInPlace
         tapSkipSyntheticKeyUp = AppState.shared.tapSkipSyntheticKeyUp
         axSelectionReplace = AppState.shared.axSelectionReplace
@@ -151,6 +166,13 @@ final class SettingsModel: ObservableObject {
         reloadShortcuts()
         reloadModeTable()
     }
+
+    /// Installed ASCII-capable layouts for the Keyboard layout picker. Resolved once
+    /// per Settings window — TISCreateInputSourceList walks every installed layout
+    /// bundle (~112 on a stock Mac), which is far too much for a view body that
+    /// SwiftUI re-evaluates on each toggle. The set can't change while the window is
+    /// open without installing software.
+    lazy var keyboardLayouts: [KeyboardLayoutOption] = KeyboardLayoutOverride.installed()
 
     /// Localized string for the user's chosen UI language (see `VTLocalized`).
     func loc(_ key: String) -> String { VTLocalized(key) }
@@ -546,6 +568,24 @@ struct GeneralTab: View {
                 Toggle(model.loc("Modern tone placement (oà, uý)"), isOn: $model.modernOrthography)
                 Text(model.loc("Off = old style (hòa, thủy, khỏe). On = new style (hoà, thuý, khoẻ). Only oa/oe/uy differ."))
                     .font(.caption).foregroundStyle(.secondary)
+            }
+            Section(model.loc("Keyboard layout")) {
+                Picker(model.loc("Compose on"), selection: $model.keyboardLayoutID) {
+                    Text(model.loc("Follow the previous input source"))
+                        .tag(KeyboardLayoutOverride.systemDefault)
+                    Divider()
+                    ForEach(model.keyboardLayouts) { layout in
+                        Text(layout.name).tag(layout.id)
+                    }
+                }
+                Text(model.loc("Which physical keyboard Telex reads. Pick Colemak, Dvorak… to type Vietnamese with that layout. Left on “follow”, the layout is inherited from whichever input source you switched from — so the same keys give different letters depending on where you came from."))
+                    .font(.caption).foregroundStyle(.secondary)
+                if model.keyboardLayoutID == KeyboardLayoutOverride.systemDefault {
+                    // Honest about the one direction that isn't immediate: macOS
+                    // offers no call to UNSET an override, only to replace it.
+                    Text(model.loc("Switching back to “follow” takes effect the next time VietTelex starts."))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
             Section {
                 Button(model.loc("System Settings…")) {

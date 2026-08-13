@@ -1394,6 +1394,13 @@ final class TelexInputController: IMKInputController {
 
     override func activateServer(_ sender: Any!) {
         super.activateServer(sender)
+        // Pin the layout Telex composes on BEFORE anything reads a key. Without this
+        // the layout is whatever the previously selected input source happened to be
+        // (ABC → QWERTY, Colemak → Colemak), so the same input method typed two
+        // different keyboards depending on switch history — see KeyboardLayoutOverride.
+        // Re-asserted every activation, not just once: macOS can drop the override
+        // across an input-source cycle, and the call is a cached Carbon lookup.
+        KeyboardLayoutOverride.apply(AppState.shared.keyboardLayoutID)
         // New field: both AX verdicts (is it a password field? does it want selection-
         // replace?) describe the PREVIOUS one until their scans re-run.
         SecureFieldDetector.invalidate()

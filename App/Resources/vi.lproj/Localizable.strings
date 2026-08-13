@@ -210,3 +210,10 @@ Bấm “Sửa tự động”: VietTelex tự xoá mục bị kẹt của chín
 "Clear filter" = "Xoá bộ lọc";
 "Delete this shortcut" = "Xoá gõ tắt này";
 "Open Settings → About to install it." = "Mở Cài đặt → Giới thiệu để cài bản mới.";
+
+/* Keyboard layout (bố cục bàn phím Telex đọc) */
+"Keyboard layout" = "Bố cục bàn phím";
+"Compose on" = "Gõ theo";
+"Follow the previous input source" = "Theo nguồn nhập trước đó";
+"Which physical keyboard Telex reads. Pick Colemak, Dvorak… to type Vietnamese with that layout. Left on “follow”, the layout is inherited from whichever input source you switched from — so the same keys give different letters depending on where you came from." = "Bố cục bàn phím vật lý mà Telex đọc. Chọn Colemak, Dvorak… để gõ tiếng Việt bằng bố cục đó. Nếu để “theo nguồn nhập trước đó”, bố cục bị thừa hưởng từ nguồn nhập bạn vừa rời khỏi — cùng một phím sẽ ra chữ khác nhau tuỳ bạn chuyển từ đâu sang.";
+"Switching back to “follow” takes effect the next time VietTelex starts." = "Chuyển ngược về “theo nguồn nhập trước đó” chỉ có hiệu lực từ lần khởi động VietTelex kế tiếp.";
