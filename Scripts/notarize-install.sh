@@ -43,7 +43,7 @@ if [ -f "$APP/Contents/CodeResources" ]; then
 
 echo "→ zipping + submitting to Apple notary (waits for result)"
 mkdir -p "$SCRATCH"
-ZIP="$SCRATCH/VietTelex.zip"
+ZIP="$SCRATCH/VTX.zip"
 /usr/bin/ditto -c -k --keepParent "$APP" "$ZIP"
 xcrun notarytool submit "$ZIP" --keychain-profile "$PROFILE" --wait
 
@@ -52,7 +52,7 @@ xcrun stapler staple "$APP"
 xcrun stapler validate "$APP"
 
 echo "→ installing to $DEST"
-pkill -x VietTelex 2>/dev/null || true
+pkill -x VTX 2>/dev/null || true
 rm -rf "$DEST"
 /usr/bin/ditto "$APP" "$DEST"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$DEST"
@@ -63,8 +63,8 @@ spctl -a -t exec -vv "$DEST" 2>&1 | head -2
 # valid. When macOS does wedge the grant anyway, the app now DETECTS it
 # (trusted but tap-create refused) and walks the user through remove+re-add
 # via the menu status line — see TerminalTapController.trustLooksStale.
-pkill -x VietTelex 2>/dev/null || true
+pkill -x VTX 2>/dev/null || true
 
-echo "Done. Log out / log in ONCE (first install only), then add it: Keyboard → Input Sources → + → Vietnamese → Tiếng Việt (VietTelex)."
+echo "Done. Log out / log in ONCE (first install only), then add it: Keyboard → Input Sources → + → Vietnamese → VTX."
 echo "If Terminal/Chromium typing stops after this install, the IME menu will show"
 echo "'Quyền trợ năng bị kẹt' with one-click repair instructions."
