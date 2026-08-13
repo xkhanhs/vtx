@@ -45,15 +45,29 @@ let args = CommandLine.arguments
 guard args.count >= 2 else { fputs("usage: make_icon.swift <resourcesDir>\n", stderr); exit(1) }
 let outURL = URL(fileURLWithPath: args[1]).appendingPathComponent("MenuIcon.pdf")
 
-// SQUARE media box. macOS stretches the input-source menu icon to a SQUARE
-// (independent-axis scale), so a wide media box gets squished to square. We make
-// the canvas square — the stretch is then a 1:1 no-op — and letterbox the
-// golden-ratio box inside it (transparent margins top/bottom). The box keeps its
-// true φ proportions and is never distorted. Trade-off dictated by the OS: a wide
-// box can only be ~1/φ of the square's height, so it sits shorter than a
-// full-height square badge (that shorter-but-undistorted is the point).
-let S: CGFloat = 16                                   // square canvas (menu-icon standard)
-var mediaBox = CGRect(x: 0, y: 0, width: S, height: S)
+// WIDE media box, 1.25:1 — NOT square.
+//
+// Upstream's note here said macOS stretches an input-source menu icon to a square
+// (independent-axis scale), so a wide media box would be squished, and the canvas
+// was made square to dodge that. Measured on macOS 26 and it does not happen: a
+// 20x16 canvas renders undistorted.
+//
+// A square canvas is what made this badge read as "small" beside the system's.
+// Measured off a screenshot of the open input menu, in device pixels:
+//
+//     A  (ABC)      badge 42x32   ink 16x17
+//     CO (Colemak)  badge 40x32   ink 31x16
+//     VX (ours, square canvas)    badge 30x32   ink 22x12
+//
+// macOS sizes the badge by ROW HEIGHT and keeps the canvas aspect, so a square
+// canvas can only ever be 32 wide where the system's own are 40-42 — 25% narrower,
+// with proportionally shorter letters. And a square badge cannot hold two letters
+// at the system's cap height without running them edge to edge, which reads as
+// cramped. The width has to come from the canvas; there is no margin trick that
+// substitutes for it.
+let SW: CGFloat = 20, SH: CGFloat = 16
+let S: CGFloat = SH                                   // vertical reference for glyph sizing
+var mediaBox = CGRect(x: 0, y: 0, width: SW, height: SH)
 guard let ctx = CGContext(outURL as CFURL, mediaBox: &mediaBox, nil) else {
     fputs("cannot create PDF context\n", stderr); exit(1)
 }
@@ -63,7 +77,7 @@ ctx.beginPDFPage(nil)
 // when it was a stroked outline and the stroke had to sit inside the canvas. A
 // solid badge has no stroke to fit, and next to the system's own A / CO badges
 // even that ~6% made ours read as the small one.
-let box = CGRect(x: 0, y: 0, width: S, height: S)
+let box = CGRect(x: 0, y: 0, width: SW, height: SH)
 let radius = box.height * 0.28                        // like the system "A" badge
 
 // "V" and "X" are EQUAL partners, the way macOS draws its own two-letter badges
@@ -88,8 +102,10 @@ let capPerPt = vProbe.path.boundingBox.height / probeSize          // cap height
 // margin around their letters, so letters run edge-to-edge here read as cramped
 // next to "A" and "CO" — tried at 0.94 and rejected on sight. The badge is already
 // full-bleed (see box above); this is the breathing room INSIDE it.
-let byWidth = box.width * 0.72 / pairWidthPerPt
-let byHeight = box.height * 0.54 / capPerPt
+// Matched to the measured "CO": ink spans 78% of the badge width and 50% of its
+// height. The extra room comes from the wider canvas, not from thinner margins.
+let byWidth = box.width * 0.78 / pairWidthPerPt
+let byHeight = box.height * 0.50 / capPerPt
 let size = min(byWidth, byHeight)
 let gap = size * gapRatio
 
