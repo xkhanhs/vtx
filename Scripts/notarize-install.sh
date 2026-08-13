@@ -5,14 +5,14 @@
 # One-time setup (run yourself, interactive, so the secret never passes through
 # the agent). First create an app-specific password at appleid.apple.com
 # (Sign-In and Security → App-Specific Passwords), then:
-#   xcrun notarytool store-credentials VietTelexNotary \
-#         --apple-id <your-apple-id-email> --team-id 84T567KMYD
+#   xcrun notarytool store-credentials VTXNotary \
+#         --apple-id <your-apple-id-email> --team-id CT94G6J3TH
 #   (paste the app-specific password when prompted)
 set -e
 cd "$(dirname "$0")/.."
 
 SIGN_ID="Developer ID Application: Khanh Nguyen (CT94G6J3TH)"
-PROFILE="VietTelexNotary"
+PROFILE="VTXNotary"
 DEST="$HOME/Library/Input Methods/VTX.app"
 SCRATCH="${TMPDIR:-/tmp}/vtx-notarize"
 
