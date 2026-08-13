@@ -19,6 +19,10 @@ DEST="$HOME/Library/Input Methods/VTX.app"
 # regeneration, and `ls | head -1` then installs a STALE build (bit us
 # 2026-07-22: engine changes "didn't take"). Same pattern as notarize-install.
 DERIVED="${TMPDIR:-/tmp}/vtx-derived-dev"
+# Regenerate first: a NEW source file only reaches the target through
+# project.yml, so without this the build silently compiles the old file set
+# and fails with "cannot find type in scope" (bit us 2026-08-13).
+xcodegen generate >/dev/null 2>&1 || true
 xcodebuild -project VietTelex.xcodeproj -scheme VietTelex \
            -configuration Release -destination 'platform=macOS' \
            -derivedDataPath "$DERIVED" \

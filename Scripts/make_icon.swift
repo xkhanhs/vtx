@@ -59,10 +59,11 @@ guard let ctx = CGContext(outURL as CFURL, mediaBox: &mediaBox, nil) else {
 }
 ctx.beginPDFPage(nil)
 
-// Square box, near-full-bleed (border flush to the square canvas edges).
-let borderWidth: CGFloat = 1.0
-let box = CGRect(x: borderWidth / 2, y: borderWidth / 2,
-                 width: S - borderWidth, height: S - borderWidth)
+// FULL BLEED. The badge used to be inset by half a border width, left over from
+// when it was a stroked outline and the stroke had to sit inside the canvas. A
+// solid badge has no stroke to fit, and next to the system's own A / CO badges
+// even that ~6% made ours read as the small one.
+let box = CGRect(x: 0, y: 0, width: S, height: S)
 let radius = box.height * 0.28                        // like the system "A" badge
 
 // "V" and "X" are EQUAL partners, the way macOS draws its own two-letter badges
@@ -83,8 +84,10 @@ else { fputs("glyph path failed\n", stderr); exit(1) }
 let gapRatio: CGFloat = -0.06                                      // slight negative tracking: V's open top tucks under X
 let pairWidthPerPt = (vProbe.width + xProbe.width + probeSize * gapRatio) / probeSize
 let capPerPt = vProbe.path.boundingBox.height / probeSize          // cap height per point
-let byWidth = box.width * 0.74 / pairWidthPerPt                    // pair spans 74% of the box
-let byHeight = box.height * 0.56 / capPerPt                        // …unless that would out-grow the box vertically
+// Shares measured against the system badges rather than picked for looks: macOS
+// sets "CO" to roughly 5/6 of the badge width and 2/3 of its height.
+let byWidth = box.width * 0.84 / pairWidthPerPt                    // pair spans 84% of the box
+let byHeight = box.height * 0.66 / capPerPt                        // …unless that would out-grow the box vertically
 let size = min(byWidth, byHeight)
 let gap = size * gapRatio
 

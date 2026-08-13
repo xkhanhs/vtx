@@ -13,19 +13,37 @@
 // For someone learning Colemak that is not a preference — it is a coin flip decided
 // by where they happened to be a moment earlier.
 //
-// THE FIX: TISSetInputMethodKeyboardLayoutOverride is Apple's mechanism for exactly
-// this — the input method declares which ASCII layout it sits on, and macOS performs
-// the keycode → character translation with THAT layout before the event ever reaches
-// handle(_:client:). Because the OS does the mapping, every downstream path stays
-// correct for free: the engine still reads event.characters, pass-through of
-// un-composed English still emits the right key, and TerminalTap needs no change.
-// Remapping keycodes ourselves would have had to touch all three, including the µs
-// hot path.
+// WHAT DOES NOT WORK: TISSetInputMethodKeyboardLayoutOverride, which reads like
+// Apple's mechanism for exactly this. On macOS 26 it is INERT. It returns noErr, and
+// then macOS discards the value — measured from inside the input-method process, at
+// activateServer, with the app selected (2026-08-13):
 //
-// SCOPE: the call only takes effect from INSIDE the input-method process — the same
-// call from a standalone tool returns noErr and changes nothing (verified 2026-08-13).
-// Hence it is applied from activateServer, which also re-asserts it on every focus
-// change in case macOS drops it across an input-source cycle.
+//     layout-override com.apple.keylayout.ABC: ok stored=(none) live=…Colemak
+//
+// `stored` is TISCopyInputMethodKeyboardLayoutOverride read back immediately after
+// the successful set. Nothing was kept, and `live` went on mirroring whichever
+// source the user switched in from. Do not "restore" this call: noErr from it means
+// nothing, so any future change here needs the same stored/live readback as proof.
+//
+// ALSO DOES NOT WORK: a selection BOUNCE — select the wanted layout, then re-select
+// ourselves, automating the workaround users find by hand ("switch to ABC, type a
+// bit, switch back"). Both selections return noErr and the layout does not move
+// (2026-08-13):
+//
+//     layout-override …ABC: bounce …Colemak→…Colemak (0,0)
+//
+// Presumably macOS restores the layout an input method was last entered with, so
+// leaving and re-entering reinstates the very binding we were trying to replace.
+//
+// WHAT WORKS: doing the mapping ourselves. KeyboardLayoutTranslator turns keyCode
+// into the character the PINNED layout would produce, and the controller feeds the
+// engine that instead of event.characters.
+//
+// The cost is that macOS's own translation is now wrong wherever we let a key pass
+// through untouched, so the controller must insert those characters itself. That
+// risk is fenced: `translator` is nil — and every path behaves exactly as it did in
+// 1.5.7 — unless the user pinned a layout AND macOS is currently on a different one.
+// The remapping path can therefore only run in the situation that is already broken.
 //
 // MAIN THREAD ONLY: `resolved` is an unsynchronized cache. Both call sites
 // (activateServer, Settings) are main-thread; keep it that way.
@@ -74,27 +92,69 @@ enum KeyboardLayoutOverride {
         .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
-    /// Compose on `id` from now on. `systemDefault` (empty) leaves macOS's inherited
-    /// layout untouched.
+    /// Guards `_translator` ONLY. It is written on main (activateServer, Settings)
+    /// and read from the event-tap thread on every keystroke — the same cross-thread
+    /// shape AppState locks its hot-path caches for. A struct wrapping an array is
+    /// not safe to read while it is being reassigned, so this cannot be a bare var.
+    private static let translatorLock = NSLock()
+    private static var _translator: KeyboardLayoutTranslator?
+
+    /// The active remapper, or nil when macOS's own layout is already correct —
+    /// either the user pinned nothing, or the pinned layout is the live one. nil is
+    /// the fast, unchanged, 1.5.7 path.
+    static var translator: KeyboardLayoutTranslator? {
+        translatorLock.withLock { _translator }
+    }
+
+    /// State the last `apply` resolved from, so repeat calls (one per focus change)
+    /// are a two-Carbon-read no-op instead of a table rebuild.
+    private static var resolvedFor: (pinned: String, live: String)?
+
+    /// Point Telex at `id`. `systemDefault` (empty) means "whatever macOS gives us",
+    /// which is what every build up to 1.5.7 did.
     ///
-    /// Carbon offers no way to UNSET an override once set, so switching back to
-    /// "system default" only stops re-asserting it — it takes effect on the next
-    /// launch of the input method. The Settings copy says so rather than pretending
-    /// the change is immediate.
+    /// This does NOT ask macOS to change anything — both documented routes were
+    /// measured inert (see the header). It decides whether OUR translation has to
+    /// stand in, and prepares it.
+    ///
+    /// Called from activateServer, i.e. once per focus change.
     @discardableResult
     static func apply(_ id: String) -> Bool {
-        guard id != systemDefault else { lastLogged = nil; return false }
+        let live = liveLayoutID()
+        // Nothing pinned, or macOS already happens to be on the pinned layout: leave
+        // the event untouched. This is the common case and it must stay free — it is
+        // also what keeps a QWERTY user on exactly the 1.5.7 code path.
+        guard id != systemDefault, id != live else {
+            if translator != nil { log(id, "off (live=\(live))") }
+            setTranslator(nil)
+            resolvedFor = nil
+            return false
+        }
+        guard resolvedFor.map({ $0 != (id, live) }) ?? true else { return translator != nil }
+        resolvedFor = (id, live)
+
         guard let src = source(for: id) else {
+            setTranslator(nil)
             log(id, "not installed")
             return false
         }
-        let err = TISSetInputMethodKeyboardLayoutOverride(src)
-        guard err == noErr else {
-            log(id, "failed OSStatus=\(err)")
+        guard let built = KeyboardLayoutTranslator(layoutID: id, source: src) else {
+            setTranslator(nil)
+            log(id, "no uchr data — cannot remap")
             return false
         }
-        log(id, "ok")
+        setTranslator(built)
+        log(id, "remapping (live=\(live))")
         return true
+    }
+
+    private static func setTranslator(_ new: KeyboardLayoutTranslator?) {
+        translatorLock.withLock { _translator = new }
+    }
+
+    private static func liveLayoutID() -> String {
+        property(TISCopyCurrentKeyboardLayoutInputSource().takeRetainedValue(),
+                 kTISPropertyInputSourceID) ?? "?"
     }
 
     /// True when `id` names a layout that is still installed. Guards the Settings

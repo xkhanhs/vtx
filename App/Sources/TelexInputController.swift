@@ -180,6 +180,33 @@ final class TelexInputController: IMKInputController {
         Int(NSEvent.EventTypeMask.keyDown.union(.flagsChanged).rawValue)
     }
 
+    /// What this key would type on the layout the user pinned. Falls back to
+    /// `event.characters` — the 1.5.7 behaviour — whenever no remapping is in force,
+    /// which is every case except "pinned a layout AND macOS is on a different one".
+    /// Modifier combos never reach here: handle() passes ⌘⌃⌥ through before this.
+    private func effectiveCharacters(_ event: NSEvent) -> String? {
+        guard let translator = KeyboardLayoutOverride.translator,
+              let ch = translator.character(keyCode: event.keyCode,
+                                            shift: event.modifierFlags.contains(.shift))
+        else { return event.characters }
+        return String(ch)
+    }
+
+    /// Text to insert in place of the system's, for a key we would otherwise let
+    /// macOS type. nil = pass through untouched, exactly as before.
+    ///
+    /// Returning false from handle() means "macOS, type this key" — and macOS types
+    /// it with the layout we are overriding. So wherever a pass-through would now
+    /// produce the wrong letter, we have to insert ours and swallow the key instead.
+    private func remappedInsert(_ event: NSEvent) -> String? {
+        guard KeyboardLayoutOverride.translator != nil,
+              let ours = effectiveCharacters(event),
+              ours != event.characters,
+              Self.insertsOneCharacter(ours)
+        else { return nil }
+        return ours
+    }
+
     override func handle(_ event: NSEvent!, client sender: Any!) -> Bool {
         guard let event = event else { return false }
 
@@ -585,25 +612,29 @@ final class TelexInputController: IMKInputController {
         // they must reach the engine instead of ending the word. In Telex a digit is a
         // boundary as before (field report issue #28, 2026-07-27: VNI did nothing in the
         // app because every digit was consumed here — engine-level VNI tests all passed).
-        guard let chars = event.characters, let ch = chars.first, let ascii = ch.asciiValue,
+        guard let chars = effectiveCharacters(event), let ch = chars.first, let ascii = ch.asciiValue,
               isWordKey(ascii, vniMode: engine.vniMode) else {
             // space / punctuation / any non-letter ends the word. Brackets signal a
             // code-ish context (arr[i], {json}, (x)); skip auto-restore there so a
             // token isn't "corrected" (auto-restore is off around [ ] { }).
             // The composed word itself is committed unchanged.
-            let boundaryChar = event.characters?.utf8.first
+            let boundaryChar = effectiveCharacters(event)?.utf8.first
             let wasEdge = edgeTapWord
             let rewrote = boundary(client, suppressAutoRestore: boundaryChar.map(isBracket) ?? false)
             // Only a key that leaves exactly ONE character after the word may be
             // ⌫-ed back into it (issue #40). Arrow/function keys land here too — they
             // move the caret and insert nothing, so the word is no longer adjacent.
-            if !Self.insertsOneCharacter(event.characters) { engine.forgetLastCommit() }
+            if !Self.insertsOneCharacter(effectiveCharacters(event)) { engine.forgetLastCommit() }
             // Edge word rewritten at the boundary (shortcut/auto-restore): the
             // rewrite is a synthetic burst still in the session queue — a native
             // boundary key would overtake it. Same cure as Return below: swallow
             // and re-post so the key lands AFTER the burst.
             if rewrote, wasEdge, Accessibility.isTrusted, let cg = event.cgEvent {
                 SyntheticKeyboard.postBoundaryCopy(of: cg)
+                return true
+            }
+            if let remapped = remappedInsert(event) {
+                client.insertText(remapped, replacementRange: kNoRange)
                 return true
             }
             return false
@@ -688,7 +719,7 @@ final class TelexInputController: IMKInputController {
         if usesMarkedNow(id) { updateMarked(client); return true }
         switch action {
         case .passthrough:
-            if edgeTapWord {
+            if edgeTapWord, KeyboardLayoutOverride.translator == nil {
                 // Edge word: the app inserts the raw key natively — same CGEvent
                 // queue as the synthetic replaces below, so ordering holds. A
                 // selection at offset 0 (⌘A) is overwritten by the native key.

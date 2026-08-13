@@ -580,12 +580,6 @@ struct GeneralTab: View {
                 }
                 Text(model.loc("Which physical keyboard Telex reads. Pick Colemak, Dvorak… to type Vietnamese with that layout. Left on “follow”, the layout is inherited from whichever input source you switched from — so the same keys give different letters depending on where you came from."))
                     .font(.caption).foregroundStyle(.secondary)
-                if model.keyboardLayoutID == KeyboardLayoutOverride.systemDefault {
-                    // Honest about the one direction that isn't immediate: macOS
-                    // offers no call to UNSET an override, only to replace it.
-                    Text(model.loc("Switching back to “follow” takes effect the next time VietTelex starts."))
-                        .font(.caption).foregroundStyle(.secondary)
-                }
             }
             Section {
                 Button(model.loc("System Settings…")) {
