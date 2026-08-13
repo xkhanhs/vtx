@@ -65,29 +65,40 @@ let box = CGRect(x: borderWidth / 2, y: borderWidth / 2,
                  width: S - borderWidth, height: S - borderWidth)
 let radius = box.height * 0.28                        // like the system "A" badge
 
-// "V" is the dominant glyph, sized like the system "A" letter (~66% of the box
-// cap height). "X" is a small subscript tucked tight against the V so the pair
-// fits the square. Size by MEASURED cap height (SF cap height is only ~72% of
-// point size, so font size ≠ visible height).
+// "V" and "X" are EQUAL partners, the way macOS draws its own two-letter badges
+// ("CO" for Colemak, "AB" for ABC) — a full-size letter with a tiny subscript is
+// upstream's "Vt" lockup, where the t was a diminutive of "telex". "VX" is an
+// abbreviation, so both letters carry the same weight.
+//
+// Sized by WIDTH, not cap height: two full letters are ~2.4× wider than one, so
+// the height rule that fit a single "V" would overflow the square. Measure the
+// pair at a probe size, then scale so it fills a fixed share of the box width —
+// and clamp on cap height too, in case a future glyph pair is unusually narrow.
 let probeSize: CGFloat = 20
-guard let vProbe = glyphPath("V", weight: .bold, size: probeSize, baselineY: 0, leftX: 0)
+let weight: NSFont.Weight = .bold
+guard let vProbe = glyphPath("V", weight: weight, size: probeSize, baselineY: 0, leftX: 0),
+      let xProbe = glyphPath("X", weight: weight, size: probeSize, baselineY: 0, leftX: 0)
 else { fputs("glyph path failed\n", stderr); exit(1) }
+
+let gapRatio: CGFloat = -0.06                                      // slight negative tracking: V's open top tucks under X
+let pairWidthPerPt = (vProbe.width + xProbe.width + probeSize * gapRatio) / probeSize
 let capPerPt = vProbe.path.boundingBox.height / probeSize          // cap height per point
-let vSize = S * 0.53 / capPerPt                                    // V cap = 0.53×(outer box), = the system "A" (17px @ 32px box)
-let xSize = vSize * 0.4                                            // X = 0.4×V, small
-let gap = -vSize * 0.05                                            // neo theo V; nhẹ tay hơn
+let byWidth = box.width * 0.74 / pairWidthPerPt                    // pair spans 74% of the box
+let byHeight = box.height * 0.56 / capPerPt                        // …unless that would out-grow the box vertically
+let size = min(byWidth, byHeight)
+let gap = size * gapRatio
 
 // Final glyph widths, to center the VX pair horizontally.
-guard let vW = glyphPath("V", weight: .bold, size: vSize, baselineY: 0, leftX: 0),
-      let xW = glyphPath("X", weight: .black, size: xSize, baselineY: 0, leftX: 0)
+guard let vW = glyphPath("V", weight: weight, size: size, baselineY: 0, leftX: 0),
+      let xW = glyphPath("X", weight: weight, size: size, baselineY: 0, leftX: 0)
 else { fputs("glyph path failed\n", stderr); exit(1) }
 let totalW = vW.width + gap + xW.width
 let capV = vW.path.boundingBox.height
 let baselineY = box.minY + (box.height - capV) / 2
 let leftX = box.minX + (box.width - totalW) / 2
 
-guard let v = glyphPath("V", weight: .bold, size: vSize, baselineY: baselineY, leftX: leftX),
-      let x = glyphPath("X", weight: .black, size: xSize, baselineY: baselineY,
+guard let v = glyphPath("V", weight: weight, size: size, baselineY: baselineY, leftX: leftX),
+      let x = glyphPath("X", weight: weight, size: size, baselineY: baselineY,
                         leftX: leftX + v.width + gap)
 else { fputs("glyph path failed\n", stderr); exit(1) }
 
@@ -105,14 +116,9 @@ ctx.setFillColor(CGColor.black)
 ctx.addPath(glyphs)
 ctx.fillPath()
 
-// Thicken the small X with an extra outline stroke — the system's heaviest
-// weight (.black) plus this reads ~2 steps bolder than the V (.bold), which the
-// tiny subscript needs to hold weight against the big V.
-ctx.setStrokeColor(CGColor.black)
-ctx.setLineWidth(xSize * 0.06)
-ctx.setLineJoin(.round)
-ctx.addPath(x.path)
-ctx.strokePath()
+// No extra stroke on either letter: that existed to stop the tiny subscript "t"
+// from disappearing next to a full-size V. Equal-size letters at the same weight
+// need no compensation, and stroking them here would just blur the pair at 16pt.
 
 ctx.endPDFPage()
 ctx.closePDF()
