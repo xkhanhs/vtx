@@ -51,4 +51,7 @@ killall TextInputSwitcher 2>/dev/null || true
 echo "Installed to $DEST. Type anywhere (or switch input source away and back) to relaunch."
 echo "NOTE: apps hold their own IMK connection — an app that stopped responding to"
 echo "      the IME needs an input-source flip; Chrome/iTerm need a full app relaunch."
-echo "Live logs: log stream --predicate 'process == \"VietTelex\"'"
+# PRODUCT_NAME is VTX, so the running process is VTX — predicating on the old
+# upstream name matches nothing and reads as "the app logs nothing". Also spell
+# out /usr/bin/log: bare `log` is a zsh builtin that swallows this silently.
+echo "Live logs: /usr/bin/log stream --predicate 'process == \"VTX\"'"
