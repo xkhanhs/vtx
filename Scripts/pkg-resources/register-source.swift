@@ -1,4 +1,4 @@
-// register-source — best-effort register + enable the VietTelex input source so
+// register-source — best-effort register + enable the VTX input source so
 // it shows up (and ideally is already enabled) right after the .pkg installs,
 // without a logout. Run BY THE CONSOLE USER (postinstall does this via
 // `launchctl asuser`), because Text Input Source state is per GUI session.
@@ -25,13 +25,13 @@ let appURL = URL(fileURLWithPath: args[1]) as CFURL
 let regStatus = TISRegisterInputSource(appURL)
 FileHandle.standardError.write(Data("TISRegisterInputSource -> \(regStatus)\n".utf8))
 
-// 2) Best-effort: enable any input source belonging to VietTelex.
+// 2) Best-effort: enable any input source belonging to VTX.
 if let unmanaged = TISCreateInputSourceList(nil, true) {
     let list = unmanaged.takeRetainedValue() as? [TISInputSource] ?? []
     for src in list {
         guard let idPtr = TISGetInputSourceProperty(src, kTISPropertyInputSourceID) else { continue }
         let id = Unmanaged<CFString>.fromOpaque(idPtr).takeUnretainedValue() as String
-        if id.lowercased().contains("viettelex") {
+        if id.lowercased().hasPrefix("com.vtx.inputmethod.telex") {
             let e = TISEnableInputSource(src)
             FileHandle.standardError.write(Data("enable \(id) -> \(e)\n".utf8))
         }

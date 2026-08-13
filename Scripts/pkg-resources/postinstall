@@ -1,5 +1,5 @@
 #!/bin/bash
-# pkg postinstall — runs after VietTelex.app is written to
+# pkg postinstall — runs after VTX.app is written to
 # ~/Library/Input Methods. Registers the input source and opens Keyboard
 # settings, both in the CONSOLE USER's GUI session (the installer runs scripts
 # as root; Text Input Source state and `open` must target the logged-in user).
@@ -51,13 +51,13 @@ if [ "$(id -u)" = "0" ]; then
         exit 1
     fi
 fi
-APP="$target/VietTelex.app"
+APP="$target/VTX.app"
 
 # Upgrade path: kill any RUNNING old instance so the next keystroke relaunches
 # the freshly installed binary. Without this the old version keeps serving until
 # logout — field report: pkg upgraded the bundle on disk but the app still ran
 # (and reported) the previous version.
-run_as_user pkill -x VietTelex 2>/dev/null
+run_as_user pkill -x VTX 2>/dev/null
 
 # Make LaunchServices aware of the freshly installed bundle.
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"

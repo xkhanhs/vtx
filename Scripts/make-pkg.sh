@@ -1,5 +1,5 @@
 #!/bin/zsh
-# make-pkg.sh — wrap the notarized VietTelex.app into a distributable .pkg
+# make-pkg.sh — wrap the notarized VTX.app into a distributable .pkg
 # installer that copies it to ~/Library/Input Methods and (in the user's GUI
 # session) registers the input source + opens Keyboard settings, so the user
 # never hand-copies into a hidden folder and doesn't need to log out.
@@ -17,16 +17,16 @@
 set -e
 cd "$(dirname "$0")/.."
 
-APP_SIGN_ID="Developer ID Application: Phil Trinh (84T567KMYD)"
-INSTALLER_SIGN_ID="Developer ID Installer: SENPRINTS LLC (84T567KMYD)"
-PROFILE="VietTelexNotary"
+APP_SIGN_ID="Developer ID Application: Khanh Nguyen (CT94G6J3TH)"
+INSTALLER_SIGN_ID="Developer ID Installer: Khanh Nguyen (CT94G6J3TH)"
+PROFILE="VTXNotary"
 PKGID="com.vtx.inputmethod.telex.pkg"
 
 VER=$(plutil -extract CFBundleShortVersionString raw App/Resources/Info.plist)
 APP="${TMPDIR:-/tmp}/vtx-derived/Build/Products/Release/VTX.app"
 RES="Scripts/pkg-resources"
 WORK="${TMPDIR:-/tmp}/vtx-pkg"
-OUT="${TMPDIR:-/tmp}/VietTelex-$VER.pkg"
+OUT="${TMPDIR:-/tmp}/VTX-$VER.pkg"
 
 # 1. The app must exist and be stapled (notarize-install produces this).
 [ -d "$APP" ] || { echo "App not found at $APP — run Scripts/notarize-install.sh first."; exit 1; }
@@ -57,7 +57,7 @@ pkgbuild --root "$WORK/payload" \
          --scripts "$WORK/scripts" \
          --identifier "$PKGID" \
          --version "$VER" \
-         "$WORK/VietTelex-component.pkg" >/dev/null
+         "$WORK/VTX-component.pkg" >/dev/null
 
 # 4. Product archive with a bilingual conclusion screen, shipped as RTFD (the
 #    pane renders neither data: URIs nor relative <img>; RTFD keeps the styled

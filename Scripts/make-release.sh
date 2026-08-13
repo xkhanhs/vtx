@@ -1,7 +1,7 @@
 #!/bin/zsh
 # make-release.sh — produce the two distributable artifacts for a GitHub release:
-#   VietTelex-<VER>.app.zip   ← the Homebrew cask downloads THIS (artifact stanza)
-#   VietTelex-<VER>.pkg       ← direct-download installer (registers input source)
+#   VTX-<VER>.app.zip   ← what a Homebrew cask would download (artifact stanza)
+#   VTX-<VER>.pkg       ← direct-download installer (registers input source)
 #
 # The .app.zip is zipped from the NOTARIZED + STAPLED app so the ticket travels
 # inside it (Gatekeeper works offline; an input method only registers when its
@@ -46,15 +46,15 @@ echo "→ DR ok (identity-based: bundle id + team, no cdhash pin)"
 # 2026-08-12) — it ships inside the app bundle, and the repo copy is the
 # reference for contributors; a third, release-attached copy just drifted.
 
-ZIP="$OUTDIR/VietTelex-$VER.app.zip"
+ZIP="$OUTDIR/VTX-$VER.app.zip"
 echo "→ zipping stapled app → $ZIP"
 rm -f "$ZIP"
 /usr/bin/ditto -c -k --keepParent "$APP" "$ZIP"
 
 echo "→ building pkg (Scripts/make-pkg.sh)"
 Scripts/make-pkg.sh
-PKG_SRC="${TMPDIR:-/tmp}/VietTelex-$VER.pkg"
-PKG="$OUTDIR/VietTelex-$VER.pkg"
+PKG_SRC="${TMPDIR:-/tmp}/VTX-$VER.pkg"
+PKG="$OUTDIR/VTX-$VER.pkg"
 cp "$PKG_SRC" "$PKG"
 
 SHA=$(shasum -a 256 "$ZIP" | awk '{print $1}')
@@ -65,8 +65,10 @@ echo
 echo "app.zip sha256 (for the Homebrew cask):"
 echo "  $SHA"
 echo
-echo "Next — publish (needs your OK; these push to the public release + tap):"
-echo "  gh release upload v$VER \"$ZIP\" \"$PKG\""
-echo "  # then in ptrinh/homebrew-viettelex bump Casks/viettelex.rb:"
-echo "  #   version \"$VER\""
-echo "  #   sha256 \"$SHA\""
+echo "Next — publish (needs your OK; this pushes to the public release):"
+echo "  gh release create v$VER \"$ZIP\" \"$PKG\"   # or 'upload' if the tag exists"
+echo
+echo "This fork has no Homebrew tap. The sha256 above is printed because a cask"
+echo "would need it — if you ever set one up, that is the value to paste. Do NOT"
+echo "bump ptrinh/homebrew-viettelex: that cask ships upstream's bundle id, and"
+echo "this artifact would install over a different input source."

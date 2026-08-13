@@ -62,14 +62,14 @@ if [ "$(id -u)" = "0" ]; then
         exit 1
     fi
 fi
-APP="$target/VietTelex.app"
+APP="$target/VTX.app"
 
 # Root → hop into the user's GUI session; already the user (macOS 15 user-home
 # domain) → run directly, sudo would just fail without a tty.
 if [ "$(id -u)" = "0" ]; then
-    launchctl asuser "$uid" sudo -u "$consoleUser" pkill -x VietTelex 2>/dev/null
+    launchctl asuser "$uid" sudo -u "$consoleUser" pkill -x VTX 2>/dev/null
 else
-    pkill -x VietTelex 2>/dev/null
+    pkill -x VTX 2>/dev/null
 fi
 
 if [ -d "$APP" ]; then
