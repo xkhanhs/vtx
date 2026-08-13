@@ -889,7 +889,7 @@ struct ExperimentalTab: View {
     private func saveLog() {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.plainText]
-        panel.nameFieldStringValue = "VietTelex-debug.txt"
+        panel.nameFieldStringValue = "VTX-debug.txt"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         let text = DebugLog.snapshot(header: debugHeader())
         do {
@@ -933,7 +933,7 @@ enum DebugHeader {
         let manual = s.manualModes.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }
         let os = ProcessInfo.processInfo.operatingSystemVersion
         return [
-            "VietTelex debug log — v\(version) (build \(build))",
+            "VTX debug log — v\(version) (build \(build))",
             "macOS: \(os.majorVersion).\(os.minorVersion).\(os.patchVersion)",
             "accessibility: \(Accessibility.isTrusted ? "granted" : "MISSING")",
             "tap running: \(TerminalTapController.shared.isRunning)",
@@ -1001,7 +1001,7 @@ struct AboutTab: View {
                 .resizable()
                 .interpolation(.high)
                 .frame(width: 128, height: 128)
-            Text("VietTelex").font(.title2).bold()
+            Text("VTX").font(.title2).bold()
             Text(String(format: model.loc("Version %@ · %@"), appVersion, buildDate))
                 .foregroundStyle(.secondary)
             Link("Website", destination: URL(string: "https://ptrinh.github.io/viettelex/")!)

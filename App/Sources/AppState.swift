@@ -954,7 +954,7 @@ enum ShortcutImporter {
     /// other IMEs' users can eyeball-edit it. Values with YAML-special leading
     /// chars or wrapping spaces get double quotes.
     static func exportYAML(_ shortcuts: [String: String]) -> String {
-        var out = "# VietTelex — bảng gõ tắt\n"
+        var out = "# VTX — bảng gõ tắt\n"
         for key in shortcuts.keys.sorted() {
             let value = shortcuts[key]!
             let needsQuotes = value.hasPrefix(" ") || value.hasSuffix(" ")

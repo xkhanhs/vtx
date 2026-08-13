@@ -1678,7 +1678,7 @@ final class TelexInputController: IMKInputController {
     // MARK: - Input-method menu (IMK-provided, no NSStatusItem)
 
     override func menu() -> NSMenu! {
-        let menu = NSMenu(title: "VietTelex")
+        let menu = NSMenu(title: "VTX")
         // macOS appends a standard "Edit Text Substitutions…" item to input-method
         // menus. Strip it (and any trailing separator) each time the menu opens.
         menu.delegate = self
@@ -1710,7 +1710,7 @@ final class TelexInputController: IMKInputController {
         let bundle = Bundle(for: TelexInputController.self)
         let ver = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
         let build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
-        let version = NSMenuItem(title: "VietTelex \(ver) (build \(build))", action: nil, keyEquivalent: "")
+        let version = NSMenuItem(title: "VTX \(ver) (build \(build))", action: nil, keyEquivalent: "")
         version.isEnabled = false
         menu.addItem(version)
 
@@ -2126,7 +2126,7 @@ final class TelexInputController: IMKInputController {
         // pasted bug report is greppable regardless of the reporter's UI language.
         func onOff(_ v: Bool) -> String { v ? "on" : "off" }
         let lines = [
-            "VietTelex \(ver) (build \(build))",
+            "VTX \(ver) (build \(build))",
             "Accessibility: \(Accessibility.isTrusted ? "OK" : "missing")",
             "Terminal tap: \(TerminalTapController.shared.isRunning ? "running" : "off")"
                 + (TerminalTapController.shared.isQuarantined ? " (quarantined)" : "")

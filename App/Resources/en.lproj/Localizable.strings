@@ -8,9 +8,9 @@
 
 "Stale permission title" = "Accessibility permission is stuck after an update";
 
-"Stale permission body" = "macOS lists VietTelex as allowed but refuses the event tap — the stored permission pins an older signature, so that checkbox no longer means anything.
+"Stale permission body" = "macOS lists VTX as allowed but refuses the event tap — the stored permission pins an older signature, so that checkbox no longer means anything.
 
-Press “Repair automatically”: VietTelex removes its own stuck entry and asks for the permission again; you just approve it once. No restart needed.";
+Press “Repair automatically”: VTX removes its own stuck entry and asks for the permission again; you just approve it once. No restart needed.";
 
 "Open Accessibility Settings" = "Open Accessibility Settings";
 
@@ -36,7 +36,7 @@ Press “Repair automatically”: VietTelex removes its own stuck entry and asks
 "Input sources howto title" = "One more step in System Settings";
 "Input sources howto body" = "In the Keyboard pane that just opened, find “Input Sources” under “Text Input” and press the “Edit…” button next to it.";
 "Input source hotkey…" = "Input source hotkey…";
-"Opens Keyboard Shortcuts → Input Sources, where the shortcut for switching between VietTelex and other input sources lives." = "Opens Keyboard Shortcuts → Input Sources, where the shortcut for switching between VietTelex and other input sources lives.";
+"Opens Keyboard Shortcuts → Input Sources, where the shortcut for switching between VietTelex and other input sources lives." = "Opens Keyboard Shortcuts → Input Sources, where the shortcut for switching between VTX and other input sources lives.";
 "Input source hotkey howto title" = "One more step in System Settings";
 "Input source hotkey howto body" = "In the Keyboard pane that just opened, press “Keyboard Shortcuts…”, then select “Input Sources” in the sidebar of the sheet that appears.";
 "OK" = "OK";
@@ -46,17 +46,27 @@ Press “Repair automatically”: VietTelex removes its own stuck entry and asks
 "Add diacritics to the word before the caret (experimental)" = "Add diacritics to the word before the caret (experimental)";
 "Repair automatically" = "Repair automatically";
 "Repair started title" = "Permission reset — approve it once";
-"Repair started body" = "VietTelex removed its own stale entry. macOS should now ask for Accessibility permission: approve it, or open Accessibility settings and tick VietTelex. Typing in Terminal/Chrome works again the moment you do — no restart needed.";
+"Repair started body" = "VTX removed its own stale entry. macOS should now ask for Accessibility permission: approve it, or open Accessibility settings and tick VTX. Typing in Terminal/Chrome works again the moment you do — no restart needed.";
 "Repair failed title" = "Couldn’t reset the permission";
-"Repair failed body" = "macOS refused to remove the entry (this happens when it is managed by your organisation). Fix it by hand: open Accessibility settings, select VietTelex, press − to remove it, then + to add it back from ~/Library/Input Methods.";
+"Repair failed body" = "macOS refused to remove the entry (this happens when it is managed by your organisation). Fix it by hand: open Accessibility settings, select VTX, press − to remove it, then + to add it back from ~/Library/Input Methods.";
 
 /* 1.4.22 — UI/UX audit: missing captions, Accessibility banner, update channel, VoiceOver labels */
 "A word that isn’t valid Vietnamese snaps back to the keys you actually typed when the word ends (retore → retore)." = "A word that isn’t valid Vietnamese snaps back to the keys you actually typed when the word ends (retore → retore).";
 "Type “toan”, then “s” → “toán” — no need to retype the whole word. Deleting the space after a word re-opens it: “tháy ” + ⌫ + “a” → “thấy”." = "Type “toan”, then “s” → “toán” — no need to retype the whole word. Deleting the space after a word re-opens it: “tháy ” + ⌫ + “a” → “thấy”.";
 "No Accessibility permission — typing in Terminal/Chrome won’t work" = "No Accessibility permission — typing in Terminal/Chrome won’t work";
-"Tick VietTelex in Privacy & Security → Accessibility. You may need to restart your Mac for the permission to take effect." = "Tick VietTelex in Privacy & Security → Accessibility. You may need to restart your Mac for the permission to take effect.";
+"Tick VietTelex in Privacy & Security → Accessibility. You may need to restart your Mac for the permission to take effect." = "Tick VTX in Privacy & Security → Accessibility. You may need to restart your Mac for the permission to take effect.";
 "Manual check: the newest release on GitHub. Weekly check: the stable channel." = "Manual check: the newest release on GitHub. Weekly check: the stable channel.";
 "No app matches “%@”" = "No app matches “%@”";
 "Clear filter" = "Clear filter";
 "Delete this shortcut" = "Delete this shortcut";
 "Open Settings → About to install it." = "Open Settings → About to install it.";
+
+/* Fork branding: these keys are upstream's English source strings and would
+   otherwise fall back to themselves (VTLocalized passes `value: key`), showing
+   "VietTelex" in a build the OS lists as "VTX". Keys stay verbatim so upstream
+   cherry-picks keep applying; only the displayed value is this fork's name. */
+"VietTelex — Settings" = "VTX — Settings";
+"VietTelex %@ is available" = "VTX %@ is available";
+"VietTelex learns the right method per app. If an app shows underlines or types wrong, tap Reset to re-probe." = "VTX learns the right method per app. If an app shows underlines or types wrong, tap Reset to re-probe.";
+"Force how VietTelex types in a specific app. Auto = detect automatically. Use Tap (real keystrokes, no underline) if an app types wrong or shows underlines; Marked text is the safe fallback." = "Force how VTX types in a specific app. Auto = detect automatically. Use Tap (real keystrokes, no underline) if an app types wrong or shows underlines; Marked text is the safe fallback.";
+"VietTelex needs Accessibility to type Vietnamese in Terminal/iTerm and browsers.\n\nOpen System Settings → Privacy & Security → Accessibility and enable VietTelex (if it’s already there, untick then tick it again)." = "VTX needs Accessibility to type Vietnamese in Terminal/iTerm and browsers.\n\nOpen System Settings → Privacy & Security → Accessibility and enable VTX (if it’s already there, untick then tick it again).";
