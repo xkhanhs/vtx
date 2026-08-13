@@ -14,9 +14,9 @@
 #     output.trace  where to save the .trace (default: build/traces/<ts>.trace)
 #
 #   Env overrides:
-#     VT_SUBSYSTEM  subsystem to aggregate (default com.viettelex.inputmethod.telex)
+#     VT_SUBSYSTEM  subsystem to aggregate (default com.vtx.inputmethod.telex)
 #     VT_ALL=1      aggregate ALL subsystems (includes Apple's inputmethodkit)
-#     VT_ATTACH=0   fall back to --all-processes instead of --attach VietTelex
+#     VT_ATTACH=0   fall back to --all-processes instead of --attach VTX
 #
 # Requires: Xcode command-line tools (xctrace) and Python 3. The invoking
 # terminal needs permission to record (Instruments will prompt once).
@@ -41,21 +41,21 @@ DEFAULT_TRACE="$REPO_DIR/build/traces/vt-$TS.trace"
 TRACE="${2:-$DEFAULT_TRACE}"
 mkdir -p "$(dirname "$TRACE")"
 
-SUBSYSTEM="${VT_SUBSYSTEM:-com.viettelex.inputmethod.telex}"
+SUBSYSTEM="${VT_SUBSYSTEM:-com.vtx.inputmethod.telex}"
 
 command -v xcrun >/dev/null 2>&1 || { echo "measure-signposts: ERROR: xcrun not found (install Xcode CLT)." >&2; exit 1; }
 [[ -f "$ANALYZER" ]] || { echo "measure-signposts: ERROR: analyzer missing: $ANALYZER" >&2; exit 1; }
 
 # --- record ---------------------------------------------------------------
 ATTACH_MODE="attach"
-if [[ "${VT_ATTACH:-1}" == "1" ]] && pgrep -x VietTelex >/dev/null 2>&1; then
-  echo "==> VietTelex is running (pid $(pgrep -x VietTelex | head -1)); attaching."
-  RECORD_TARGET=(--attach VietTelex)
+if [[ "${VT_ATTACH:-1}" == "1" ]] && pgrep -x VTX >/dev/null 2>&1; then
+  echo "==> VTX is running (pid $(pgrep -x VTX | head -1)); attaching."
+  RECORD_TARGET=(--attach VTX)
 else
   ATTACH_MODE="all"
   if [[ "${VT_ATTACH:-1}" == "1" ]]; then
-    echo "==> VietTelex not running; recording ALL processes instead."
-    echo "    (Start VietTelex and set it as the active input method for real data.)"
+    echo "==> VTX not running; recording ALL processes instead."
+    echo "    (Start VTX and set it as the active input method for real data.)"
   else
     echo "==> VT_ATTACH=0; recording ALL processes."
   fi
