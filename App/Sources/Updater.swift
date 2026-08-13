@@ -51,7 +51,15 @@ enum UpdateCheck {
         }
     }
     /// Canonical repo (matches the git remote). GitHub redirects other casings.
-    static let repo = "ptrinh/VietTelex"
+    ///
+    /// THIS fork, not upstream: `designatedRequirement` pins identifier
+    /// com.vtx.inputmethod.telex and team CT94G6J3TH, so an upstream artifact can
+    /// never satisfy it. Pointed at upstream this offered a weekly update that was
+    /// guaranteed to fail its signature check at install time. Until the fork cuts
+    /// its first release, /releases/latest 404s — the weekly check swallows that
+    /// (only `.update` surfaces anything), and a manual check reports HTTP 404,
+    /// which beats promising an update that cannot install.
+    static let repo = "xkhanhs/vtx"
 
     enum Outcome {
         case upToDate(String)                       // current == latest
@@ -101,7 +109,7 @@ enum UpdateCheck {
         }
         var req = URLRequest(url: api, timeoutInterval: 12)
         req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        req.setValue("VietTelex/\(current)", forHTTPHeaderField: "User-Agent")   // GitHub requires a UA
+        req.setValue("VTX/\(current)", forHTTPHeaderField: "User-Agent")   // GitHub requires a UA
         do {
             let (data, resp) = try await URLSession.shared.data(for: req)
             let code = (resp as? HTTPURLResponse)?.statusCode ?? -1
