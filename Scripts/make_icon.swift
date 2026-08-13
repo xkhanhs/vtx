@@ -84,10 +84,12 @@ else { fputs("glyph path failed\n", stderr); exit(1) }
 let gapRatio: CGFloat = -0.06                                      // slight negative tracking: V's open top tucks under X
 let pairWidthPerPt = (vProbe.width + xProbe.width + probeSize * gapRatio) / probeSize
 let capPerPt = vProbe.path.boundingBox.height / probeSize          // cap height per point
-// Shares measured against the system badges rather than picked for looks: macOS
-// sets "CO" to roughly 5/6 of the badge width and 2/3 of its height.
-let byWidth = box.width * 0.84 / pairWidthPerPt                    // pair spans 84% of the box
-let byHeight = box.height * 0.66 / capPerPt                        // …unless that would out-grow the box vertically
+// Padding is deliberate, not leftover space. The system's own badges keep a wide
+// margin around their letters, so letters run edge-to-edge here read as cramped
+// next to "A" and "CO" — tried at 0.94 and rejected on sight. The badge is already
+// full-bleed (see box above); this is the breathing room INSIDE it.
+let byWidth = box.width * 0.72 / pairWidthPerPt
+let byHeight = box.height * 0.54 / capPerPt
 let size = min(byWidth, byHeight)
 let gap = size * gapRatio
 
