@@ -11,6 +11,9 @@ build/
 *.xcuserstate
 *.xcworkspace/xcuserdata/
 
+# Python bytecode — Scripts/test_pty_reader.py leaves this behind on every run
+__pycache__/
+
 # Packaging / notarization artifacts
 *.zip
 *.app
