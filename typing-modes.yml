@@ -93,6 +93,16 @@ com.apple.MobileSMS: inPlace
 # Spark Classic — composer là WebView, WebKit macOS 26 nuốt synthetic burst của
 # tap (issue #47, cùng gốc #44); reporter field-verify in-place OK 13/08/2026.
 com.readdle.smartemail-Mac: inPlace
+# MarkEdit — editor là CodeMirror 6 trong WKWebView: nó xử lý Backspace bằng JS và
+# áp edit vào document model BẤT ĐỒNG BỘ, nên loạt ⌫+retype của tap về sai thứ tự.
+# Maintainer field-test 14/08/2026, gõ "Đây là tiếng việt và nó bị lỗi như thế này"
+# ở mode tap: tap phát đủ 17 edit (log đếm đúng 17 `tap-emit`, không thiếu lần nào)
+# nhưng màn hình ra "Đây là tiêng viịt va nó bị loỗ như thê naà" — dấu rơi mất, "loỗ"
+# còn thừa `o` (backspace không ăn), "naà" lệch một ô (chèn trước khi ⌫ kịp áp dụng).
+# Cùng lớp lỗi WebView của #47/#44, KHÁC lớp Electron biên-từ ở trên (Electron
+# self-report caret thật thà nên in-place học nhầm; MarkEdit thì honor thật:
+# probe đo được `regionMatch=yes → honored`, reprobe `imkMatch2=yes`, không gạch chân).
+app.cyan.markedit: inPlace
 # Browsers — tự dò theo ô (address bar vs nội dung trang)
 com.apple.Safari: axDetect
 com.apple.SafariTechnologyPreview: axDetect
