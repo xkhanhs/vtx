@@ -2508,7 +2508,8 @@ final class TerminalTapController {
         // VNI: digits carry the diacritics, so they belong to the WORD, not the boundary
         // (same fix as the IMKit path — issue #28, 2026-07-27).
         guard let ascii = ch.asciiValue,
-              isWordKey(ascii, vniMode: engine.vniMode) else {
+              isWordKey(ascii, vniMode: engine.vniMode,
+                        bracketVowels: engine.bracketVowels) else {
             lastTapKeyWasBoundary = true
             // Non-letter boundary (space, digit outside VNI, punctuation). Brackets skip
             // auto-restore (code context). Mirror the Return/Tab handling above: only
