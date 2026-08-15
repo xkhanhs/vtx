@@ -74,3 +74,8 @@ Press “Repair automatically”: VTX removes its own stuck entry and asks for t
 "VietTelex learns the right method per app. If an app shows underlines or types wrong, tap Reset to re-probe." = "VTX learns the right method per app. If an app shows underlines or types wrong, tap Reset to re-probe.";
 "Force how VietTelex types in a specific app. Auto = detect automatically. Use Tap (real keystrokes, no underline) if an app types wrong or shows underlines; Marked text is the safe fallback." = "Force how VTX types in a specific app. Auto = detect automatically. Use Tap (real keystrokes, no underline) if an app types wrong or shows underlines; Marked text is the safe fallback.";
 "VietTelex needs Accessibility to type Vietnamese in Terminal/iTerm and browsers.\n\nOpen System Settings → Privacy & Security → Accessibility and enable VietTelex (if it’s already there, untick then tick it again)." = "VTX needs Accessibility to type Vietnamese in Terminal/iTerm and browsers.\n\nOpen System Settings → Privacy & Security → Accessibility and enable VTX (if it’s already there, untick then tick it again).";
+
+/* Secure-input monitor (field report 14/08/2026 — "VietTelex randomly greyed out") */
+"Vietnamese typing is blocked (Secure Input)" = "Vietnamese typing is blocked (Secure Input)";
+"If this is Terminal/iTerm2: turn off “Secure Keyboard Entry”" = "If this is Terminal/iTerm2: turn off “Secure Keyboard Entry”";
+"Status: Blocked by Secure Input" = "Status: Blocked by Secure Input";
