@@ -535,6 +535,62 @@ once. After that it stays.
 
 Do NOT `killall cfprefsd` after registering — it erases the transient registration.
 
+## ⌘R trong Xcode huỷ đăng ký input source — 2026-08-15
+
+Triệu chứng: VTX **biến mất khỏi menu bar**, không crash, không có gì trong DebugLog.
+App vẫn hoàn toàn lành — `spctl` → `accepted / Notarized Developer ID`, `stapler
+validate` → worked, process chạy đúng từ `~/Library/Input Methods/`. Nhưng:
+
+```
+AppleEnabledInputSources = [ com.apple.inputmethod.VietnameseSimpleTelex, ABC,
+                             CharacterPalette, PressAndHold ]
+AppleInputSourceHistory  = [ ABC, Colemak DH ANSI, com.vtx.inputmethod.telex.vi ]
+```
+
+VTX rớt từ **enabled** xuống chỉ còn trong **history**. Đây không phải VTX bị nhắm
+riêng: **layout Colemak DH ANSI của user cũng mất** khỏi enabled, và macOS tự nhét
+`VietnameseSimpleTelex` của Apple vào thế chỗ — dấu hiệu điển hình của việc cả
+enabled list bị dựng lại từ mặc định.
+
+Thủ phạm — `pgrep -lf VTX` ra **hai** dòng:
+
+```
+760    /Users/xkhanhs/Library/Input Methods/VTX.app/Contents/MacOS/VTX
+33265  ~/Library/Developer/Xcode/DerivedData/VietTelex-cjvb…/Build/Products/Debug/VTX.app/…/VTX
+```
+
+`mdfind -name VTX.app` ra **ba** bundle: bản thật + `Build/Products/Debug` +
+`Build/Products/Release` trong DerivedData mặc định của Xcode.
+
+Mấu chốt: hai script cài đặt đều build vào `${TMPDIR}/vtx-derived-dev`, **không** dùng
+`~/Library/Developer/Xcode/DerivedData`. Nên thư mục đó chỉ có thể sinh ra từ ⌘B/⌘R
+trong **Xcode.app GUI** — và ⌘R còn *chạy* bản build đó. Bản chạy mang đúng
+`com.vtx.inputmethod.telex_Connection` như bản đã cài, hai process giành một
+connection name, và macOS xử lý bằng cách dựng lại toàn bộ enabled list.
+
+Điều này khớp với ghi chú "Registration only PERSISTS via the login scan" ở trên:
+đăng ký vốn mong manh, một bundle trùng connection name đủ để thổi bay nó.
+
+Luật: **build VTX bằng `Scripts/*-install.sh`, không bao giờ ⌘R trong Xcode.** Mở Xcode
+để đọc/sửa code thì vô hại — chỉ tránh Run. `$TMPDIR/vtx-derived-dev` an toàn hơn vì
+nằm ngoài Spotlight (`mdfind` không thấy) nên không bị macOS tự khởi chạy.
+
+Kiểm tra sức khoẻ (đúng 1 dòng, đúng đường dẫn `~/Library/Input Methods/`):
+
+```bash
+pgrep -lf VTX
+mdfind -name "VTX.app"        # phải chỉ ra bản trong Input Methods
+```
+
+Khôi phục sau khi đã dọn: ghi lại `AppleEnabledInputSources` bằng `defaults export` →
+sửa → `defaults import com.apple.HIToolbox`, rồi **logout/login** (đọc lại ngay sau
+import thì thấy đúng, nhưng menu bar chỉ cập nhật sau login scan). Đừng `killall
+cfprefsd`. Cũng nhớ thêm lại layout non-Apple đã mất cùng — nó rơi im lặng.
+
+Bẫy phụ khi dọn: `~/Library/Preferences/com.viettelex.settings.plist` **KHÔNG** phải rác
+của upstream — đó là suite settings VTX đang dùng thật (xem `CLAUDE.md`). Xoá nó là mất
+`manualAppModes`, `keyboardLayoutID`, toàn bộ cấu hình người dùng.
+
 ## Debug commands
 
 **`log` is a zsh builtin.** `log show …` silently runs the builtin and fails; with
