@@ -1743,10 +1743,10 @@ final class TelexInputController: IMKInputController {
             menu.addItem(status)
         }
 
-        // Version + build: testers report "which build?" straight from the menu
-        // without opening Settings. Not localized — it's an identifier. CLICKABLE:
-        // giữ tính năng ẩn copy-debug-snapshot (trước nằm ở "Status: OK", dòng đó
-        // giờ ẩn khi ổn) — click = copy snapshot vào clipboard, như cũ.
+        // Version + build, disabled: testers report "which build?" straight from the
+        // menu without opening Settings. Not localized — it's an identifier.
+        // (Tính năng ẩn click-copy-snapshot đã BỎ hẳn 15/08/2026 — maintainer;
+        // snapshot vẫn lấy được qua Cài đặt → Thử nghiệm → Copy debug log.)
         let bundle = Bundle(for: TelexInputController.self)
         let ver = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
         let build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
@@ -2030,13 +2030,6 @@ final class TelexInputController: IMKInputController {
 
     @objc private func openSettings(_ sender: Any?) {
         SettingsWindowController.shared.show(tab: .general)
-    }
-
-    /// Dòng version trong menu: LUÔN copy debug snapshot, bất kể trạng thái — khác
-    /// showStatus (hành động theo trạng thái). Đây là chỗ mới của tính năng ẩn
-    /// "click Status: OK → copy snapshot" sau khi dòng status ẩn đi lúc ổn.
-    @objc private func copySnapshot(_ sender: Any?) {
-        DispatchQueue.main.async { [weak self] in self?.showDebugLog() }
     }
 
     @objc private func showStatus(_ sender: Any?) {
