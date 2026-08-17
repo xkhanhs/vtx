@@ -65,11 +65,32 @@ Changing bundle id or input-mode metadata in `Info.plist` needs a logout/login o
 - **Two installed copies fight over one `InputMethodConnectionName`** — the menu shows
   the IME as selected while keys go somewhere else. Check `pgrep -lf VTX` finds exactly
   one process, from `~/Library/Input Methods/`.
+- **`gh` resolves to `ptrinh/viettelex`, not this fork.** With two remotes it picks
+  upstream, so a bare `gh release create` publishes to SOMEONE ELSE'S repo. On the
+  1.6.10 sync it only missed because upstream already had that tag. `gh repo
+  set-default xkhanhs/vtx` is set now; still pass `--repo xkhanhs/vtx` on anything
+  that writes (release, issue, PR) — a fresh clone has no default.
+- **`git fetch upstream --tags` hijacks the tag namespace.** Both projects tag `vX.Y.Z`,
+  so `v1.6.10` locally became upstream's commit while origin's pointed at the fork's.
+  Trust `git ls-remote --tags origin`; fix a stale local tag with
+  `git fetch origin 'refs/tags/vX.Y.Z:refs/tags/vX.Y.Z' --force`.
+- **`make-pkg.sh` emits an UNSIGNED pkg** unless a *Developer ID Installer* cert exists
+  — it warns and exits 0, so `make-release.sh` still "succeeds". Never attach that pkg
+  to a release; the `.app.zip` is what the updater fetches anyway.
 
 ## Working on this repo
 
 - Upstream is `upstream`; the fork is `origin`. Cherry-pick upstream PRs rather than
-  merging its branches — they apply cleanly.
+  merging its branches. Pick in upstream's chronological order and expect dependencies
+  between commits: on the 1.5.7 → 1.6.10 sync the perf commit needed `bracketVowels`
+  from a feature three releases earlier, and the secure-input monitor needed
+  `OwnBundle` from a commit that had looked skippable. A pick that fails to build is
+  usually a missing ancestor, not a bad pick.
+- An upstream commit that adds user-facing strings ships upstream's NAME in them. After
+  a sync, grep both `Localizable.strings` for `VietTelex` on the VALUE side and add a
+  fork override — keys stay verbatim so later cherry-picks keep applying. Same hazard
+  in resources: the menu-icon picker's `MenuIcon1.pdf` is upstream's Vᴛ mark, and
+  selecting "default" would have overwritten the VX badge with it.
 - The updater's designated requirement pins this fork's identifier and team, so an
   upstream artifact can never install over VTX. Keep it that way.
 - Settings live in the `com.viettelex.settings` defaults suite, deliberately: it carries
