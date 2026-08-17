@@ -33,7 +33,11 @@ fi
 # impossible to notice by hand — so the release refuses to build if the DR drifts.
 EXPECTED_DR='designated => identifier "com.vtx.inputmethod.telex" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "CT94G6J3TH"'
 ACTUAL_DR=$(codesign -d -r- "$APP" 2>&1 | grep '^designated =>')
-if [ "$ACTUAL_DR" != "$EXPECTED_DR" ]; then
+# codesign quotes an OU value on some macOS versions and not others (26.0 prints
+# `= CT94G6J3TH`, earlier ones `= "CT94G6J3TH"`) — the requirement is identical
+# either way. Compare with quotes stripped so a formatting change can't fail a
+# release, while a REAL drift (a cdhash pin, a different team) still does.
+if [ "${ACTUAL_DR//\"/}" != "${EXPECTED_DR//\"/}" ]; then
     echo "✗ Designated Requirement CHANGED — shipping this would break every existing"
     echo "  Accessibility grant (users would see 'Quyền Trợ năng bị kẹt')."
     echo "  expected: $EXPECTED_DR"
