@@ -9,11 +9,25 @@
 #   .githooks/pre-push    (hoặc .husky/pre-push)   →  sh .githooks/protect-main.sh push
 #
 # Khẩn cấp: git commit --no-verify  ·  git push --no-verify
-# Đổi danh sách nhánh được bảo vệ: PROTECTED_BRANCHES="main release" (env hoặc git config).
+#
+# Nhánh được bảo vệ, theo thứ tự ưu tiên:
+#   1. env PROTECTED_BRANCHES="dist main"   (tạm thời, một lần chạy)
+#   2. file .githooks/protected-branches    (commit vào repo → mọi máy đều theo; dùng cho
+#      repo có nhánh nền khác main, vd arcozy-mail dùng `dist`)
+#   3. mặc định "main master"
 set -u
 
 MODE="${1:-commit}"
-PROTECTED="${PROTECTED_BRANCHES:-main master}"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
+CONF="$ROOT/.githooks/protected-branches"
+if [ -n "${PROTECTED_BRANCHES:-}" ]; then
+  PROTECTED="$PROTECTED_BRANCHES"
+elif [ -f "$CONF" ]; then
+  # Bỏ dòng trống và dòng chú thích, gộp thành một dòng.
+  PROTECTED="$(grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$CONF" | tr '\n' ' ')"
+else
+  PROTECTED="main master"
+fi
 
 is_protected() {
   for b in $PROTECTED; do
