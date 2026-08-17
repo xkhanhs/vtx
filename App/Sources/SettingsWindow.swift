@@ -101,6 +101,7 @@ final class SettingsModel: ObservableObject {
     @Published var reEditWord: Bool { didSet { AppState.shared.reEditWord = reEditWord } }
     @Published var safeUnknownApps: Bool { didSet { AppState.shared.safeUnknownApps = safeUnknownApps } }
     @Published var stickyInputSource: Bool { didSet { AppState.shared.stickyInputSource = stickyInputSource } }
+    @Published var switchHotkey: String { didSet { AppState.shared.switchHotkey = switchHotkey } }
     /// "vt" / "star". didSet ghi đè MenuIcon.pdf ngay (hiệu lực sau restart máy);
     /// menuIconApplied bật để view hiện dòng "cần khởi động lại".
     @Published var menuIcon: String {
@@ -179,6 +180,7 @@ final class SettingsModel: ObservableObject {
         reEditWord = AppState.shared.reEditWord
         safeUnknownApps = AppState.shared.safeUnknownApps
         stickyInputSource = AppState.shared.stickyInputSource
+        switchHotkey = AppState.shared.switchHotkey
         menuIcon = AppState.shared.menuIcon
         bracketVowels = AppState.shared.bracketVowels
         // A layout uninstalled since it was chosen (system update, removed third-party
@@ -895,6 +897,16 @@ struct ExperimentalTab: View {
                 Toggle(model.loc("Keep VietTelex when macOS auto-switches the input source (experimental)"),
                        isOn: $model.stickyInputSource)
                 Text(model.loc("Some apps (Word comments…) make macOS fall back to the default input source for every new field when “Automatically switch to a document's input source” is on. This switches back to VietTelex — only when the change wasn't yours (no ⌃Space, no menu click, same app)."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section(header: Label(model.loc("Switch hotkey"), systemImage: "keyboard.badge.eye")) {
+                Picker(model.loc("Toggle VietTelex with"), selection: $model.switchHotkey) {
+                    Text(model.loc("Off — use the macOS shortcut")).tag("off")
+                    Text("⌃⇧  Control + Shift").tag("ctrl-shift")
+                    Text("⌥⇧  Option + Shift").tag("opt-shift")
+                    Text("⌘⇧  Command + Shift").tag("cmd-shift")
+                }
+                Text(model.loc("Press and release the modifiers alone to toggle between VietTelex and your previous input source — the modifier-only combos macOS's own Keyboard Shortcuts can't assign. Ignored if you type a key or click while holding them. Needs Accessibility permission."))
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section(header: Label(model.loc("Menu bar icon"), systemImage: "star.square")) {
