@@ -30,7 +30,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             let win = NSWindow(contentViewController: hosting)
             win.title = VTLocalized("VietTelex — Settings")
             win.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-            win.setContentSize(NSSize(width: 680, height: 560))
+            // 660, not the old 560: the About tab has no scroll container, and at 560 its
+            // fixed content (icon + links + update block + copyright) already consumed the
+            // full height once padding and the tab bar came out. The changelog box added
+            // there is the only compressible child, so it absorbed the whole deficit and
+            // collapsed to a sliver. Height is a first-creation default — users who resized
+            // keep their own frame.
+            win.setContentSize(NSSize(width: 680, height: 660))
             win.contentMinSize = NSSize(width: 640, height: 500)
             win.delegate = self
             win.isReleasedWhenClosed = false
@@ -69,6 +75,14 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         SettingsModel.installedCache.removeAll()
         SettingsModel.nameCache.removeAll()
         NSApp.setActivationPolicy(.accessory) // back to background agent
+        // Hand the freed pages back to the OS. Dropping the window/model above frees
+        // the SwiftUI graph (AttributeGraph nodes, DisplayLists, SF Symbol renders,
+        // autolayout constraints — measured ~20 MB), but malloc keeps those pages on
+        // its own free lists, so an input method that lives for the whole login session
+        // showed a permanent high-water mark in Activity Monitor after the user opened
+        // Settings ONCE (peak 159 MB → resident 68 MB, audit 17/08/2026). Deferred one
+        // runloop hop so the teardown that AppKit still has queued finishes first.
+        DispatchQueue.main.async { malloc_zone_pressure_relief(nil, 0) }
     }
 }
 
@@ -86,6 +100,18 @@ final class SettingsModel: ObservableObject {
     @Published var contextualEnglish: Bool { didSet { AppState.shared.contextualEnglish = contextualEnglish } }
     @Published var reEditWord: Bool { didSet { AppState.shared.reEditWord = reEditWord } }
     @Published var safeUnknownApps: Bool { didSet { AppState.shared.safeUnknownApps = safeUnknownApps } }
+    @Published var stickyInputSource: Bool { didSet { AppState.shared.stickyInputSource = stickyInputSource } }
+    @Published var switchHotkey: String { didSet { AppState.shared.switchHotkey = switchHotkey } }
+    /// "vt" / "star". didSet ghi đè MenuIcon.pdf ngay (hiệu lực sau restart máy);
+    /// menuIconApplied bật để view hiện dòng "cần khởi động lại".
+    @Published var menuIcon: String {
+        didSet {
+            AppState.shared.menuIcon = menuIcon
+            if MenuIconSwitcher.applyIfNeeded(choice: menuIcon) { menuIconApplied = true }
+        }
+    }
+    @Published var menuIconApplied = false
+    @Published var bracketVowels: Bool { didSet { AppState.shared.bracketVowels = bracketVowels } }
     /// ASCII keyboard layout Telex composes on ("" = inherit macOS's). Applied
     /// immediately as well as persisted: waiting for the next activateServer would
     /// leave the user's very next keystroke on the old layout.
@@ -138,7 +164,11 @@ final class SettingsModel: ObservableObject {
     @Published var accessibilityTrusted: Bool = Accessibility.isTrusted
 
     init(selected: SettingsTab) {
-        selectedTab = selected
+        // Tab bar tự vẽ render THẲNG selectedTab (không còn TabView tự né tab ẩn):
+        // mở thẳng vào tab advanced khi advancedFeatures đang tắt phải rơi về Chung.
+        selectedTab = (!AppState.shared.advancedFeatures
+                       && (selected == .modeTable || selected == .experimental))
+            ? .general : selected
         autoRestore = AppState.shared.autoRestore
         freeMarking = AppState.shared.freeMarking
         modernOrthography = AppState.shared.modernOrthography
@@ -149,6 +179,10 @@ final class SettingsModel: ObservableObject {
         contextualEnglish = AppState.shared.contextualEnglish
         reEditWord = AppState.shared.reEditWord
         safeUnknownApps = AppState.shared.safeUnknownApps
+        stickyInputSource = AppState.shared.stickyInputSource
+        switchHotkey = AppState.shared.switchHotkey
+        menuIcon = AppState.shared.menuIcon
+        bracketVowels = AppState.shared.bracketVowels
         // A layout uninstalled since it was chosen (system update, removed third-party
         // bundle) would leave the Picker with no matching tag and render blank — fall
         // back to "system default" so the control always shows a real selection.
@@ -487,48 +521,62 @@ struct AppModeRow: Identifiable {
 struct SettingsView: View {
     @EnvironmentObject var model: SettingsModel
 
-    // Icon sidebar (macOS 15+) — tab cổ điển chỉ hiện Text nên Label vẫn ổn cho cả hai.
-    // .focusEffectDisabled() (macOS 14+, no-op below that): tắt viền focus-ring xanh
-    // quanh tab đang chọn — field report 07/08/2026, ảnh cho thấy viền tách rời khỏi
-    // nền pill, khác hẳn segmented control chuẩn của System Settings (chỉ có nền đặc,
-    // không viền riêng). CHƯA verify trực quan được (không có cách screenshot cửa sổ
-    // Settings từ ngoài phiên IME đang chạy) — nhờ xác nhận lại sau khi cài bản mới.
-    @ViewBuilder private var tabs: some View {
-        if #available(macOS 14.0, *) {
-            tabView.focusEffectDisabled()
-        } else {
-            tabView
+    // Tab bar TỰ VẼ (15/08/2026): NSTabView/TabView cổ điển của macOS chỉ hiện TEXT
+    // trong dải tab — systemImage của Label bị bỏ qua (ảnh field 15/08 xác nhận).
+    // Muốn icon thì phải tự vẽ: HStack các nút Label icon+text, nút đang chọn mang
+    // nền accent bo góc — cùng dáng segmented control cũ (user 2026-07-24 đã thử
+    // sidebar rồi quay lại tab ngang, nên giữ đúng hình khối đó).
+    private var tabBar: some View {
+        HStack(spacing: 2) {
+            tabButton(.general, "Settings", "slider.horizontal.3")
+            tabButton(.shortcuts, "Shortcuts", "keyboard")
+            if model.advancedFeatures {
+                tabButton(.modeTable, "Typing modes", "list.bullet.rectangle")
+                tabButton(.experimental, "Experimental", "flask")
+            }
+            tabButton(.about, "About", "info.circle")
         }
+        .padding(3)
+        .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .fill(Color.primary.opacity(0.06)))
     }
 
-    private var tabView: some View {
-        TabView(selection: $model.selectedTab) {
-            GeneralTab()
-                .tabItem { Label(model.loc("Settings"), systemImage: "slider.horizontal.3") }
-                .tag(SettingsTab.general)
-            ShortcutsTab()
-                .tabItem { Label(model.loc("Shortcuts"), systemImage: "keyboard") }
-                .tag(SettingsTab.shortcuts)
-            if model.advancedFeatures {
-                ModeTableTab()
-                    .tabItem { Label(model.loc("Typing modes"), systemImage: "list.bullet.rectangle") }
-                    .tag(SettingsTab.modeTable)
-                ExperimentalTab()
-                    .tabItem { Label(model.loc("Experimental"), systemImage: "testtube.2") }
-                    .tag(SettingsTab.experimental)
-            }
-            AboutTab()
-                .tabItem { Label(model.loc("About"), systemImage: "info.circle") }
-                .tag(SettingsTab.about)
+    private func tabButton(_ tab: SettingsTab, _ titleKey: String, _ icon: String) -> some View {
+        let selected = model.selectedTab == tab
+        return Button { model.selectedTab = tab } label: {
+            Label(model.loc(titleKey), systemImage: icon)
+                .labelStyle(.titleAndIcon)
+                .font(.callout)
+                .padding(.vertical, 5)
+                .padding(.horizontal, 11)
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(selected ? Color.accentColor : Color.clear))
+                .foregroundStyle(selected ? Color.white : Color.primary)
+                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
+
+    @ViewBuilder private var activeTab: some View {
+        // selectedTab không bao giờ trỏ vào tab advanced khi advancedFeatures tắt —
+        // SettingsModel tự đưa về .general (xem didSet của advancedFeatures).
+        switch model.selectedTab {
+        case .general:      GeneralTab()
+        case .shortcuts:    ShortcutsTab()
+        case .modeTable:    ModeTableTab()
+        case .experimental: ExperimentalTab()
+        case .about:        AboutTab()
         }
     }
 
     var body: some View {
-        // Tab ngang phía trên như bản cũ (user 2026-07-24 — thử sidebar rồi
-        // quay lại); standard TabView vẫn tự nhận diện mạo mới trên Tahoe.
-        tabs
-            .padding(16)
-            .frame(minWidth: 640, minHeight: 500)
+        VStack(spacing: 14) {
+            tabBar
+            activeTab.frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .padding(16)
+        .frame(minWidth: 640, minHeight: 500)
     }
 }
 
@@ -547,15 +595,17 @@ struct GeneralTab: View {
                 Section {
                     Text("⚠️ " + model.loc("No Accessibility permission — typing in Terminal/Chrome won’t work"))
                         .foregroundStyle(.red)
-                    Button(model.loc("Open Accessibility Settings")) {
+                    Button {
                         SettingsModel.openAccessibilitySettings()
+                    } label: {
+                        Label(model.loc("Open Accessibility Settings"), systemImage: "accessibility")
                     }
                     .prominentGlass()
                     Text(model.loc("Tick VietTelex in Privacy & Security → Accessibility. You may need to restart your Mac for the permission to take effect."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            Section(model.loc("Input style")) {
+            Section(header: Label(model.loc("Input style"), systemImage: "keyboard")) {
                 Toggle(model.loc("Simple Telex"), isOn: $model.simpleTelex)
                 Text(model.loc("A lone “w” stays “w” (type “uw” for ư). Off = full Telex (cw→cư)."))
                     .font(.caption).foregroundStyle(.secondary)
@@ -582,18 +632,22 @@ struct GeneralTab: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section {
-                Button(model.loc("System Settings…")) {
+                Button {
                     TelexInputController.openKeyboardInputSources()
+                } label: {
+                    Label(model.loc("System Settings…"), systemImage: "gearshape")
                 }
                 Text(model.loc("Opens Keyboard settings — set automatic input-source switching per app / document there."))
                     .font(.caption).foregroundStyle(.secondary)
-                Button(model.loc("Input source hotkey…")) {
+                Button {
                     TelexInputController.openInputSourceHotkeySettings()
+                } label: {
+                    Label(model.loc("Input source hotkey…"), systemImage: "command")
                 }
                 Text(model.loc("Opens Keyboard Shortcuts → Input Sources, where the shortcut for switching between VietTelex and other input sources lives."))
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Section(model.loc("Spelling")) {
+            Section(header: Label(model.loc("Spelling"), systemImage: "textformat.abc.dottedunderline")) {
                 Toggle(model.loc("Auto-restore invalid words"), isOn: $model.autoRestore)
                 Text(model.loc("A word that isn’t valid Vietnamese snaps back to the keys you actually typed when the word ends (retore → retore)."))
                     .font(.caption).foregroundStyle(.secondary)
@@ -696,18 +750,19 @@ struct ModeTableTab: View {
                     }
                 }.width(min: 120)
                 TableColumn(model.loc("Manual"), value: \.manual) { row in
-                    // Common picks first (Auto / Tap / Marked cover ~95% of real
-                    // overrides); the specialist modes sit below the divider —
+                    // Common picks first (Auto / In-place / Tap / Marked cover ~95%
+                    // of real overrides — In-place lên ngay dưới Auto: maintainer
+                    // 15/08/2026); the specialist modes sit below the divider —
                     // Empty-reset exists for exactly one app (Excel), and picking it
                     // elsewhere types stray U+202F.
                     Picker("", selection: Binding(get: { model.appMode(row.id) },
                                                   set: { model.setAppMode(row.id, $0) })) {
                         Text(model.loc("Auto")).tag("auto")
+                        Text(model.loc("In-place")).tag("inPlace")
                         Text(model.loc("Tap (backspace)")).tag("tap")
                         Text(model.loc("Marked text")).tag("marked")
                         Divider()
                         Text(model.loc("Per-field (AX)")).tag("axDetect")
-                        Text(model.loc("In-place")).tag("inPlace")
                         Text(model.loc("Selection-replace")).tag("selection")
                         Text(model.loc("Empty-reset")).tag("emptyReset")
                         Text(model.loc("Passthrough")).tag("passthrough")
@@ -753,7 +808,7 @@ struct ModeTableTab: View {
                 }
                 TextField(model.loc("…or a bundle id"), text: $model.newModeAppID)
                     .textFieldStyle(.roundedBorder)
-                Button(model.loc("Add")) { model.addApp() }
+                Button { model.addApp() } label: { Label(model.loc("Add"), systemImage: "plus.circle") }
                     .disabled(model.newModeAppID.trimmingCharacters(in: .whitespaces).isEmpty)
             }
 
@@ -761,11 +816,11 @@ struct ModeTableTab: View {
                 // role .destructive alone doesn't tint a bordered macOS button —
                 // color the label explicitly so the destructive action reads as one.
                 Button(role: .destructive) { model.clearLearned() } label: {
-                    Text(model.loc("Clear & re-learn")).foregroundStyle(.red)
+                    Label(model.loc("Clear & re-learn"), systemImage: "arrow.counterclockwise.circle").foregroundStyle(.red)
                 }
                 Spacer()
-                Button(model.loc("Import…")) { importModes() }
-                Button(model.loc("Export to YAML…")) { exportModes() }
+                Button { importModes() } label: { Label(model.loc("Import…"), systemImage: "square.and.arrow.up.on.square") }
+                Button { exportModes() } label: { Label(model.loc("Export to YAML…"), systemImage: "square.and.arrow.up") }
             }
             Text(model.loc("An app types wrong or shows underlines? Pick Tap — real keystrokes, no underline (needs Accessibility). Marked text always renders correctly but underlines while typing. The modes below the divider are for special cases — leave them unless you know the app needs one. Clear forgets everything learned; manual picks are kept."))
                 .font(.caption).foregroundStyle(.secondary)
@@ -827,22 +882,52 @@ struct ExperimentalTab: View {
 
     var body: some View {
         Form {
-            Section(model.loc("Input method")) {
+            Section(header: Label(model.loc("Input method"), systemImage: "character.textbox")) {
                 Toggle(model.loc("VNI typing (experimental)"), isOn: $model.vniMode)
                 Text(model.loc("Type diacritics with digits instead of Telex letters: 1-5 = sắc/huyền/hỏi/ngã/nặng, 6 = â/ê/ô, 7 = ơ/ư, 8 = ă, 9 = đ, 0 = clear tone. Letters stay literal. Keep Live spell-check on so numbers like “mp3” aren’t turned into tones."))
+                    .font(.caption).foregroundStyle(.secondary)
+                Toggle(model.loc("Bracket vowels: [ types ơ, ] types ư (experimental)"),
+                       isOn: $model.bracketVowels)
+                Text(model.loc("The UniKey habit: “th[” → “thơ”, “ng]” → “ngư” ({ and } for uppercase). Leave OFF if you type code — with it on, [ and ] belong to the word instead of ending it."))
                     .font(.caption).foregroundStyle(.secondary)
                 Toggle(model.loc("Add diacritics to the word before the caret (experimental)"),
                        isOn: $model.reEditWord)
                 Text(model.loc("Type “toan”, then “s” → “toán” — no need to retype the whole word. Deleting the space after a word re-opens it: “tháy ” + ⌫ + “a” → “thấy”."))
                     .font(.caption).foregroundStyle(.secondary)
+                Toggle(model.loc("Keep VietTelex when macOS auto-switches the input source (experimental)"),
+                       isOn: $model.stickyInputSource)
+                Text(model.loc("Some apps (Word comments…) make macOS fall back to the default input source for every new field when “Automatically switch to a document's input source” is on. This switches back to VietTelex — only when the change wasn't yours (no ⌃Space, no menu click, same app)."))
+                    .font(.caption).foregroundStyle(.secondary)
             }
-            Section(model.loc("Unknown apps")) {
+            Section(header: Label(model.loc("Switch hotkey"), systemImage: "keyboard.badge.eye")) {
+                Picker(model.loc("Toggle VietTelex with"), selection: $model.switchHotkey) {
+                    Text(model.loc("Off — use the macOS shortcut")).tag("off")
+                    Text("⌃⇧  Control + Shift").tag("ctrl-shift")
+                    Text("⌥⇧  Option + Shift").tag("opt-shift")
+                    Text("⌘⇧  Command + Shift").tag("cmd-shift")
+                }
+                Text(model.loc("Press and release the modifiers alone to toggle between VietTelex and your previous input source — the modifier-only combos macOS's own Keyboard Shortcuts can't assign. Ignored if you type a key or click while holding them. Needs Accessibility permission."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section(header: Label(model.loc("Menu bar icon"), systemImage: "star.square")) {
+                Picker(model.loc("Icon"), selection: $model.menuIcon) {
+                    Text("VX — " + model.loc("default")).tag("vt")
+                    Text("★ — " + model.loc("five-pointed star")).tag("star")
+                }
+                Text(model.loc("Changing the menu icon rewrites a file inside the app, which breaks the app's code signature seal (the app keeps working and keeps its permissions). Requires a Mac restart to take effect."))
+                    .font(.caption).foregroundStyle(.secondary)
+                if model.menuIconApplied {
+                    Text(model.loc("Icon saved — restart your Mac to see it."))
+                        .font(.caption).foregroundStyle(.orange)
+                }
+            }
+            Section(header: Label(model.loc("Unknown apps"), systemImage: "questionmark.app")) {
                 Toggle(model.loc("Unknown apps use the safe channel (tap/marked)"),
                        isOn: $model.safeUnknownApps)
                 Text(model.loc("Apps without a rule type via backspace-retype (or underlined composition without Accessibility) instead of trying direct insertion and guessing. Turn off to restore the old probe-and-learn behavior."))
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Section(model.loc("Terminal typing latency")) {
+            Section(header: Label(model.loc("Terminal typing latency"), systemImage: "terminal")) {
                 Toggle(model.loc("Modify key events in place"), isOn: $model.tapModifyEventInPlace)
                 Text(model.loc("In terminals, apply a one-letter tone edit (w→ư) by rewriting the real keystroke instead of posting two synthetic events — lower latency."))
                     .font(.caption).foregroundStyle(.secondary)
@@ -853,19 +938,19 @@ struct ExperimentalTab: View {
                 Text(model.loc("Apply tone edits in Chrome and Spotlight with one Accessibility edit instead of a burst of Shift+Left key events."))
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Section(model.loc("Safety")) {
+            Section(header: Label(model.loc("Safety"), systemImage: "shield.lefthalf.filled")) {
                 Toggle(model.loc("Cascade circuit breaker"), isOn: $model.tapCascadeBreaker)
                 Text(model.loc("Keep this ON. Stops the terminal tap if it ever floods the keyboard with synthetic events, so a bug can’t freeze typing."))
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Section(model.loc("Diagnostics")) {
+            Section(header: Label(model.loc("Diagnostics"), systemImage: "stethoscope")) {
                 Toggle(model.loc("Record debug log"), isOn: $model.debugLogging)
                 Text(model.loc("Records tap health events in memory (never the text you type). Turn it on, reproduce the problem, then Copy debug log and paste it into your report — or save it as a file."))
                     .font(.caption).foregroundStyle(.secondary)
                 HStack {
-                    Button(model.loc("Copy debug log")) { copyLog() }
-                    Button(model.loc("Save debug log…")) { saveLog() }
-                    Button(model.loc("Clear")) { DebugLog.clear(); saveResult = nil }
+                    Button { copyLog() } label: { Label(model.loc("Copy debug log"), systemImage: "doc.on.doc") }
+                    Button { saveLog() } label: { Label(model.loc("Save debug log…"), systemImage: "square.and.arrow.down") }
+                    Button { DebugLog.clear(); saveResult = nil } label: { Label(model.loc("Clear"), systemImage: "trash") }
                 }
                 if let saveResult {
                     Text(saveResult).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
@@ -950,7 +1035,7 @@ enum DebugHeader {
             // from every prior debug log meant a tester's own `defaults write` was invisible
             // evidence ("chỉ mỗi em bị" — 2026-08-05).
             "flags: modifyInPlace=\(s.tapModifyEventInPlace) skipKeyUp=\(s.tapSkipSyntheticKeyUp) axReplace=\(s.axSelectionReplace) breaker=\(s.tapCascadeBreaker) nativeFastPath=\(s.tapNativeFastPath)",
-            "settings: simpleTelex=\(s.simpleTelex) freeMarking=\(s.freeMarking) modern=\(s.modernOrthography) liveSpell=\(s.liveSpellCheck) autoRestore=\(s.autoRestore) vni=\(s.vniMode) quick=\(s.quickTelex) ctxEnglish=\(s.contextualEnglish) reEdit=\(s.reEditWord) safeUnknown=\(s.safeUnknownApps)",
+            "settings: simpleTelex=\(s.simpleTelex) freeMarking=\(s.freeMarking) modern=\(s.modernOrthography) liveSpell=\(s.liveSpellCheck) autoRestore=\(s.autoRestore) vni=\(s.vniMode) quick=\(s.quickTelex) ctxEnglish=\(s.contextualEnglish) reEdit=\(s.reEditWord) bracket=\(s.bracketVowels) safeUnknown=\(s.safeUnknownApps)",
             // Count only — the trigger/expansion pairs are USER-TYPED content the log
             // must never carry (same rule as everywhere else here), but a nonzero count
             // is itself diagnostic: a custom gõ tắt entry colliding with a Vietnamese
@@ -992,6 +1077,12 @@ struct AboutTab: View {
     /// Set only when a newer release exists — the version the button will install.
     /// (No URL state: SelfUpdater's own failure alert offers the releases page.)
     @State private var updateVersion: String?
+    /// Changelog for `updateVersion`, PARSED once at assignment rather than held as raw
+    /// Markdown: `body` re-runs on every `model` publish and on each checking/installing/
+    /// status flip, and re-splitting a 4000-character release body inside `ForEach` on
+    /// every one of those is work with no reason to repeat. Empty = no notes to show
+    /// (release had no body, or GitHub couldn't be reached for it).
+    @State private var noteBlocks: [UpdateCheck.NoteBlock] = []
     @State private var installing = false
 
     var body: some View {
@@ -1022,22 +1113,30 @@ struct AboutTab: View {
                     // releases page, so the "I want it now" path was the manual one
                     // (user decision 2026-07-27). A failure falls back to that page via
                     // SelfUpdater's own alert.
-                    Button(model.loc("Update now")) {
+                    Button {
                         installing = true
                         status = model.loc("Downloading and installing…")
                         SelfUpdater.run(version: updateVersion) {
                             installing = false
                             status = nil                     // SelfUpdater showed the reason
                         }
+                    } label: {
+                        Label(model.loc("Update now"), systemImage: "arrow.down.circle")
                     }
                     .prominentGlass()
                 } else {
-                    Button(model.loc("Check for updates")) { runCheck() }
+                    Button { runCheck() } label: { Label(model.loc("Check for updates"), systemImage: "arrow.triangle.2.circlepath") }
                         .prominentGlass()
                 }
                 if let status {
                     Text(status).font(.caption).foregroundStyle(.secondary)
                         .lineLimit(2).multilineTextAlignment(.center)
+                }
+                // "Update available: 1.6.3" alone asks the user to install on faith. The
+                // release body answers what changed — same box for both channels, since
+                // the weekly check now stores its notes too (Updater.swift).
+                if !noteBlocks.isEmpty {
+                    releaseNotesBox()
                 }
                 // Opt-in weekly auto-check (default OFF): the toggle IS the user's
                 // consent, so the "no network unless you ask" stance holds.
@@ -1065,14 +1164,70 @@ struct AboutTab: View {
             if status == nil, updateVersion == nil,
                let pending = UpdateCheck.pendingUpdateVersion {
                 updateVersion = pending
+                noteBlocks = UpdateCheck.pendingUpdateNotes.map(UpdateCheck.noteBlocks) ?? []
                 status = String(format: model.loc("Update available: %@"), pending)
             }
         }
     }
 
+    /// The changelog, rendered from the release body's Markdown. Scrolls rather than
+    /// stretching the window: a release can have three bullets or thirty, and the About
+    /// tab keeps its shape either way.
+    @ViewBuilder
+    private func releaseNotesBox() -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(model.loc("What’s new")).font(.caption).bold()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 5) {
+                    ForEach(noteBlocks) { block in
+                        switch block.kind {
+                        case .heading:
+                            Text(inlineMarkdown(block.text)).font(.caption).bold()
+                        case .bullet:
+                            // Hanging indent: the marker sits outside the text column so
+                            // wrapped lines line up under the first word, not the bullet.
+                            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                                Text("•").font(.caption).foregroundStyle(.secondary)
+                                Text(inlineMarkdown(block.text)).font(.caption)
+                            }
+                        case .paragraph:
+                            Text(inlineMarkdown(block.text)).font(.caption)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(6)
+            }
+            .frame(maxHeight: 140)
+            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 6))
+            // Long bodies are cut at notesCharacterCap, and a body can also out-scroll the
+            // box — either way the release page is where the rest lives. Derived from the
+            // version, so the weekly channel (which persists no URL) gets the link too.
+            if let updateVersion, let full = UpdateCheck.releasePageURL(forVersion: updateVersion) {
+                Link(model.loc("Full changelog"), destination: full).font(.caption2)
+            }
+        }
+        .frame(maxWidth: 380)
+        .padding(.top, 2)
+        // The About tab has no scroll container: without this the box is the only
+        // compressible child and takes the whole squeeze when the window is short.
+        .layoutPriority(1)
+    }
+
+    /// `Text` interprets inline Markdown only, and only via AttributedString — bold, code
+    /// spans and links survive; anything it can't parse falls back to the raw line rather
+    /// than disappearing.
+    private func inlineMarkdown(_ s: String) -> AttributedString {
+        (try? AttributedString(
+            markdown: s,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        )) ?? AttributedString(s)
+    }
+
     private func runCheck() {
-        checking = true; status = nil; updateVersion = nil
+        checking = true; status = nil; updateVersion = nil; noteBlocks = []
         UpdateCheck.pendingUpdateVersion = nil   // the user is looking; this is now live state
+        UpdateCheck.pendingUpdateNotes = nil
         Task {
             let outcome = await UpdateCheck.check()
             await MainActor.run {
@@ -1080,9 +1235,10 @@ struct AboutTab: View {
                 switch outcome {
                 case .upToDate(let v):
                     status = String(format: model.loc("You’re up to date (%@)."), v)
-                case .update(let latest, _):
+                case .update(let latest, _, let notes):
                     status = String(format: model.loc("Update available: %@"), latest)
                     updateVersion = latest
+                    noteBlocks = notes.map(UpdateCheck.noteBlocks) ?? []
                 case .failed(let e):
                     status = String(format: model.loc("Couldn’t check — %@."), e)
                 }
@@ -1138,15 +1294,18 @@ struct ShortcutsTab: View {
             HStack {
                 TextField(model.loc("type"), text: $newKey).frame(width: 120)
                 TextField(model.loc("becomes"), text: $newValue)
-                Button(model.loc(isEditing ? "Update" : "Add")) { save() }
+                Button { save() } label: {
+                    Label(model.loc(isEditing ? "Update" : "Add"),
+                          systemImage: isEditing ? "checkmark.circle" : "plus.circle")
+                }
                     .disabled(newKey.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             Text(model.loc("Click a row to edit."))
                 .font(.caption).foregroundStyle(.secondary)
 
             HStack {
-                Button(model.loc("Import…")) { importPlist() }
-                Button(model.loc("Export to YAML…")) { exportPlist() }
+                Button { importPlist() } label: { Label(model.loc("Import…"), systemImage: "square.and.arrow.up.on.square") }
+                Button { exportPlist() } label: { Label(model.loc("Export to YAML…"), systemImage: "square.and.arrow.up") }
                 Spacer()
             }
         }

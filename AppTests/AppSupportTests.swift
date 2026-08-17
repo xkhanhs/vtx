@@ -52,26 +52,166 @@ final class AppSupportTests: XCTestCase {
         XCTAssertFalse(UpdateCheck.currentVersion().isEmpty)
     }
 
+    func testReleaseNotesSanitizing() {
+        XCTAssertNil(UpdateCheck.sanitizeNotes(nil))
+        XCTAssertNil(UpdateCheck.sanitizeNotes(""))
+        XCTAssertNil(UpdateCheck.sanitizeNotes("\n\n  \n"))          // blank-only → nothing to show
+
+        // Git trailers are commit plumbing; the release body carries them verbatim, and
+        // stripping one must not leave a hole at the end (v1.6.3 shipped with exactly this).
+        let body = "## Tính năng mới\n\n- Phím ngoặc `[` ra ơ\n\nCảm ơn bạn Tuấn Linh\n\n" +
+                   "Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n"
+        let clean = UpdateCheck.sanitizeNotes(body)
+        XCTAssertNotNil(clean)
+        XCTAssertFalse(clean!.contains("Co-Authored-By"))
+        XCTAssertFalse(clean!.hasSuffix("\n"))
+        XCTAssertTrue(clean!.contains("Cảm ơn bạn Tuấn Linh"))
+        XCTAssertFalse(clean!.contains("\n\n\n"))                    // blank runs collapsed
+        XCTAssertTrue(UpdateCheck.isTrailer("Signed-off-by: A B"))
+        XCTAssertTrue(UpdateCheck.isTrailer("Reviewed-By: A B"))
+        XCTAssertFalse(UpdateCheck.isTrailer("Ví dụ: th[ → thơ"))    // a colon alone isn't a trailer
+        XCTAssertFalse(UpdateCheck.isTrailer("- Bật ở Cài đặt: Thử nghiệm"))
+
+        // Long bodies are truncated, not rendered whole into a 640pt window.
+        let huge = UpdateCheck.sanitizeNotes(String(repeating: "x", count: 9000))
+        XCTAssertEqual(huge?.count, UpdateCheck.notesCharacterCap + 1)   // + the ellipsis
+    }
+
+    // MARK: Default ngôn ngữ UI — chốt để không ai lật ngược (maintainer 15/08/2026)
+
+    func testUILanguageDefaultsToVietnamese() {
+        // "system" cho UI tiếng Anh trên máy để macOS tiếng Anh, trong khi gần như
+        // toàn bộ user là người Việt → default thẳng "vi" (1.6.6). Xoá key trong
+        // suite TEST (không phải suite thật — xem AppState.settingsSuiteName) để đọc
+        // đúng giá trị mặc định của code, rồi trả lại nguyên trạng.
+        let s = AppState.shared
+        let saved = s.defaults.object(forKey: "uiLanguage")
+        s.defaults.removeObject(forKey: "uiLanguage")
+        XCTAssertEqual(s.uiLanguage, "vi", "default ngôn ngữ UI phải là tiếng Việt")
+        // Và VTLocalized phải THẬT SỰ ra tiếng Việt ở default đó, không chỉ trả về key.
+        XCTAssertEqual(VTLocalized("Settings"), "Tùy chỉnh")
+        if let saved { s.defaults.set(saved, forKey: "uiLanguage") }
+    }
+
+    // MARK: Field report 14/08/2026 — "VietTelex tự nhiên bị mờ" = secure input
+
+    func testSecureInputPIDExtraction() {
+        // Shape thật của IOConsoleUsers: mảng session dict, chỉ session đang giữ
+        // secure input mới mang key kCGSSessionSecureInputPID.
+        let users: [[String: Any]] = [
+            ["kCGSSessionUserNameKey": "loginwindow", "kCGSSessionOnConsoleKey": false],
+            ["kCGSSessionUserNameKey": "ptrinh", "kCGSSessionSecureInputPID": 4242],
+        ]
+        XCTAssertEqual(SecureInputMonitor.extractSecureInputPID(consoleUsers: users), 4242)
+        XCTAssertNil(SecureInputMonitor.extractSecureInputPID(consoleUsers: []))
+        XCTAssertNil(SecureInputMonitor.extractSecureInputPID(consoleUsers: [["a": 1]]))
+        // PID 0 nghĩa là "không ai giữ" trong một số bản macOS — không được coi là thủ phạm.
+        XCTAssertNil(SecureInputMonitor.extractSecureInputPID(
+            consoleUsers: [["kCGSSessionSecureInputPID": 0]]))
+    }
+
+    func testSecureInputHolderLabelIsGreppable() {
+        // Label đi vào unified log + bug report: phải chứa cả tên lẫn PID, và không
+        // vỡ khi không resolve được tên (process đã chết giữa chừng).
+        XCTAssertEqual(SecureInputMonitor.Holder(pid: 123, name: "iTerm2").label,
+                       "iTerm2 (PID 123)")
+        XCTAssertEqual(SecureInputMonitor.Holder(pid: 123, name: nil).label, "PID 123")
+        // Tên process của chính test host phải resolve được (đường NSRunningApplication).
+        XCTAssertNotNil(SecureInputMonitor.processName(ProcessInfo.processInfo.processIdentifier))
+    }
+
+    func testBoundedDataEnforcesByteCap() async {
+        // data: URLs keep the test off the network; the cap must apply while streaming.
+        let small = URLRequest(url: URL(string: "data:text/plain,hello")!)
+        let got = await UpdateCheck.boundedData(for: small, cap: 16)
+        XCTAssertEqual(got.flatMap { String(data: $0, encoding: .utf8) }, "hello")
+
+        let big = URLRequest(url: URL(string: "data:text/plain," +
+                                      String(repeating: "x", count: 100))!)
+        let over = await UpdateCheck.boundedData(for: big, cap: 16)
+        XCTAssertNil(over)                                    // over cap → abandoned, not truncated
+
+        let exact = await UpdateCheck.boundedData(for: small, cap: 5)
+        XCTAssertEqual(exact.map { $0.count }, 5)             // cap boundary is inclusive
+    }
+
+    func testReleaseNoteBlockParsing() {
+        let blocks = UpdateCheck.noteBlocks("## Tính năng mới\n\n- **Phím ngoặc**\n* second\nplain line")
+        XCTAssertEqual(blocks.count, 4)                      // blank line dropped
+        XCTAssertEqual(blocks[0].kind, .heading)
+        XCTAssertEqual(blocks[0].text, "Tính năng mới")      // marker stripped, not rendered as "##"
+        XCTAssertEqual(blocks[1].kind, .bullet)
+        XCTAssertEqual(blocks[1].text, "**Phím ngoặc**")     // inline markdown left for Text
+        XCTAssertEqual(blocks[2].kind, .bullet)              // "*" bullets too
+        XCTAssertEqual(blocks[3].kind, .paragraph)
+        XCTAssertEqual(UpdateCheck.noteBlocks("").count, 0)
+        XCTAssertEqual(UpdateCheck.noteBlocks("###\n-  ").count, 0)   // markers with no text
+
+        // ATX headings need a space after the hashes. An issue reference opening a line is
+        // NOT a heading — treating it as one ate the "#" and bolded the rest.
+        let issueRef = UpdateCheck.noteBlocks("#42 sửa lỗi gõ tắt")
+        XCTAssertEqual(issueRef.first?.kind, .paragraph)
+        XCTAssertEqual(issueRef.first?.text, "#42 sửa lỗi gõ tắt")
+        XCTAssertTrue(UpdateCheck.isHeading("## Heading"))
+        XCTAssertFalse(UpdateCheck.isHeading("#42"))
+
+        XCTAssertEqual(UpdateCheck.releasePageURL(forVersion: "1.6.3")?.absoluteString,
+                       "https://github.com/\(UpdateCheck.repo)/releases/tag/v1.6.3")
+    }
+
     // MARK: Updater — network paths via a URLProtocol stub
 
     func testCheckPathsAgainstStubbedNetwork() async {
         URLProtocol.registerClass(StubURLProtocol.self)
         defer { URLProtocol.unregisterClass(StubURLProtocol.self) }
 
-        // Stable manifest newer than current → .update with the manifest URL.
+        // Stable manifest newer than current → .update with the manifest URL. The stable
+        // channel has no changelog of its own, so it must go on to ask for the TAG's
+        // release body (`releases/tags/v99.0.0`) — that's what gives both channels notes.
         StubURLProtocol.responder = { url in
             if url.absoluteString.contains("stable.json") {
                 return (200, #"{"version":"99.0.0","url":"https://example.com/rel"}"#)
             }
-            return (200, #"{"tag_name":"v99.0.0","html_url":"https://example.com/gh"}"#)
+            if url.absoluteString.contains("releases/tags/v99.0.0") {
+                // ##"…"## delimiters, and the body starts with \n: a literal `"##` inside a
+                // #"…"# raw string would close it early. The leading blank line also proves
+                // sanitizeNotes trims it off the front.
+                return (200, ##"{"tag_name":"v99.0.0","body":"\n## Heading\n- from the tag"}"##)
+            }
+            return (200, #"{"tag_name":"v99.0.0","html_url":"https://example.com/gh","body":"- from latest"}"#)
         }
-        if case let .update(latest, url) = await UpdateCheck.checkStable() {
+        if case let .update(latest, url, notes) = await UpdateCheck.checkStable() {
             XCTAssertEqual(latest, "99.0.0")
             XCTAssertEqual(url.absoluteString, "https://example.com/rel")
+            XCTAssertEqual(notes, "## Heading\n- from the tag")
         } else { XCTFail("expected .update from stable") }
-        if case let .update(latest, _) = await UpdateCheck.check() {
+        if case let .update(latest, _, notes) = await UpdateCheck.check() {
             XCTAssertEqual(latest, "99.0.0")
+            XCTAssertEqual(notes, "- from latest")   // free: same response as the tag lookup
         } else { XCTFail("expected .update from latest") }
+
+        // A release with no body is still an update — just without the notes box.
+        StubURLProtocol.responder = { url in
+            url.absoluteString.contains("stable.json")
+                ? (200, #"{"version":"99.0.0","url":"https://example.com/rel"}"#)
+                : (200, #"{"tag_name":"v99.0.0"}"#)
+        }
+        if case let .update(_, _, notes) = await UpdateCheck.checkStable() {
+            XCTAssertNil(notes)
+        } else { XCTFail("bodyless release must still be .update") }
+
+        // The load-bearing invariant of the whole feature: the CHANGELOG lookup is
+        // best-effort, so a tag endpoint that 404s (tag named differently, release deleted,
+        // rate limit) must still yield .update — the version is the news, notes are extra.
+        StubURLProtocol.responder = { url in
+            url.absoluteString.contains("stable.json")
+                ? (200, #"{"version":"99.0.0","url":"https://example.com/rel"}"#)
+                : (404, #"{"message":"Not Found"}"#)
+        }
+        if case let .update(latest, _, notes) = await UpdateCheck.checkStable() {
+            XCTAssertEqual(latest, "99.0.0")
+            XCTAssertNil(notes)
+        } else { XCTFail("a failed notes fetch must not fail the update check") }
 
         // Same version → upToDate.
         let cur = UpdateCheck.currentVersion()
@@ -342,6 +482,7 @@ extension AppSupportTests {
             ({ s.quickTelex }, { s.quickTelex = $0 }),
             ({ s.vniMode }, { s.vniMode = $0 }),
             ({ s.contextualEnglish }, { s.contextualEnglish = $0 }),
+            ({ s.bracketVowels }, { s.bracketVowels = $0 }),
             ({ s.tapModifyEventInPlace }, { s.tapModifyEventInPlace = $0 }),
             ({ s.tapSkipSyntheticKeyUp }, { s.tapSkipSyntheticKeyUp = $0 }),
             ({ s.axSelectionReplace }, { s.axSelectionReplace = $0 }),
@@ -398,11 +539,13 @@ extension AppSupportTests {
         XCTAssertFalse(FocusedFieldDetector.lazyAXPokeWanted(reEditEnabled: false, routesTap: false))
     }
 
-    /// reEditWord now gates TWO reach-back behaviors — re-edit ("toan"+s→toán) AND
-    /// the ⌫ re-open of PR #42 ("tháy ␣"+⌫+a→thấy, issue #40) — so its default-OFF
-    /// contract (the 1.4.28 default-ON revert) is worth pinning explicitly: a fresh
-    /// install must do neither until the user opts in.
-    func testReEditGateDefaultsOff() {
+    /// reEditWord gates TWO reach-back behaviors — re-edit ("toan"+s→toán) and the ⌫
+    /// re-open of PR #42 ("tháy ␣"+⌫+a→thấy, issue #40). Default flipped ON 14/08/2026
+    /// after PR #42 replaced the GUESS that caused the 04/08 revert with a verified
+    /// snapshot (see the AppState doc for the full history). Pinned in both directions:
+    /// a fresh install has it on, and an explicit OFF must survive the ON default —
+    /// that opt-out is the escape hatch if the 04/08 class ever resurfaces.
+    func testReEditGateDefaultsOn() {
         let s = AppState.shared
         let saved = s.defaults.object(forKey: "reEditWord") as? Bool
         defer {
@@ -410,9 +553,9 @@ extension AppSupportTests {
             else { s.defaults.removeObject(forKey: "reEditWord") }
         }
         s.defaults.removeObject(forKey: "reEditWord")
-        XCTAssertFalse(s.reEditWord, "fresh install: no reach-back behavior until opted in")
-        s.reEditWord = true
-        XCTAssertTrue(s.reEditWord, "explicit opt-in sticks")
+        XCTAssertTrue(s.reEditWord, "fresh install: reach-back behaviors on by default")
+        s.reEditWord = false
+        XCTAssertFalse(s.reEditWord, "explicit OFF must survive the ON default")
     }
 }
 

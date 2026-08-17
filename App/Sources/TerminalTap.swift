@@ -24,6 +24,31 @@ import Carbon.HIToolbox
 import ApplicationServices
 import TelexCore
 
+/// THIS build's bundle id — never the ship constant hardcoded at a call site.
+/// `Scripts/dev-register.sh` installs the same code under a SEPARATE id
+/// (`com.tuanhm.inputmethod.telexdev` by default; it must be separate, see rule #4 in
+/// docs/MACOS_IME_NOTES.md), remapping CFBundleIdentifier and every TISInputSourceID.
+/// A hardcoded ship prefix therefore made `isVietTelexSelected()` answer FALSE for the
+/// dev build's own input source — so the TIS notification, the `deactivateServer`
+/// hint and the per-key reconcile all declared VietTelex unselected and put the tap
+/// DORMANT mid-word, one key at a time (tester log 2026-08-13: "biết" typed in
+/// Terminal came out "biêts" — the tone key passed through raw while the tap was
+/// dormant, and the reset that comes with dormancy also dropped the buffer, so a ⌫
+/// back to "bi" then `s` gave "bis" instead of "bí").
+///
+/// EMPTY is treated as missing, not just nil: `Bundle.bundleIdentifier` hands back
+/// whatever CFBundleIdentifier holds, and an empty prefix would make `hasPrefix`
+/// match EVERY input source — `isVietTelexSelected()` would answer true with ABC
+/// selected and the tap would compose Vietnamese over English typing, the exact
+/// failure the per-key reconcile exists to prevent. The ship id is the fallback
+/// (both states are unreachable for a correctly built bundle).
+enum OwnBundle {
+    static let id: String = {
+        let id = Bundle.main.bundleIdentifier ?? ""
+        return id.isEmpty ? "com.vtx.inputmethod.telex" : id
+    }()
+}
+
 enum Accessibility {
     // AXIsProcessTrusted() is an out-of-process TCC check (~10-15ms when it misses
     // the kernel-side fast path); in Chromium apps it was hit up to twice per
@@ -212,7 +237,7 @@ enum Accessibility {
     /// Returns true when the reset command succeeded.
     @discardableResult
     static func resetOwnGrant() -> Bool {
-        let id = Bundle.main.bundleIdentifier ?? "com.vtx.inputmethod.telex"
+        let id = OwnBundle.id
         var ok = false
         // Accessibility covers the tap; ListenEvent (Input Monitoring) can hold a stale
         // row of its own, and resetting a service we never used is a no-op.
@@ -287,7 +312,7 @@ final class FrontmostApp {
     /// itself — so Settings can offer "recent apps" to pin without typing a bundle id.
     /// MAIN-thread only (observer writes, Settings UI reads) — no lock needed.
     private(set) var recent: [(id: String, name: String)] = []
-    private static let selfID = "com.vtx.inputmethod.telex"
+    private static let selfID = OwnBundle.id
 
     private init() {
         _bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
@@ -879,7 +904,12 @@ enum FocusedFieldDetector {
         // inside (every self-report said honored while the visible text appended).
         // Only the marked-class exception (Google Docs) remains URL-based.
         var host: String?
+        // Did the walk STOP because it ran out of hops, rather than because it reached
+        // the top of the tree? See `exhaustedMeansPageContent` — that distinction is
+        // what keeps a deep page from being mistaken for the omnibox.
+        var hops = 0
         for _ in 0..<Self.maxAncestorHops {
+            hops += 1
             AXUIElementSetMessagingTimeout(element, 0.05)
             roleRef = nil
             if AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef) == .success,
@@ -907,8 +937,12 @@ enum FocusedFieldDetector {
             else { break }
             element = parent as! AXUIElement
         }
-        return sawWebArea ? (selection: false, marked: marked, host: host)
-                          : (selection: true, marked: false, host: nil)
+        if sawWebArea { return (selection: false, marked: marked, host: host) }
+        // No decisive ancestor. A walk that DIED ON THE HOP BUDGET is page content, not
+        // chrome (see exhaustedMeansPageContent); one that reached the top without a
+        // web area is genuinely unknown → selection, the historical safe default.
+        return (selection: !Self.exhaustedMeansPageContent(hops: hops),
+                marked: false, host: nil)
     }
 
     /// Pure: does this web-area URL host a canvas editor that must be typed with
@@ -919,14 +953,33 @@ enum FocusedFieldDetector {
         return host == "docs.google.com" && url.path.hasPrefix("/document")
     }
 
-    /// Ancestor-walk hop budget. Was 12 — field report 2026-07-30 (J2TeamNNL, 1.4.22):
-    /// a React composer's AXTextArea sat under ≥11 AXGroups, the walk ran out of hops
-    /// BEFORE reaching AXWebArea and fell back to selection-replace, whose synthetic
-    /// overtype the web editor swallows — tone keys consumed, edit never lands
-    /// ("không gõ được dấu"). 24 hops still bounds the AX round trips (each carries a
-    /// 50ms timeout, and refreshes ride the backoff-limited scan queue, never the
-    /// keystroke path) while covering deep modern web hierarchies.
-    static let maxAncestorHops = 24
+    /// Ancestor-walk hop budget. 12 → 24 after field report 2026-07-30 (J2TeamNNL,
+    /// 1.4.22): a React composer's AXTextArea sat under ≥11 AXGroups, the walk ran out
+    /// of hops BEFORE reaching AXWebArea and fell back to selection-replace, whose
+    /// synthetic overtype the web editor swallows ("không gõ được dấu"). 24 → 64 after
+    /// the SAME failure recurred 2026-08-14 on facebook.com's comment box, whose chain
+    /// is exactly 24 deep (AXTextArea → 6×AXGroup → AXTable → 16×AXGroup → …). Raising
+    /// the number is only half a fix — see `exhaustedMeansPageContent` for the rule
+    /// that stops this class of bug from returning a third time.
+    ///
+    /// Cost stays bounded: the walk STOPS at the first decisive ancestor, so only a
+    /// genuinely deep page pays for the extra hops, and every refresh runs on the
+    /// backoff-limited scan queue (50ms timeout per call), never the keystroke path.
+    static let maxAncestorHops = 64
+
+    /// A walk that used up its whole hop budget without finding a decisive ancestor is
+    /// PAGE CONTENT, not browser chrome — the structural fact behind it: an omnibox is
+    /// SHALLOW (address bar ≈ AXTextField → AXGroup → AXToolbar, a handful of hops),
+    /// while only a web document nests dozens of AXGroups deep. Twice now a deep page
+    /// exhausted the budget and inherited the "unknown → selection" default, which
+    /// hands page content the omnibox strategy — the exact channel web editors swallow
+    /// (2026-07-30 React composer, 2026-08-14 Facebook comment box, where it also made
+    /// the ⌫ re-open of issue #40 refuse: emitMode came out .emptyReset).
+    ///
+    /// So the fallback splits by WHY the walk ended: out of hops → page content; top of
+    /// tree reached with no web area → genuinely unknown → selection (unchanged).
+    /// Pure so the rule is pinned by tests.
+    static func exhaustedMeansPageContent(hops: Int) -> Bool { hops >= maxAncestorHops }
 
     /// One ancestor's vote: page content composes in-place, the browser chrome
     /// (address/search bar) needs selection-replace, anything else keeps walking.
@@ -938,13 +991,18 @@ enum FocusedFieldDetector {
     }
 
     /// Pure mirror of scan()'s walk over an already-collected role chain — first
-    /// decisive ancestor wins, unknown chain falls back to selection (the safer
-    /// default for the omnibox, where a missed detection breaks every word).
+    /// decisive ancestor wins. An undecided chain falls back to selection (the safer
+    /// default for the omnibox, where a missed detection breaks every word) UNLESS it
+    /// filled the hop budget, which only page content can do (see
+    /// `exhaustedMeansPageContent`).
     static func chainDecision<S: Sequence>(_ roles: S) -> Bool where S.Element == String {
+        var hops = 0
         for role in roles {
+            hops += 1
             if let verdict = roleDecision(role) { return verdict }
+            if hops >= maxAncestorHops { break }
         }
-        return true
+        return !exhaustedMeansPageContent(hops: hops)
     }
 }
 
@@ -1668,6 +1726,14 @@ final class TerminalTapController {
     /// cross-process). The trust check always runs.
     private static let watchdogIdleNs: UInt64 = 180_000_000_000   // 3 minutes
 
+    /// Does this keystroke count as "typing to protect" for the watchdog's idle skip?
+    /// ONLY while VietTelex is the selected source. The tap sees every key on the
+    /// system, so before this gate an afternoon of typing in ABC kept the watchdog
+    /// permanently "active": a synthetic F20 post + a cross-process secure-field scan
+    /// every 3s, protecting a tap that transforms nothing — and each post tickles the
+    /// system activity monitor. Perf audit 17/08/2026.
+    static func stampsLiveness(imeActive: Bool) -> Bool { imeActive }
+
     // Functional health probe (stateLock): watchdog bumps probeSentTick and posts;
     // the callback copies it into probeSeenTick on arrival. Sent != seen for two
     // consecutive watchdog ticks ⇒ posts are dropped or the tap is wedged.
@@ -1734,6 +1800,10 @@ final class TerminalTapController {
     /// the new permission. Polling here means a grant is noticed within one tick
     /// (same 3s cadence as the health watchdog) with no cooperation required from
     /// either of those signals.
+    /// Máy nhận diện chord hotkey chuyển bộ gõ — TAP-thread confined (mọi note/disarm
+    /// đều từ callback), không cần lock. Xem SwitchHotkey.swift.
+    private var chordRecognizer = ModifierChordRecognizer()
+
     private var trustPoll: Timer?
 
     private func startTrustPollIfNeeded() {
@@ -1910,7 +1980,11 @@ final class TerminalTapController {
     func start() {
         guard !quarantined else { return }
         guard stateLock.withLock({ tap == nil }), Accessibility.isTrusted else { return }
+        // flagsChanged: cho hotkey chuyển bộ gõ chỉ-gồm-modifier (SwitchHotkey).
+        // Chi phí khi tắt hotkey: một string compare rồi return pass mỗi lần nhấn/nhả
+        // modifier — không chạm engine, không chạm policy.
         let mask = CGEventMask((1 << CGEventType.keyDown.rawValue)
+                             | (1 << CGEventType.flagsChanged.rawValue)
                              | (1 << CGEventType.leftMouseDown.rawValue)
                              | (1 << CGEventType.rightMouseDown.rawValue))
         guard let tap = CGEvent.tapCreate(
@@ -2163,9 +2237,24 @@ final class TerminalTapController {
         // abandon it. We do NOT emit backspaces/
         // edits — the caret is elsewhere now and the typed text is already real. Also
         // signal the IMKit controller (other apps) to drop its composition.
+        // Hotkey chuyển bộ gõ (SwitchHotkey): chord chỉ-gồm-modifier hoàn tất khi nhả.
+        // TAP-thread confined recognizer; toggle chạy trên MAIN (TIS không an toàn
+        // ngoài main). Sự kiện flagsChanged luôn pass — mình chỉ quan sát, không sửa.
+        if type == .flagsChanged {
+            if let target = SwitchHotkey.targetFlags(for: AppState.shared.switchHotkey),
+               chordRecognizer.note(flags: event.flags, target: target) {
+                DispatchQueue.main.async { SwitchHotkey.toggle() }
+            }
+            return pass
+        }
+
         if type == .leftMouseDown || type == .rightMouseDown {
             engine.reset()
             lastTapKeyWasBoundary = false   // click at a word's end re-arms re-edit
+            chordRecognizer.disarm()        // click giữa lúc giữ chord = không phải toggle
+            // Sticky-source: click trong dải menu bar = user có thể đang tự đổi input
+            // source bằng menu — dấu vết để KHÔNG giành lại (StickyInputSource).
+            StickyInputSource.shared.noteClick(at: event.location)
             if imeActive { NotificationCenter.default.post(name: .telexResetComposition, object: nil) }
             return pass
         }
@@ -2179,13 +2268,29 @@ final class TerminalTapController {
             return pass
         }
 
+        // One read of the activation latch for the whole key (it is a locked computed
+        // property; the stamp below and the self-heal further down both need it).
+        let active = imeActive
+
         // ONE stateLock round trip per real key (uncontended NSLock, tens of ns):
         //  • stamp liveness for the watchdog's idle skip (it must not probe a machine
-        //    nobody types on);
+        //    nobody types on) — ONLY while WE are the selected input source. Typing in
+        //    ABC used to stamp too (the stamp sat above the imeActive gate), so a whole
+        //    afternoon of English kept the watchdog "typing active": every 3s a synthetic
+        //    F20 post + a cross-process secure-field scan, guarding a tap that transforms
+        //    nothing — and each post tickles the system activity monitor. Blind window
+        //    when switching back is the one already accepted for the idle skip: the
+        //    probe re-arms on the first key after activateServer.
         //  • consume the pending post-(re)enable engine reset armed by start() — the
         //    engine is tap-thread confined, so the reset happens HERE, on this thread.
+        // Phím thường (đã lọc synthetic ở trên) giữa lúc giữ chord = một shortcut
+        // thật, không phải toggle bộ gõ — disarm. Tap-thread confined, plain store.
+        chordRecognizer.disarm()
+
         let needsEngineReset: Bool = stateLock.withLock {
-            lastKeyDownNs = DispatchTime.now().uptimeNanoseconds
+            if Self.stampsLiveness(imeActive: active) {
+                lastKeyDownNs = DispatchTime.now().uptimeNanoseconds
+            }
             defer { pendingEngineReset = false }
             return pendingEngineReset
         }
@@ -2206,7 +2311,7 @@ final class TerminalTapController {
         // asynchronously. The correction lands via the locked selectionChanged() and
         // takes effect on the NEXT keystroke — one key later than the old synchronous
         // check, which is fine for a ≤750ms-throttled self-heal of an already-stale flag.
-        if imeActive {
+        if active {
             let now = DispatchTime.now().uptimeNanoseconds
             if now &- lastReconcileNs > reconcileWindowNs {
                 lastReconcileNs = now
@@ -2253,6 +2358,9 @@ final class TerminalTapController {
             // QWERTY fired ⌘P while macOS sat on Colemak. Re-address the event here,
             // the one place that sees every chord in every app.
             remapChordKeyCode(event, shift: flags.contains(.maskShift))
+            // Sticky-source: chord = có thể là hotkey đổi input source (⌃Space/custom)
+            // — dấu vết để KHÔNG giành lại (StickyInputSource).
+            StickyInputSource.shared.noteUserModifierChord()
             return pass
         }
 
@@ -2337,13 +2445,7 @@ final class TerminalTapController {
 
         // Reflect the current "bỏ dấu tự do" setting (feed/backspace/boundary all
         // re-parse `raw` and honor it).
-        engine.freeMarking = AppState.shared.freeMarking
-        engine.modernTone = AppState.shared.modernOrthography
-        engine.liveSpellCheck = AppState.shared.liveSpellCheck
-        engine.simpleTelex = AppState.shared.simpleTelex
-        engine.quickTelex = AppState.shared.quickTelex
-        engine.vniMode = AppState.shared.vniMode
-        engine.contextualEnglish = AppState.shared.contextualEnglish
+        engine.apply(AppState.shared.engineFlags())
 
         // Signpost the tap-handled keystroke; message = emit mode (see Instrumentation).
         let spState = Signposts.poster.beginInterval("tap.handle",
@@ -2384,8 +2486,12 @@ final class TerminalTapController {
             lastTapKeyWasBoundary = true
             // A newline breaks the English run: the first word on the next line has no
             // preceding word, so "is" → "í". Reset AFTER emitBoundary commits (and
-            // classifies) the current word, via defer so every return path clears it.
-            if keyCode == kReturn || keyCode == kEnter { defer { engine.resetContext() } }
+            // classifies) the current word — the defer must sit at THIS block's scope;
+            // nested inside `if { defer {...} }` it fired immediately and wiped the
+            // context BEFORE the restore decision ("early too⏎" → "early tô", same
+            // defer-scope bug as the IMKit path — field report 15/08/2026).
+            let newlineKey = keyCode == kReturn || keyCode == kEnter
+            defer { if newlineKey { engine.resetContext() } }
             // Commit the composed word, then prefer passing the REAL key through: a
             // synthetic (isTrusted=false) Tab/Return doesn't trigger the app's own
             // handling — shell Tab-completion never fires, web/Electron "Enter to send"
@@ -2408,11 +2514,20 @@ final class TerminalTapController {
             return pass
         }
 
-        // Read the typed character.
+        // Read the typed character. Stack tuple, NOT `[UniChar](repeating:)`: an Array
+        // literal here was one malloc + free on EVERY key, inside the callback macOS
+        // times out — the last allocation left on the tap path after the engine was
+        // made zero-alloc. `withUnsafeMutableBufferPointer` on a homogeneous tuple is
+        // the documented way to hand C a fixed 4-slot buffer with no heap traffic.
         var len = 0
-        var buf = [UniChar](repeating: 0, count: 4)
-        event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &len, unicodeString: &buf)
-        guard len >= 1, let scalar = Unicode.Scalar(buf[0]) else {
+        var slots: (UniChar, UniChar, UniChar, UniChar) = (0, 0, 0, 0)
+        let first: UniChar? = withUnsafeMutableBytes(of: &slots) { raw in
+            let buf = raw.bindMemory(to: UniChar.self)
+            event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &len,
+                                           unicodeString: buf.baseAddress)
+            return len >= 1 ? buf[0] : nil
+        }
+        guard let unit = first, let scalar = Unicode.Scalar(unit) else {
             // Dead/function key: flush the word, let the odd key through.
             // (no shortcut expansion — not an explicit text boundary)
             lastTapKeyWasBoundary = true
@@ -2427,7 +2542,7 @@ final class TerminalTapController {
         // function-key codepoint is navigation, NOT text: flush the word and PASS THE
         // REAL KEY THROUGH so cursor/history work — never re-emit it as inserted text
         // (re-emitting arrows as 0x1C killed arrow-key navigation).
-        if buf[0] < 0x20 || (buf[0] >= 0xF700 && buf[0] <= 0xF8FF) {
+        if unit < 0x20 || (unit >= 0xF700 && unit <= 0xF8FF) {
             lastTapKeyWasBoundary = true
             emitBoundary(suppressAutoRestore: false, allowShortcuts: false)
             engine.forgetLastCommit()      // navigation: the caret left the word behind
@@ -2448,7 +2563,8 @@ final class TerminalTapController {
         // VNI: digits carry the diacritics, so they belong to the WORD, not the boundary
         // (same fix as the IMKit path — issue #28, 2026-07-27).
         guard let ascii = ch.asciiValue,
-              isWordKey(ascii, vniMode: engine.vniMode) else {
+              isWordKey(ascii, vniMode: engine.vniMode,
+                        bracketVowels: engine.bracketVowels) else {
             lastTapKeyWasBoundary = true
             // Non-letter boundary (space, digit outside VNI, punctuation). Brackets skip
             // auto-restore (code context). Mirror the Return/Tab handling above: only
@@ -2460,7 +2576,7 @@ final class TerminalTapController {
             // tapNativeFastPath like the letter fast-path below. (modifyInPlace adds
             // nothing here: with no rewrite pending the untouched event is already
             // exactly what should land, in every emit mode.)
-            let rewrote = emitBoundary(suppressAutoRestore: isBracketUnichar(ch.utf16.first ?? buf[0]))
+            let rewrote = emitBoundary(suppressAutoRestore: isBracketUnichar(ch.utf16.first ?? unit))
             // A plain ascii boundary (space, punctuation, digit) leaves exactly ONE
             // character after the word, which is what makes the next ⌫ re-openable
             // (issue #40). Anything else — an option-key symbol, a multi-scalar

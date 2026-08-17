@@ -172,6 +172,12 @@ final class TelexInputController: IMKInputController {
             || (AppState.shared.usesAxDetect(id) && FocusedFieldDetector.wantsMarkedField)
     }
 
+    #if DEBUG
+    /// `handle()` resolves this ONCE per key and reuses it — a test pins that the
+    /// decision is a pure read of state (no side effect that a second call would see).
+    func _testUsesMarkedNow(_ id: String?) -> Bool { usesMarkedNow(id) }
+    #endif
+
     // MARK: - Event handling (hot path)
 
     /// Also receive flagsChanged (default is keyDown only): the composition is
@@ -426,18 +432,22 @@ final class TelexInputController: IMKInputController {
         logDecision("handle \(id ?? "?")/front=\(frontID ?? "?"): "
             + "\(usesMarkedNow(id) ? "marked" : "in-place") "
             + "needsProbe=\(AppState.shared.needsProbe(id))")
-        spMode = usesMarkedNow(id) ? "marked"
+        // Only resolve the label when something is actually recording. `usesMarkedNow`
+        // is NOT cheap — it re-runs the whole per-app + per-field policy (≈50 set
+        // ONE resolution of the marked decision for this key, reused by every branch
+        // below. `usesMarkedNow` is NOT cheap — it re-runs the whole per-app + per-field
+        // policy (≈50 set lookups + several lock trips), and it used to be called 3–4
+        // times per keystroke. Safe to reuse within one call: the only thing that flips
+        // it mid-key is a verify demotion inside probeInPlace, and every path that can
+        // reach probeInPlace (⌫, boundary keys, replace) RETURNS before the reuse sites.
+        // Perf audit 17/08/2026.
+        let markedNow = usesMarkedNow(id)
+        spMode = markedNow ? "marked"
                : (tracking || engine.isEmpty ? "in-place" : "in-place-per-op")
 
         // Reflect the current "bỏ dấu tự do" setting before any engine op (feed,
         // backspace and boundary all re-parse `raw` and honor this flag).
-        engine.freeMarking = AppState.shared.freeMarking
-        engine.modernTone = AppState.shared.modernOrthography
-        engine.liveSpellCheck = AppState.shared.liveSpellCheck
-        engine.simpleTelex = AppState.shared.simpleTelex
-        engine.quickTelex = AppState.shared.quickTelex
-        engine.vniMode = AppState.shared.vniMode
-        engine.contextualEnglish = AppState.shared.contextualEnglish
+        engine.apply(AppState.shared.engineFlags())
 
         switch event.keyCode {
         case kDelete:
@@ -474,7 +484,7 @@ final class TelexInputController: IMKInputController {
             // the guard on the FIRST mid-word ⌫: composition dropped, the underlined
             // text orphaned on screen, every later ⌫/space dead until a click —
             // reporter's "không thể xoá cũng như bấm space để thoát khỏi từ".
-            if tracking, Self.backspaceFreshnessGuardApplies(marked: usesMarkedNow(id)) {
+            if tracking, Self.backspaceFreshnessGuardApplies(marked: markedNow) {
                 let sel = client.selectedRange()
                 let expected = anchor + onLen
                 if !Self.trackedWindowIsFresh(caret: sel.location == NSNotFound ? nil : sel.location,
@@ -501,7 +511,7 @@ final class TelexInputController: IMKInputController {
             // overflow character on the first ⌫ and then rewrite identical text
             // forever (⌫ dead for the rest of the word).
             switch Self.passthroughPlan(overflowPassthrough: Self.isPassthrough(action) && engine.isOverflowed,
-                                        marked: usesMarkedNow(id), isBackspace: true) {
+                                        marked: markedNow, isBackspace: true) {
             case .commitAndPassThrough:
                 endComposition(client)
                 return false
@@ -511,7 +521,7 @@ final class TelexInputController: IMKInputController {
             case .honorEngineAction:
                 break
             }
-            if usesMarkedNow(id) { updateMarked(client); return true }
+            if markedNow { updateMarked(client); return true }
             if edgeTapWord {
                 // Edge word stays on the CGEvent channel: plain deletion passes the
                 // physical ⌫ through; a tone re-place ("toán"->"tóa") goes synthetic.
@@ -555,8 +565,13 @@ final class TelexInputController: IMKInputController {
 
         case kReturn, kEnter, kTab, kEscape:
             // A newline starts a fresh line/prompt with no preceding word ("is" → "í"):
-            // reset AFTER boundary() commits + classifies the current word (defer).
-            if event.keyCode == kReturn || event.keyCode == kEnter { defer { engine.resetContext() } }
+            // reset AFTER boundary() commits + classifies the current word. The defer
+            // must live at CASE scope — nested inside `if { defer {...} }` its scope is
+            // that if-block and it fires IMMEDIATELY, wiping the context BEFORE
+            // boundary() decides the restore ("early too⏎" sent "early tô" while
+            // "early too␣" restored fine — field report 15/08/2026, WhatsApp).
+            let newlineKey = event.keyCode == kReturn || event.keyCode == kEnter
+            defer { if newlineKey { engine.resetContext() } }
             // KNOWN LIMITATION — while a MARKED composition is open in a terminal,
             // the first boundary press only commits; the second acts ("vậy⏎⏎").
             // Tried and closed (2026-07-21): delivering the key's byte through
@@ -623,7 +638,8 @@ final class TelexInputController: IMKInputController {
         // boundary as before (field report issue #28, 2026-07-27: VNI did nothing in the
         // app because every digit was consumed here — engine-level VNI tests all passed).
         guard let chars = effectiveCharacters(event), let ch = chars.first, let ascii = ch.asciiValue,
-              isWordKey(ascii, vniMode: engine.vniMode) else {
+              isWordKey(ascii, vniMode: engine.vniMode,
+                        bracketVowels: engine.bracketVowels) else {
             // space / punctuation / any non-letter ends the word. Brackets signal a
             // code-ish context (arr[i], {json}, (x)); skip auto-restore there so a
             // token isn't "corrected" (auto-restore is off around [ ] { }).
@@ -721,12 +737,12 @@ final class TelexInputController: IMKInputController {
         // (In-place mode is unaffected: its .passthrough branch inserts the letter
         // itself, which is already correct.)
         if case .commitAndPassThrough = Self.passthroughPlan(overflowPassthrough: Self.isPassthrough(action) && engine.isOverflowed,
-                                                            marked: usesMarkedNow(id), isBackspace: false) {
+                                                            marked: markedNow, isBackspace: false) {
             endComposition(client)
             client.insertText(String(ch), replacementRange: kNoRange)
             return true
         }
-        if usesMarkedNow(id) { updateMarked(client); return true }
+        if markedNow { updateMarked(client); return true }
         switch action {
         case .passthrough:
             if edgeTapWord, KeyboardLayoutOverride.translator == nil {
@@ -1667,12 +1683,24 @@ final class TelexInputController: IMKInputController {
     /// source of truth the flaky activate/deactivate ordering must defer to. Called
     /// only on lifecycle transitions / TIS notifications, never on the keystroke hot
     /// path, so the Carbon TIS copy is fine here. Matches both the input source and its
-    /// `.vi` input mode by bundle-id prefix.
+    /// `.vi` input mode by bundle-id prefix — THIS build's own id (see `OwnBundle`), so
+    /// a dev build registered under a separate id still recognizes itself.
     static func isVietTelexSelected() -> Bool {
         guard let src = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
               let ptr = TISGetInputSourceProperty(src, kTISPropertyInputSourceID) else { return false }
         let id = Unmanaged<CFString>.fromOpaque(ptr).takeUnretainedValue() as String
-        return id.hasPrefix("com.vtx.inputmethod.telex")
+        return inputSourceIsOurs(id)
+    }
+
+    /// Does this input-source id belong to the RUNNING build? Split out of
+    /// `isVietTelexSelected` so the prefix rule is testable without a live TIS —
+    /// `own` is the seam a test uses to replay the dev-build id mismatch that put the
+    /// tap dormant mid-word (see `OwnBundle`). An EMPTY `own` matches nothing: bare
+    /// `hasPrefix("")` is true for every id, which would claim VietTelex is selected
+    /// while the user types in ABC. `OwnBundle` already refuses to produce one — this
+    /// is the guard at the comparison itself, where the hazard actually lives.
+    static func inputSourceIsOurs(_ id: String, own: String = OwnBundle.id) -> Bool {
+        !own.isEmpty && id.hasPrefix(own)
     }
 
     // MARK: - Input-method menu (IMK-provided, no NSStatusItem)
@@ -1683,10 +1711,18 @@ final class TelexInputController: IMKInputController {
         // menus. Strip it (and any trailing separator) each time the menu opens.
         menu.delegate = self
 
-        // Status first. Three states: OK / permission missing / permission STALE
-        // (trusted but the tap was refused — needs a remove+re-add, see TerminalTap).
-        let statusTitle: String
-        if !Accessibility.isTrusted {
+        // Status first — nhưng CHỈ khi có chuyện (maintainer 15/08/2026): "Tình
+        // trạng: OK" thường trực là nhiễu, ẨN đi khi mọi thứ ổn. Tính năng ẩn
+        // "click status → copy debug snapshot" KHÔNG mất: nó chuyển xuống dòng
+        // version bên dưới (click được ở mọi trạng thái).
+        let statusTitle: String?
+        if let holder = SecureInputMonitor.shared.activeHolder {
+            // Hiếm khi tới được đây (secure input thường đá selection sang ABC nên
+            // menu này không mở được), nhưng ca "secure input tạm thời trong ô
+            // password mà VietTelex vẫn selected" thì thấy. Không click-action:
+            // thủ phạm là app khác, mình không tắt hộ được.
+            statusTitle = VTLocalized("Status: Blocked by Secure Input") + " — \(holder.label)"
+        } else if !Accessibility.isTrusted {
             statusTitle = VTLocalized("Status: Permission needed")
         } else if TerminalTapController.shared.trustLooksStale {
             statusTitle = VTLocalized("Status: Permission stale — click to fix")
@@ -1698,15 +1734,19 @@ final class TelexInputController: IMKInputController {
             // user action that outranks the backoff.
             statusTitle = VTLocalized("Status: Tap paused — click to retry")
         } else {
-            statusTitle = VTLocalized("Status: OK")
+            statusTitle = nil                       // OK = im lặng, không chiếm dòng
         }
-        let status = NSMenuItem(title: statusTitle,
-                                action: #selector(showStatus(_:)), keyEquivalent: "")
-        status.target = self
-        menu.addItem(status)
+        if let statusTitle {
+            let status = NSMenuItem(title: statusTitle,
+                                    action: #selector(showStatus(_:)), keyEquivalent: "")
+            status.target = self
+            menu.addItem(status)
+        }
 
         // Version + build, disabled: testers report "which build?" straight from the
         // menu without opening Settings. Not localized — it's an identifier.
+        // (Tính năng ẩn click-copy-snapshot đã BỎ hẳn 15/08/2026 — maintainer;
+        // snapshot vẫn lấy được qua Cài đặt → Thử nghiệm → Copy debug log.)
         let bundle = Bundle(for: TelexInputController.self)
         let ver = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
         let build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
@@ -2106,6 +2146,9 @@ final class TelexInputController: IMKInputController {
 
     /// Permission OK: show a debug snapshot of the runtime state.
     private func showDebugLog() {
+        // Snapshot là lúc user đang thắc mắc "sao thế này" — re-check secure input
+        // ngay thay vì đợi nhịp poll 5s.
+        SecureInputMonitor.shared.check(reason: "snapshot")
         let id = AppState.shared.currentBundleID ?? "?"
         // tapRouting, not the per-mode getters: page content in browsers routes to
         // tap BY POLICY (2026-08-06) without the app ever being in a tap-mode set,
@@ -2131,6 +2174,7 @@ final class TelexInputController: IMKInputController {
             "Terminal tap: \(TerminalTapController.shared.isRunning ? "running" : "off")"
                 + (TerminalTapController.shared.isQuarantined ? " (quarantined)" : "")
                 + (SyntheticKeyboard.tripped ? " (breaker tripped)" : ""),
+            SecureInputMonitor.shared.snapshotLine,
             "Spotlight visible: \(SpotlightDetector.isVisible ? "yes" : "no")",
             "Current app: \(id)",
             "Strategy: \(mode)",
@@ -2185,8 +2229,18 @@ func isAsciiLetter(_ c: UInt8) -> Bool {
 /// digit ends the word. Extracted so AppTests can pin it — issue #28 (2026-07-27) was
 /// exactly this predicate being letters-only while the engine happily accepted digits.
 @inline(__always)
-func isWordKey(_ c: UInt8, vniMode: Bool) -> Bool {
+func isWordKey(_ c: UInt8, vniMode: Bool, bracketVowels: Bool = false) -> Bool {
     isAsciiLetter(c) || (vniMode && isAsciiDigit(c))
+        || (bracketVowels && isBracketVowelKey(c))
+}
+
+/// `[ ] { }` — the keys the bracket-vowel option turns into ơ/ư. They must be WORD
+/// keys while it is on (a boundary would commit the word before the engine sees the
+/// vowel) and plain boundaries while it is off — see AppState.bracketVowels.
+@inline(__always)
+func isBracketVowelKey(_ c: UInt8) -> Bool {
+    c == UInt8(ascii: "[") || c == UInt8(ascii: "]")
+        || c == UInt8(ascii: "{") || c == UInt8(ascii: "}")
 }
 
 @inline(__always)

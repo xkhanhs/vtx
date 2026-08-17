@@ -103,6 +103,11 @@ com.readdle.smartemail-Mac: inPlace
 # self-report caret thật thà nên in-place học nhầm; MarkEdit thì honor thật:
 # probe đo được `regionMatch=yes → honored`, reprobe `imkMatch2=yes`, không gạch chân).
 app.cyan.markedit: inPlace
+# Outlook — compose là web editor trong WKWebView, cùng lớp #44/#47 (field
+# report Facebook 14/08: từ có dấu "cũng/được/làm" không gõ được vì burst bị
+# nuốt, từ không dấu vẫn ăn). Word/PowerPoint đã inPlace sẵn; Outlook bị thiếu.
+com.microsoft.Outlook: inPlace
+com.apple.mail: inPlace
 # Browsers — tự dò theo ô (address bar vs nội dung trang)
 com.apple.Safari: axDetect
 com.apple.SafariTechnologyPreview: axDetect
@@ -136,6 +141,9 @@ com.duckduckgo.macos.browser: axDetect
 com.kagi.kagimacOS: axDetect
 ru.yandex.desktop.yandex-browser: axDetect
 com.sigmaos.sigmaos.macos: axDetect
+# Comet (Perplexity, Chromium) — KHÔNG theo họ axDetect như các browser trên:
+# maintainer chỉ định In-Place 15/08/2026.
+ai.perplexity.comet: inPlace
 
 # JetBrains/Android Studio: KHÔNG có rule built-in — để auto (probe → learn).
 # 12 rule `selection` từng nằm ở đây nhưng là dead data cho tới 1.4.24; khi

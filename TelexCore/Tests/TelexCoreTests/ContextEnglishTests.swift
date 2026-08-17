@@ -100,6 +100,33 @@ final class ContextEnglishTests: XCTestCase {
         XCTAssertEqual(e.commitText(autoRestore: true), "í")
     }
 
+    // MARK: Field report 15/08/2026 — "early too⏎" gửi thành "early tô" (WhatsApp)
+    //
+    // ORDER INVARIANT for the controllers' newline handling: resetContext() belongs
+    // AFTER the boundary commit, never before. Both controllers had a Swift
+    // defer-scope bug (`if newline { defer { resetContext() } }` fires immediately)
+    // that wiped the "early = English" context BEFORE the restore decision, so Enter
+    // committed "tô" while space restored "too". These two tests pin each order.
+    func testNewlineResetAfterCommitKeepsEnglishRestore() {
+        var e = TelexEngine(); e.liveSpellCheck = true; e.contextualEnglish = true
+        for ch in "early" { _ = e.feed(ch) }; _ = e.commitText(autoRestore: true)
+        for ch in "too" { _ = e.feed(ch) }
+        XCTAssertEqual(e.commitText(autoRestore: true), "too")   // context intact → restored
+        e.resetContext()                                          // Enter: reset AFTER commit
+        for ch in "is" { _ = e.feed(ch) }
+        XCTAssertEqual(e.commitText(autoRestore: true), "í")     // new line: run is broken
+    }
+
+    func testNewlineResetBeforeCommitLosesTheRestore() {
+        // The buggy order, kept as documentation of WHY the invariant matters: reset
+        // first and the same keystrokes ship the Vietnamese composition instead.
+        var e = TelexEngine(); e.liveSpellCheck = true; e.contextualEnglish = true
+        for ch in "early" { _ = e.feed(ch) }; _ = e.commitText(autoRestore: true)
+        for ch in "too" { _ = e.feed(ch) }
+        e.resetContext()                                          // ← the defer-scope bug
+        XCTAssertEqual(e.commitText(autoRestore: true), "tô")
+    }
+
     // Context does not leak across a resetContext(): "he" then reset then "is" → "í".
     func testResetContextBreaksTheRun() {
         var e = TelexEngine(); e.liveSpellCheck = true; e.contextualEnglish = true
@@ -196,5 +223,48 @@ final class ContextEnglishTests: XCTestCase {
         XCTAssertEqual(sentence("he dduowcj", context: true), "he được")
         // "he tieengs" → "he tiếng" (valid VN, not an English word → not flipped).
         XCTAssertEqual(sentence("he tieengs", context: true), "he tiếng")
+    }
+}
+
+// Field report 2026-08-14 (maintainer): "position is not okay" → "position í not
+// okay" with the feature ON. "position" is untouched plain ascii (the validator
+// refuses to compose it, which is also exactly why the collision table can't carry
+// it), and the classifier's old default called every unrecognized ascii word
+// Vietnamese. Now the same validator that blocked composition decides the context:
+// structurally-impossible Vietnamese opens an English run.
+final class ContextEnglishFieldReportTests: XCTestCase {
+    func testPositionSeedsEnglishContext() {
+        XCTAssertEqual(sentence("position is not okay", context: true), "position is not okay")
+        XCTAssertEqual(sentence("github is", context: true), "github is")
+        XCTAssertEqual(sentence("Position is", context: true), "Position is")   // case-blind
+    }
+
+    /// The other half of the tradeoff must not move: toneless-Vietnamese words that
+    /// ARE valid syllables keep the context Vietnamese.
+    func testTonelessVietnameseStillKeepsVietnameseContext() {
+        XCTAssertEqual(sentence("sao is", context: true), "sao í")
+        XCTAssertEqual(sentence("khong is", context: true), "khong í")
+    }
+
+    /// Field report 2026-08-14 #2: "thiss is" → "this í". The doubled `s` ESCAPES the
+    /// tone, so the screen shows plain ascii "this" — but the classifier's first branch
+    /// asked "does the composition differ from the raw keys?", which a cancelled
+    /// transform also satisfies, and called it Vietnamese. The question it meant to ask
+    /// is "is a diacritic on screen?".
+    func testEscapedEnglishWordSeedsEnglishContext() {
+        XCTAssertEqual(sentence("thiss is", context: true), "this is")
+        XCTAssertEqual(sentence("gooogle is", context: true), "google is")
+        XCTAssertEqual(sentence("tessted is", context: true), "tested is")
+        // Escaped LOANWORD stays NEUTRAL: it must not open a run, so a following
+        // Vietnamese word still composes. "wweb" is the real escape here — a lone `w`
+        // composes ư, so the doubled w is how "web" gets typed in full Telex.
+        XCTAssertEqual(sentence("wweb bans", context: true), "web bán")
+    }
+
+    /// The escape fix must not weaken the Vietnamese side: a word whose composition
+    /// really does carry a diacritic still ends any English run.
+    func testDiacriticOnScreenStillEndsTheRun() {
+        XCTAssertEqual(sentence("he thoi is", context: true), "he thoi í")
+        XCTAssertEqual(sentence("he thois is", context: true), "he thói í")
     }
 }

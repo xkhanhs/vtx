@@ -52,6 +52,7 @@ final class AppState: @unchecked Sendable {
         static let probedApps = "probedApps"          // learned: verified good
         static let manualModes = "manualAppModes"     // user override: bundleID -> AppMode
         static let keyboardLayout = "keyboardLayoutID" // ASCII layout Telex composes on
+        static let bracketVowels = "bracketVowels"    // [ → ơ, ] → ư (UniKey habit)
     }
 
     /// A user-forced per-app handling strategy (Settings → Bảng chế độ gõ). Overrides
@@ -94,10 +95,12 @@ final class AppState: @unchecked Sendable {
         _simpleTelex = (defaults.object(forKey: Key.simpleTelex) as? Bool) ?? false
         _quickTelex = (defaults.object(forKey: Key.quickTelex) as? Bool) ?? false
         _vniMode = (defaults.object(forKey: Key.vniMode) as? Bool) ?? false
-        // Default OFF (maintainer 03/08/2026, sau khi cân nhắc lại trong cùng ngày):
-        // toggle đã tốt nghiệp sang tab Tùy chỉnh nhưng hành vi đổi cách gõ diện rộng
-        // ("he is" vs "he í") — user chủ động bật, không ép qua default.
-        _contextualEnglish = (defaults.object(forKey: Key.contextualEnglish) as? Bool) ?? false
+        // LỊCH SỬ DEFAULT: OFF từ 03/08/2026 (hành vi đổi cách gõ diện rộng, user
+        // chủ động bật). Bật ON 15/08/2026 (maintainer): sau hai tuần field-use +
+        // các fix "position is"/"thiss is"/Enter-giữ-ngữ-cảnh, quyết định theo ngữ
+        // cảnh đã đủ chín — người gõ lẫn Anh-Việt hưởng lợi ngay khỏi phải biết
+        // toggle tồn tại; ai không muốn vẫn tắt được trong Cài đặt.
+        _contextualEnglish = (defaults.object(forKey: Key.contextualEnglish) as? Bool) ?? true
         tapNativeFastPath = (defaults.object(forKey: "tapNativeFastPath") as? Bool) ?? true
         _tapModifyEventInPlace = (defaults.object(forKey: "tapModifyEventInPlace") as? Bool) ?? true
         _tapSkipSyntheticKeyUp = (defaults.object(forKey: "tapSkipSyntheticKeyUp") as? Bool) ?? true
@@ -109,6 +112,8 @@ final class AppState: @unchecked Sendable {
         _debugLogging = (defaults.object(forKey: "debugLogging") as? Bool) ?? false
         _safeUnknownApps = (defaults.object(forKey: "safeUnknownApps") as? Bool) ?? true
         _keyboardLayoutID = (defaults.object(forKey: Key.keyboardLayout) as? String) ?? ""
+        _bracketVowels = (defaults.object(forKey: Key.bracketVowels) as? Bool) ?? false
+        _switchHotkey = (defaults.object(forKey: "switchHotkey") as? String) ?? "off"
         shortcutsCache = (defaults.dictionary(forKey: Key.shortcuts) as? [String: String]) ?? [:]
         fallbackAppsCache = Set(defaults.stringArray(forKey: Key.fallbackApps) ?? [])
         probedAppsCache = Set(defaults.stringArray(forKey: Key.probedApps) ?? [])
@@ -166,6 +171,32 @@ final class AppState: @unchecked Sendable {
               defaults.set(newValue, forKey: Key.freeMarking) }
     }
 
+    /// The eight engine toggles, read in ONE lock round trip. Both hot paths push all
+    /// of them into the engine on every keystroke (feed/backspace/boundary re-parse
+    /// `raw` and honor them, so they must be current before any engine op). Reading
+    /// them one property at a time meant EIGHT uncontended NSLock trips per key on
+    /// each path — and worse, eight separate reads can straddle a user toggling a
+    /// setting, handing the engine a mix of old and new. One snapshot is both faster
+    /// and consistent.
+    struct EngineFlags {
+        var freeMarking = true, modernTone = false, liveSpellCheck = true
+        var simpleTelex = false, quickTelex = false, vniMode = false
+        var bracketVowels = false, contextualEnglish = true
+    }
+
+    func engineFlags() -> EngineFlags {
+        lock.withLock {
+            EngineFlags(freeMarking: _freeMarking, modernTone: _modernOrthography,
+                        liveSpellCheck: _liveSpellCheck, simpleTelex: _simpleTelex,
+                        quickTelex: _quickTelex, vniMode: _vniMode,
+                        bracketVowels: _bracketVowels, contextualEnglish: _contextualEnglish)
+        }
+    }
+
+    /// Sanity net for the snapshot above: every engine toggle must be carried, or a
+    /// setting silently stops reaching the engine. Bump when adding a flag.
+    static let engineFlagCount = 8
+
     /// Tone-placement style. false (default) = old style (hòa, thủy); true = modern
     /// (hoà, thuý). See `TelexEngine.modernTone`.
     private var _modernOrthography: Bool
@@ -214,20 +245,69 @@ final class AppState: @unchecked Sendable {
               defaults.set(newValue, forKey: Key.vniMode) }
     }
 
-    /// Re-edit the word BEFORE the caret: a tone/mark key typed on an empty engine
-    /// seeds it from the text already on screen, so "toan" + `s` becomes "toán"
-    /// without retyping the word. Only in apps already proven to honor in-place
-    /// replacement, never in an omnibox-style field — see `tryReEditWord`.
-    /// Default ON since 2026-08-03 (maintainer: "tính năng ổn định rồi") — shipped
-    /// experimental/OFF 2026-07-30.
+    /// Gate cho HAI hành vi "với ngược vào từ trước con trỏ":
+    ///  • re-edit: phím dấu trên engine rỗng seed lại từ trên màn hình ("toan" + s
+    ///    → "toán") — chỉ ở app đã chứng minh honor in-place, không ở ô omnibox;
+    ///  • ⌫ re-open (issue #40, PR #42): xoá dấu cách mở lại từ vừa chốt
+    ///    ("tháy ␣" + ⌫ + a → "thấy").
+    ///
+    /// LỊCH SỬ DEFAULT — đọc trước khi đổi lần nữa:
+    ///  • 30/07/2026 ship experimental/OFF.
+    ///  • 03/08 bật ON, 04/08 REVERT ngay trong ngày (423b7d2). Field report
+    ///    (J2TeamNNL, 1.4.28): trên máy tester, phím w/s/a trên engine rỗng seed
+    ///    ĐOÁN từ trên màn hình rồi transform bậy ("ưeqweqwe…"), các replace sai
+    ///    offset sinh verify-probe verdict rác → field bị ép marked → "Enter 2 lần
+    ///    mới gửi được".
+    ///  • 14/08 bật ON lại (maintainer, sau một ngày field-test Discord/iTerm/
+    ///    Chrome/TextEdit). Điều kiện đã khác về BẢN CHẤT, không phải "thử lại":
+    ///    PR #42 thay ĐOÁN bằng snapshot chuỗi phím engine đã chốt + đối chiếu
+    ///    màn hình TỪNG KÝ TỰ trước khi mở lại (lệch → bỏ qua, ⌫ hành xử như cũ);
+    ///    gate keystream của #38 chặn seed xuyên boundary; poke AX cho app Electron
+    ///    (1.5.11) làm verify đọc được caret thật thay vì degrade im lặng.
+    ///    Chính lớp "đoán rồi transform bậy" của 04/08 giờ không còn đường chạy.
     var reEditWord: Bool {
-        // Default OFF — REVERTED 04/08/2026, cùng ngày bật (423b7d2). Field report
-        // (J2TeamNNL, 1.4.28): reEdit ON lần đầu trên máy tester → phím w/s/a trên
-        // engine rỗng seed lại từ trên màn hình và transform bậy ("ưeqweqwe…"),
-        // các replace sai offset tạo verify-probe verdict rác → field bị ép marked
-        // → "Enter 2 lần mới gửi được". Feature vẫn dùng được khi tự bật.
-        get { defaults.object(forKey: Key.reEditWord) as? Bool ?? false }
+        get { defaults.object(forKey: Key.reEditWord) as? Bool ?? true }
         set { defaults.set(newValue, forKey: Key.reEditWord) }
+    }
+
+    /// Hotkey chuyển input source: "off" (default) / "ctrl-shift" / "opt-shift" /
+    /// "cmd-shift". Cached + locked vì TAP THREAD đọc ở mỗi flagsChanged (mỗi lần
+    /// nhấn/nhả modifier toàn hệ thống). Xem SwitchHotkey.swift.
+    private var _switchHotkey: String
+    var switchHotkey: String {
+        get { lock.withLock { _switchHotkey } }
+        set { lock.withLock { _switchHotkey = newValue }
+              defaults.set(newValue, forKey: "switchHotkey") }
+    }
+
+    /// Biểu tượng bộ gõ trên menu bar: "vt" (mặc định) hoặc "star". Áp dụng bằng cách
+    /// ghi đè MenuIcon.pdf trong bundle — đọc MenuIconSwitcher.swift cho các rủi ro
+    /// đã cân nhắc (seal gãy, cần restart, tự áp lại sau mỗi lần update).
+    var menuIcon: String {
+        get { defaults.string(forKey: "menuIcon") ?? MenuIconSwitcher.defaultChoice }
+        set { defaults.set(newValue, forKey: "menuIcon") }
+    }
+
+    /// Giành lại VietTelex khi macOS TỰ đổi input source theo document (Word coi mỗi
+    /// ô comment là một document — field report 15/08/2026). EXPERIMENTAL, default
+    /// OFF — giành selection với OS là vùng nhạy (bài học #32). Đọc trên MAIN khi có
+    /// TIS notification (không phải hot path) → defaults-backed, không cache.
+    var stickyInputSource: Bool {
+        get { defaults.object(forKey: "stickyInputSource") as? Bool ?? false }
+        set { defaults.set(newValue, forKey: "stickyInputSource") }
+    }
+
+    /// `[` types ơ and `]` types ư (UniKey / macOS Simple Telex habit), `{`/`}` their
+    /// uppercase — EXPERIMENTAL, default OFF. Requested on Facebook 2026-08-14 by a
+    /// 15-year UniKey typist; opt-in because with it on the brackets are word KEYS and
+    /// stop ending a word, which anyone typing `arr[i]` in code does not want.
+    /// Read on the keystroke path via the engine mirror, so it is cached like the other
+    /// engine toggles.
+    private var _bracketVowels: Bool
+    var bracketVowels: Bool {
+        get { lock.withLock { _bracketVowels } }
+        set { lock.withLock { _bracketVowels = newValue }
+              defaults.set(newValue, forKey: Key.bracketVowels) }
     }
 
     /// POLICY 06/08/2026 "app lạ đi kênh an toàn": an app with NO rule anywhere
@@ -246,7 +326,8 @@ final class AppState: @unchecked Sendable {
               defaults.set(newValue, forKey: "safeUnknownApps") }
     }
 
-    /// Context-based decision (EXPERIMENTAL, default OFF). See `TelexEngine.contextualEnglish`.
+    /// Context-based decision (default ON since 15/08/2026 — see init for the history).
+    /// See `TelexEngine.contextualEnglish`.
     private var _contextualEnglish: Bool
     var contextualEnglish: Bool {
         get { lock.withLock { _contextualEnglish } }
@@ -255,10 +336,12 @@ final class AppState: @unchecked Sendable {
     }
 
     /// UI language override for the Settings window + menu, independent of the
-    /// system language: "system" (follow macOS), "en", or "vi". Default "system".
-    /// Read by `VTLocalized`.
+    /// system language: "system" (follow macOS), "en", or "vi". Default "vi"
+    /// (maintainer 15/08/2026): gần như toàn bộ user là người Việt nhưng nhiều máy
+    /// để macOS tiếng Anh, nên "system" cho họ UI tiếng Anh — mặc định thẳng tiếng
+    /// Việt, ai muốn English/system thì tự chọn trong Settings. Read by `VTLocalized`.
     var uiLanguage: String {
-        get { defaults.string(forKey: "uiLanguage") ?? "system" }
+        get { defaults.string(forKey: "uiLanguage") ?? "vi" }
         set { defaults.set(newValue, forKey: "uiLanguage") }
     }
 
@@ -998,5 +1081,20 @@ enum ShortcutImporter {
             out[key] = value
         }
         return out.isEmpty ? nil : out
+    }
+}
+
+extension TelexEngine {
+    /// Push a whole settings snapshot into the engine. Lives here (App target), not in
+    /// TelexCore, so the engine package stays free of app types.
+    mutating func apply(_ f: AppState.EngineFlags) {
+        freeMarking = f.freeMarking
+        modernTone = f.modernTone
+        liveSpellCheck = f.liveSpellCheck
+        simpleTelex = f.simpleTelex
+        quickTelex = f.quickTelex
+        vniMode = f.vniMode
+        bracketVowels = f.bracketVowels
+        contextualEnglish = f.contextualEnglish
     }
 }
