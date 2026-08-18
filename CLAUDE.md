@@ -65,6 +65,13 @@ Changing bundle id or input-mode metadata in `Info.plist` needs a logout/login o
 - **Two installed copies fight over one `InputMethodConnectionName`** — the menu shows
   the IME as selected while keys go somewhere else. Check `pgrep -lf VTX` finds exactly
   one process, from `~/Library/Input Methods/`.
+- **NEVER ⌘B/⌘R in Xcode.app** — that builds into `~/Library/Developer/Xcode/DerivedData/
+  VietTelex-*`, a second bundle with the same connection name, and macOS resolves the
+  fight by REBUILDING `AppleEnabledInputSources`: VTX drops out of the menu bar and the
+  user's non-Apple layout silently drops with it. Happened 2026-08-15; the directory was
+  back (491 MB) and deleted again 2026-08-18, so check it, don't assume. `mdfind -name
+  "VTX.app"` must return only `~/Library/Input Methods/VTX.app` before an install.
+  Opening Xcode to read or edit is harmless — only Build/Run is not.
 - **`gh` resolves to `ptrinh/viettelex`, not this fork.** With two remotes it picks
   upstream, so a bare `gh release create` publishes to SOMEONE ELSE'S repo. On the
   1.6.10 sync it only missed because upstream already had that tag. `gh repo
