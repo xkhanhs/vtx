@@ -205,6 +205,28 @@ enum KeyboardLayoutOverride {
                  kTISPropertyInputSourceID) ?? "?"
     }
 
+    /// Best guess at what the second input mode ("VTX Colemak") should compose on
+    /// before the user has picked anything: the installed Colemak DH ANSI, then any
+    /// Colemak DH, then any Colemak. Returns systemDefault when the user has no
+    /// Colemak installed at all — the mode then behaves like the first one, which is
+    /// visibly wrong in exactly the way that tells the user to go pick a layout.
+    ///
+    /// A NAME match, not an id match: Colemak DH ships as a third-party bundle whose
+    /// input-source id is the vendor's to choose, so hardcoding one id would break on
+    /// the next person's install.
+    static func defaultAltLayoutID() -> String {
+        let layouts = installed()
+        let ranks: [(String) -> Bool] = [
+            { $0.contains("colemak dh") && $0.contains("ansi") },
+            { $0.contains("colemak dh") },
+            { $0.contains("colemak") },
+        ]
+        for matches in ranks {
+            if let hit = layouts.first(where: { matches($0.name.lowercased()) }) { return hit.id }
+        }
+        return systemDefault
+    }
+
     /// True when `id` names a layout that is still installed. Guards the Settings
     /// picker against a stale preference (layout removed by a system update) showing
     /// an empty selection.

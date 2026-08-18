@@ -33,7 +33,7 @@
 				<key>tsInputModeAlternateMenuIconFileKey</key>
 				<string>MenuIcon.pdf</string>
 				<key>tsInputModeAlternateMenuTitleStringKey</key>
-				<string>VTX</string>
+				<string>VTX Telex</string>
 				<key>tsInputModeCharacterRepertoireKey</key>
 				<array>
 					<string>Latn</string>
@@ -53,10 +53,40 @@
 				<key>tsInputModeScriptKey</key>
 				<string>smUnicodeScript</string>
 			</dict>
+			<key>com.vtx.inputmethod.telex.vi-colemak</key>
+			<dict>
+				<key>TISInputSourceID</key>
+				<string>com.vtx.inputmethod.telex.vi-colemak</string>
+				<key>TISIntendedLanguage</key>
+				<string>vi</string>
+				<key>tsInputModeAlternateMenuIconFileKey</key>
+				<string>MenuIconAlt.pdf</string>
+				<key>tsInputModeAlternateMenuTitleStringKey</key>
+				<string>VTX Colemak</string>
+				<key>tsInputModeCharacterRepertoireKey</key>
+				<array>
+					<string>Latn</string>
+				</array>
+				<key>tsInputModeDefaultStateKey</key>
+				<false/>
+				<key>tsInputModeIsVisibleKey</key>
+				<true/>
+				<key>tsInputModeKeyEquivalentModifiersKey</key>
+				<integer>0</integer>
+				<key>tsInputModeMenuIconFileKey</key>
+				<string>MenuIconAlt.pdf</string>
+				<key>tsInputModePaletteIconFileKey</key>
+				<string>MenuIconAlt.pdf</string>
+				<key>tsInputModePrimaryInScriptKey</key>
+				<false/>
+				<key>tsInputModeScriptKey</key>
+				<string>smUnicodeScript</string>
+			</dict>
 		</dict>
 		<key>tsVisibleInputModeOrderedArrayKey</key>
 		<array>
 			<string>com.vtx.inputmethod.telex.vi</string>
+			<string>com.vtx.inputmethod.telex.vi-colemak</string>
 		</array>
 	</dict>
 	<key>InputMethodConnectionName</key>

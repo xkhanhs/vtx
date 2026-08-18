@@ -51,6 +51,11 @@ targets:
         buildPhase: resources
       - path: App/Resources/MenuIcon2.pdf
         buildPhase: resources
+      # Icon của input mode thứ hai (VTX Colemak). File RIÊNG, không phải MenuIcon2:
+      # MenuIconSwitcher ghi đè MenuIcon.pdf theo lựa chọn của user, và mode 2 phải
+      # giữ được badge khác mode 1 kể cả khi user chọn icon sao cho mode 1.
+      - path: App/Resources/MenuIconAlt.pdf
+        buildPhase: resources
       - path: App/Resources/PrivacyInfo.xcprivacy
         buildPhase: resources
       # Built-in per-app typing rules — repo-root data file (see its header);

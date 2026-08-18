@@ -1551,6 +1551,27 @@ final class TelexInputController: IMKInputController {
 
     // MARK: - IMK lifecycle
 
+    /// IMKit's only channel for "the user picked a different input mode of yours" —
+    /// there is no API to ask, so this callback is the single source of truth for
+    /// which of VTX's two sources is live. macOS sends it on selection (⌃Space, the
+    /// menu bar, System Settings), before the first key of that mode arrives.
+    ///
+    /// super still stores the value: IMKInputController's own value(forTag:client:)
+    /// must keep answering correctly for anything in IMKit that reads it back.
+    override func setValue(_ value: Any!, forTag tag: Int, client sender: Any!) {
+        super.setValue(value, forTag: tag, client: sender)
+        guard tag == Int(kTextServiceInputModePropertyTag) else { return }
+        guard let raw = value as? String, let mode = InputMode(rawValue: raw) else {
+            DebugLog.log("input-mode: unknown value \(String(describing: value)) — staying on \(InputModeState.current.rawValue)")
+            return
+        }
+        // A mode switch is a keyboard change mid-word: the half-composed syllable was
+        // typed on the OTHER layout, so committing it into the new mode would emit
+        // letters the user never pressed.
+        dropComposition(cause: "inputModeChanged")
+        InputModeState.select(mode)
+    }
+
     override func activateServer(_ sender: Any!) {
         super.activateServer(sender)
         // Pin the layout Telex composes on BEFORE anything reads a key. Without this
@@ -1559,7 +1580,10 @@ final class TelexInputController: IMKInputController {
         // different keyboards depending on switch history — see KeyboardLayoutOverride.
         // Re-asserted every activation, not just once: macOS can drop the override
         // across an input-source cycle, and the call is a cached Carbon lookup.
-        KeyboardLayoutOverride.apply(AppState.shared.keyboardLayoutID)
+        // …and which layout that is depends on WHICH of our two input modes is
+        // selected: "VTX Telex" and "VTX Colemak" are one controller with one engine,
+        // differing only in the layout they compose over (see InputMode).
+        InputModeState.reapply()
         // New field: both AX verdicts (is it a password field? does it want selection-
         // replace?) describe the PREVIOUS one until their scans re-run.
         SecureFieldDetector.invalidate()

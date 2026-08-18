@@ -121,6 +121,16 @@ final class SettingsModel: ObservableObject {
             KeyboardLayoutOverride.apply(keyboardLayoutID)
         }
     }
+    /// Layout of the second input mode ("VTX Colemak"). Same live-apply reasoning as
+    /// above, but only when that mode is the one currently selected — re-pinning while
+    /// the user is on "VTX Telex" would make the Settings window change the layout of
+    /// a mode they are not typing in.
+    @Published var altKeyboardLayoutID: String {
+        didSet {
+            AppState.shared.altKeyboardLayoutID = altKeyboardLayoutID
+            InputModeState.reapply()
+        }
+    }
     /// Advanced (terminal tap latency) — see AppState for the full semantics.
     @Published var tapModifyEventInPlace: Bool { didSet { AppState.shared.tapModifyEventInPlace = tapModifyEventInPlace } }
     @Published var tapSkipSyntheticKeyUp: Bool { didSet { AppState.shared.tapSkipSyntheticKeyUp = tapSkipSyntheticKeyUp } }
@@ -189,6 +199,13 @@ final class SettingsModel: ObservableObject {
         let savedLayout = AppState.shared.keyboardLayoutID
         keyboardLayoutID = KeyboardLayoutOverride.isInstalled(savedLayout)
             ? savedLayout : KeyboardLayoutOverride.systemDefault
+        // Second mode: empty means the user has never chosen, so offer the installed
+        // Colemak DH ANSI the mode is named after rather than a blank picker. The
+        // resolved value is only persisted when the user actually picks something —
+        // writing it here would silently pin a layout on merely opening Settings.
+        let savedAlt = AppState.shared.altKeyboardLayoutID
+        altKeyboardLayoutID = KeyboardLayoutOverride.isInstalled(savedAlt) && !savedAlt.isEmpty
+            ? savedAlt : KeyboardLayoutOverride.defaultAltLayoutID()
         tapModifyEventInPlace = AppState.shared.tapModifyEventInPlace
         tapSkipSyntheticKeyUp = AppState.shared.tapSkipSyntheticKeyUp
         axSelectionReplace = AppState.shared.axSelectionReplace
@@ -629,6 +646,13 @@ struct GeneralTab: View {
                     }
                 }
                 Text(model.loc("Which physical keyboard Telex reads. Pick Colemak, Dvorak… to type Vietnamese with that layout. Left on “follow”, the layout is inherited from whichever input source you switched from — so the same keys give different letters depending on where you came from."))
+                    .font(.caption).foregroundStyle(.secondary)
+                Picker(model.loc("Second input source composes on"), selection: $model.altKeyboardLayoutID) {
+                    ForEach(model.keyboardLayouts) { layout in
+                        Text(layout.name).tag(layout.id)
+                    }
+                }
+                Text(model.loc("VTX installs two input sources: “VTX Telex” uses the layout above, “VTX Colemak” uses this one. ⌃Space switches between them like any two keyboards — no need to come back here."))
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section {
