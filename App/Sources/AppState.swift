@@ -52,6 +52,7 @@ final class AppState: @unchecked Sendable {
         static let probedApps = "probedApps"          // learned: verified good
         static let manualModes = "manualAppModes"     // user override: bundleID -> AppMode
         static let keyboardLayout = "keyboardLayoutID" // ASCII layout Telex composes on
+        static let altKeyboardLayout = "altKeyboardLayoutID" // layout of the "VTX Colemak" input mode
         static let bracketVowels = "bracketVowels"    // [ → ơ, ] → ư (UniKey habit)
     }
 
@@ -112,6 +113,7 @@ final class AppState: @unchecked Sendable {
         _debugLogging = (defaults.object(forKey: "debugLogging") as? Bool) ?? false
         _safeUnknownApps = (defaults.object(forKey: "safeUnknownApps") as? Bool) ?? true
         _keyboardLayoutID = (defaults.object(forKey: Key.keyboardLayout) as? String) ?? ""
+        _altKeyboardLayoutID = (defaults.object(forKey: Key.altKeyboardLayout) as? String) ?? ""
         _bracketVowels = (defaults.object(forKey: Key.bracketVowels) as? Bool) ?? false
         _switchHotkey = (defaults.object(forKey: "switchHotkey") as? String) ?? "off"
         shortcutsCache = (defaults.dictionary(forKey: Key.shortcuts) as? [String: String]) ?? [:]
@@ -463,6 +465,17 @@ final class AppState: @unchecked Sendable {
         get { lock.withLock { _keyboardLayoutID } }
         set { lock.withLock { _keyboardLayoutID = newValue }
               defaults.set(newValue, forKey: Key.keyboardLayout) }
+    }
+
+    /// Same, for the second input mode ("VTX Colemak"). Empty means "not chosen yet":
+    /// the Settings picker resolves it to the installed Colemak DH ANSI on first read,
+    /// so a fresh install does the obvious thing without hardcoding a layout id that
+    /// only exists if the user installed that third-party bundle.
+    private var _altKeyboardLayoutID: String
+    var altKeyboardLayoutID: String {
+        get { lock.withLock { _altKeyboardLayoutID } }
+        set { lock.withLock { _altKeyboardLayoutID = newValue }
+              defaults.set(newValue, forKey: Key.altKeyboardLayout) }
     }
 
     // MARK: - Shortcuts (bảng gõ tắt)

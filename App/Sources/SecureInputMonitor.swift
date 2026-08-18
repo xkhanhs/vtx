@@ -134,18 +134,26 @@ final class SecureInputMonitor {
 
     /// Chọn lại input source của chính mình qua TIS. Chỉ gọi sau transition OFF —
     /// gọi trong lúc secure input còn active sẽ fail (IME vẫn bị vô hiệu).
+    ///
+    /// Ưu tiên ĐÚNG input mode user đang dùng lúc bị đá đi: từ khi VTX có hai mode
+    /// ("VTX Telex" / "VTX Colemak"), lấy cái đầu tiên trong danh sách nghĩa là ai
+    /// đang gõ Colemak cũng bị trả về Telex sau mỗi ô mật khẩu — và bố cục bàn phím
+    /// đổi ngay giữa chừng mà không có gì báo.
     static func reselectVietTelex() -> Bool {
         guard let list = TISCreateInputSourceList(nil, false)?
             .takeRetainedValue() as? [TISInputSource] else { return false }
+        var ours: [(id: String, source: TISInputSource)] = []
         for source in list {
             guard let ptr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID)
             else { continue }
             let id = Unmanaged<CFString>.fromOpaque(ptr).takeUnretainedValue() as String
-            if TelexInputController.inputSourceIsOurs(id) {
-                return TISSelectInputSource(source) == noErr
-            }
+            if TelexInputController.inputSourceIsOurs(id) { ours.append((id, source)) }
         }
-        return false
+        // Mode đang dùng nếu nó còn trong danh sách, không thì bất kỳ mode nào của
+        // mình — về được VTX vẫn hơn là bị bỏ lại ở ABC.
+        let wanted = InputModeState.current.rawValue
+        guard let pick = ours.first(where: { $0.id == wanted }) ?? ours.first else { return false }
+        return TISSelectInputSource(pick.source) == noErr
     }
 
     // MARK: - Thủ phạm từ IOKit

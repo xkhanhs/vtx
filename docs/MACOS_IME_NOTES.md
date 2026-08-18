@@ -357,6 +357,41 @@ Not repaired when the live layout has no `uchr` data to invert (old `KCHR` resou
 logged as `live layout … not invertible`. Non-ASCII keys (⌫, arrows, F-keys) have no
 entry in the table and are never touched.
 
+## Hai input mode trong MỘT bundle — 2026-08-18
+
+Bố cục bàn phím Telex gõ lên (`keyboardLayoutID`) vốn là MỘT setting toàn cục: muốn
+đổi QWERTY ↔ Colemak phải mở Settings. Cách để ⌃Space chuyển được như hai bàn phím
+bất kỳ là khai báo **hai input mode** trong `ComponentInputModeDict` của `Info.plist`:
+
+```
+com.vtx.inputmethod.telex.vi          → "VTX Telex"   → keyboardLayoutID
+com.vtx.inputmethod.telex.vi-colemak  → "VTX Colemak" → altKeyboardLayoutID
+```
+
+Mỗi mode là một `TISInputSourceID` riêng nên macOS liệt kê riêng, nhưng **chung một
+process, một controller, một engine** — chỉ khác bố cục được ghim.
+
+Những chỗ dễ sai:
+
+- **Không có API hỏi ngược "mode nào đang chạy".** Kênh duy nhất là
+  `setValue(_:forTag:client:)` với `kTextServiceInputModePropertyTag`. `InputModeState`
+  cache lại từ callback đó; mặc định `.telex` để nếu IMKit không gửi thì rơi về đúng
+  hành vi trước khi có tính năng này.
+- **Đổi mode = đổi bàn phím giữa chừng.** Phải `dropComposition` trong callback: âm
+  đang dựng dở được gõ trên bố cục KIA, commit nó vào mode mới sẽ ra chữ user không hề bấm.
+- **Icon phải là file RIÊNG (`MenuIconAlt.pdf`), không dùng lại `MenuIcon2.pdf`.**
+  `MenuIconSwitcher` ghi đè `MenuIcon.pdf` bằng `MenuIcon1/2` theo lựa chọn của user;
+  nếu mode 2 trỏ vào `MenuIcon2.pdf` thì user chọn icon sao là hai mode chung badge.
+- **`reselectVietTelex()` phải chọn ĐÚNG mode đang dùng.** Nó vốn lấy source ĐẦU TIÊN
+  khớp `inputSourceIsOurs` — với hai mode thì ai đang gõ Colemak cũng bị trả về Telex
+  sau mỗi lần secure input nhả ra hoặc sau mỗi lần bấm hotkey toggle.
+- `inputSourceIsOurs` khớp theo PREFIX bundle id nên mode mới tự động được nhận —
+  sticky, tap reconcile, secure-input monitor không cần sửa.
+
+Đổi metadata input mode ⇒ **notarize + logout/login một lần**. Đây đúng loại thay đổi
+làm `AppleEnabledInputSources` bị dựng lại (xem mục ⌘R ở dưới) — export
+`com.apple.HIToolbox` ra file trước khi cài.
+
 ## Menu badge metrics — match the system, measured — 2026-08-13
 
 The badge looked small next to the system's own and no amount of margin tuning fixed

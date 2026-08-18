@@ -1,4 +1,5 @@
 "CFBundleName" = "VTX";
 "CFBundleDisplayName" = "VTX";
 "com.vtx.inputmethod.telex" = "VTX";
-"com.vtx.inputmethod.telex.vi" = "VTX";
+"com.vtx.inputmethod.telex.vi" = "VTX Telex";
+"com.vtx.inputmethod.telex.vi-colemak" = "VTX Colemak";
