@@ -379,9 +379,14 @@ Những chỗ dễ sai:
   hành vi trước khi có tính năng này.
 - **Đổi mode = đổi bàn phím giữa chừng.** Phải `dropComposition` trong callback: âm
   đang dựng dở được gõ trên bố cục KIA, commit nó vào mode mới sẽ ra chữ user không hề bấm.
-- **Icon phải là file RIÊNG (`MenuIconAlt.pdf`), không dùng lại `MenuIcon2.pdf`.**
-  `MenuIconSwitcher` ghi đè `MenuIcon.pdf` bằng `MenuIcon1/2` theo lựa chọn của user;
-  nếu mode 2 trỏ vào `MenuIcon2.pdf` thì user chọn icon sao là hai mode chung badge.
+- **Mỗi mode một file icon riêng, tĩnh** — `MenuIcon.pdf` (VX) và `MenuIconAlt.pdf` (★).
+  `MenuIconSwitcher` (17/08) cho user đổi icon bằng cách GHI ĐÈ `MenuIcon.pdf` trong
+  bundle đã ký; sau khi có mode thứ hai, ai từng chọn "ngôi sao" là hai mode chung
+  badge — đã đo trên máy 18/08: `MenuIcon.pdf`, `MenuIcon2.pdf`, `MenuIconAlt.pdf`
+  cùng một md5. Đã **gỡ hẳn** switcher: icon là metadata tĩnh của từng mode, đường
+  ghi-đè-bundle không còn tồn tại, và `codesign --verify --deep --strict` lại dùng
+  được làm bằng chứng bundle nguyên vẹn. Khôi phục `MenuIcon.pdf` về đúng nội dung
+  lúc ký là seal lành lại ngay, không cần cài lại.
 - **`reselectVietTelex()` phải chọn ĐÚNG mode đang dùng.** Nó vốn lấy source ĐẦU TIÊN
   khớp `inputSourceIsOurs` — với hai mode thì ai đang gõ Colemak cũng bị trả về Telex
   sau mỗi lần secure input nhả ra hoặc sau mỗi lần bấm hotkey toggle.

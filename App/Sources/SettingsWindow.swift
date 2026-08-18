@@ -102,15 +102,6 @@ final class SettingsModel: ObservableObject {
     @Published var safeUnknownApps: Bool { didSet { AppState.shared.safeUnknownApps = safeUnknownApps } }
     @Published var stickyInputSource: Bool { didSet { AppState.shared.stickyInputSource = stickyInputSource } }
     @Published var switchHotkey: String { didSet { AppState.shared.switchHotkey = switchHotkey } }
-    /// "vt" / "star". didSet ghi đè MenuIcon.pdf ngay (hiệu lực sau restart máy);
-    /// menuIconApplied bật để view hiện dòng "cần khởi động lại".
-    @Published var menuIcon: String {
-        didSet {
-            AppState.shared.menuIcon = menuIcon
-            if MenuIconSwitcher.applyIfNeeded(choice: menuIcon) { menuIconApplied = true }
-        }
-    }
-    @Published var menuIconApplied = false
     @Published var bracketVowels: Bool { didSet { AppState.shared.bracketVowels = bracketVowels } }
     /// ASCII keyboard layout Telex composes on ("" = inherit macOS's). Applied
     /// immediately as well as persisted: waiting for the next activateServer would
@@ -191,7 +182,6 @@ final class SettingsModel: ObservableObject {
         safeUnknownApps = AppState.shared.safeUnknownApps
         stickyInputSource = AppState.shared.stickyInputSource
         switchHotkey = AppState.shared.switchHotkey
-        menuIcon = AppState.shared.menuIcon
         bracketVowels = AppState.shared.bracketVowels
         // A layout uninstalled since it was chosen (system update, removed third-party
         // bundle) would leave the Picker with no matching tag and render blank — fall
@@ -932,18 +922,6 @@ struct ExperimentalTab: View {
                 }
                 Text(model.loc("Press and release the modifiers alone to toggle between VietTelex and your previous input source — the modifier-only combos macOS's own Keyboard Shortcuts can't assign. Ignored if you type a key or click while holding them. Needs Accessibility permission."))
                     .font(.caption).foregroundStyle(.secondary)
-            }
-            Section(header: Label(model.loc("Menu bar icon"), systemImage: "star.square")) {
-                Picker(model.loc("Icon"), selection: $model.menuIcon) {
-                    Text("VX — " + model.loc("default")).tag("vt")
-                    Text("★ — " + model.loc("five-pointed star")).tag("star")
-                }
-                Text(model.loc("Changing the menu icon rewrites a file inside the app, which breaks the app's code signature seal (the app keeps working and keeps its permissions). Requires a Mac restart to take effect."))
-                    .font(.caption).foregroundStyle(.secondary)
-                if model.menuIconApplied {
-                    Text(model.loc("Icon saved — restart your Mac to see it."))
-                        .font(.caption).foregroundStyle(.orange)
-                }
             }
             Section(header: Label(model.loc("Unknown apps"), systemImage: "questionmark.app")) {
                 Toggle(model.loc("Unknown apps use the safe channel (tap/marked)"),

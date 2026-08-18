@@ -80,10 +80,13 @@ final class AppState: @unchecked Sendable {
     /// FrontmostApp.shared.bundleID instead, so this needs no lock.
     var currentBundleID: String?
 
-    // Defaults keys from the old VI/EN enable-disable + hotkey design, no longer read.
-    // Removed once on launch so they don't linger in the settings suite.
+    // Defaults keys from designs that no longer exist, removed once on launch so they
+    // don't linger in the settings suite. "menuIcon" is from the menu-bar icon picker
+    // (17/08–18/08/2026): each input mode now names its own icon in Info.plist, so the
+    // picker's overwrite-a-signed-resource trick is gone with it.
     private static let legacyKeys = [
         "globalDefault", "perApp", "alwaysOffApps", "hotkeyKeyCode", "hotkeyModifiers",
+        "menuIcon",
     ]
 
     private init() {
@@ -280,14 +283,6 @@ final class AppState: @unchecked Sendable {
         get { lock.withLock { _switchHotkey } }
         set { lock.withLock { _switchHotkey = newValue }
               defaults.set(newValue, forKey: "switchHotkey") }
-    }
-
-    /// Biểu tượng bộ gõ trên menu bar: "vt" (mặc định) hoặc "star". Áp dụng bằng cách
-    /// ghi đè MenuIcon.pdf trong bundle — đọc MenuIconSwitcher.swift cho các rủi ro
-    /// đã cân nhắc (seal gãy, cần restart, tự áp lại sau mỗi lần update).
-    var menuIcon: String {
-        get { defaults.string(forKey: "menuIcon") ?? MenuIconSwitcher.defaultChoice }
-        set { defaults.set(newValue, forKey: "menuIcon") }
     }
 
     /// Giành lại VietTelex khi macOS TỰ đổi input source theo document (Word coi mỗi
