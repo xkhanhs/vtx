@@ -31,12 +31,31 @@ enum InputMode: String {
     case altLayout = "com.vtx.inputmethod.telex.vi-colemak"
 
     /// The layout id this mode composes on, as KeyboardLayoutOverride.apply wants it.
+    ///
+    /// Empty means opposite things for the two modes, which is why this is not one
+    /// lookup. For `.telex` empty is a real choice — "inherit macOS's layout", the
+    /// 1.6.10 behaviour and still the default. For `.altLayout` there is no such
+    /// choice to express: a mode that exists to pin a SECOND layout has nothing to do
+    /// while unset, so empty there only ever means "the user has not opened Settings
+    /// yet" and must resolve to the Colemak the mode is named after. Leaving the
+    /// resolution in the Settings model alone shipped a mode that typed QWERTY until
+    /// the user visited a window they had no reason to visit (measured 18/08/2026:
+    /// `altKeyboardLayoutID` absent from the defaults suite, mode 2 composing on ABC).
     var pinnedLayoutID: String {
         switch self {
-        case .telex:     return AppState.shared.keyboardLayoutID
-        case .altLayout: return AppState.shared.altKeyboardLayoutID
+        case .telex:
+            return AppState.shared.keyboardLayoutID
+        case .altLayout:
+            let stored = AppState.shared.altKeyboardLayoutID
+            return stored.isEmpty ? Self.resolvedDefaultAlt : stored
         }
     }
+
+    /// Resolved ONCE: `defaultAltLayoutID()` walks every installed layout bundle, far
+    /// too much for a per-focus-change call. Installing a keyboard layout mid-session
+    /// and expecting this to notice is not a case worth a rescan — the Settings picker
+    /// resolves fresh, and choosing there writes a real value that skips this entirely.
+    private static let resolvedDefaultAlt: String = KeyboardLayoutOverride.defaultAltLayoutID()
 }
 
 enum InputModeState {
