@@ -95,9 +95,12 @@ Changing bundle id or input-mode metadata in `Info.plist` needs a logout/login o
   usually a missing ancestor, not a bad pick.
 - An upstream commit that adds user-facing strings ships upstream's NAME in them. After
   a sync, grep both `Localizable.strings` for `VietTelex` on the VALUE side and add a
-  fork override — keys stay verbatim so later cherry-picks keep applying. Same hazard
-  in resources: the menu-icon picker's `MenuIcon1.pdf` is upstream's Vᴛ mark, and
-  selecting "default" would have overwritten the VX badge with it.
+  fork override — keys stay verbatim so later cherry-picks keep applying. The same
+  hazard lives in resources: an upstream icon landing on `MenuIcon.pdf` replaces the VX
+  badge. Each input mode names its own icon file in `Info.plist` (`MenuIcon.pdf` = VX
+  for Telex, `MenuIconAlt.pdf` = ★ for Colemak) and nothing rewrites them at runtime —
+  the picker that used to do that is gone (18/08/2026), so a changed badge means a
+  changed resource in the repo.
 - The updater's designated requirement pins this fork's identifier and team, so an
   upstream artifact can never install over VTX. Keep it that way.
 - Settings live in the `com.viettelex.settings` defaults suite, deliberately: it carries

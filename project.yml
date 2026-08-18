@@ -43,17 +43,9 @@ targets:
         buildPhase: resources
       - path: App/Resources/MenuIcon.pdf
         buildPhase: resources
-      # Bộ icon user chọn được (tab Thử nghiệm): MenuIcon.pdf là file ACTIVE mà
-      # Info.plist trỏ tới; 1 = bản gốc Vᴛ (để quay lại), 2 = sao 5 cánh.
-      # MenuIconSwitcher ghi đè file active theo lựa chọn — xem file đó cho rủi ro
-      # seal đã chấp nhận (maintainer 17/08/2026).
-      - path: App/Resources/MenuIcon1.pdf
-        buildPhase: resources
-      - path: App/Resources/MenuIcon2.pdf
-        buildPhase: resources
-      # Icon của input mode thứ hai (VTX Colemak). File RIÊNG, không phải MenuIcon2:
-      # MenuIconSwitcher ghi đè MenuIcon.pdf theo lựa chọn của user, và mode 2 phải
-      # giữ được badge khác mode 1 kể cả khi user chọn icon sao cho mode 1.
+      # Badge của input mode thứ hai (VTX Colemak, ngôi sao). Mỗi mode trỏ tới file
+      # icon của riêng nó trong Info.plist — icon là metadata tĩnh, KHÔNG ghi đè
+      # file trong bundle đã ký (xem docs/MACOS_IME_NOTES.md).
       - path: App/Resources/MenuIconAlt.pdf
         buildPhase: resources
       - path: App/Resources/PrivacyInfo.xcprivacy
