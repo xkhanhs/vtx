@@ -1826,6 +1826,16 @@ final class TelexInputController: IMKInputController {
             menu.addItem(status)
         }
 
+        // Chế độ gõ đang áp dụng + click = copy snapshot giải thích VÌ SAO chọn nó
+        // (maintainer 19/08/2026). Trả lời đúng câu hỏi hay gặp nhất trong bug report:
+        // "app này đang gõ kiểu gì, và vì sao".
+        let strategy = NSMenuItem(title: VTLocalized("Typing mode") + ": "
+                                    + strategyLabel(AppState.shared.currentBundleID, localized: true),
+                                 action: #selector(copyStrategySnapshot(_:)), keyEquivalent: "")
+        strategy.target = self
+        strategy.toolTip = VTLocalized("Click to copy the debug info explaining this choice")
+        menu.addItem(strategy)
+
         // Everything else lives in the Settings window (Chung + Gõ tắt tabs). The menu
         // stays minimal: status + Settings.
         let settings = NSMenuItem(title: VTLocalized("Settings…"), action: #selector(openSettings(_:)), keyEquivalent: "")
@@ -2104,6 +2114,12 @@ final class TelexInputController: IMKInputController {
         SettingsWindowController.shared.show(tab: .general)
     }
 
+    @objc private func copyStrategySnapshot(_ sender: Any?) {
+        // Async: menu input-method còn đang đóng, alert phát đồng bộ từ đó không hiện
+        // (cùng lý do đã ghi ở showStatus).
+        DispatchQueue.main.async { [weak self] in self?.showDebugLog() }
+    }
+
     @objc private func showStatus(_ sender: Any?) {
         // Defer to the next runloop tick: the input-method menu is still dismissing
         // when this fires, and running an NSAlert modal synchronously from that context
@@ -2217,6 +2233,19 @@ final class TelexInputController: IMKInputController {
     }
 
     /// Permission OK: show a debug snapshot of the runtime state.
+    /// Nhãn chế độ gõ ĐANG áp dụng cho app hiện tại — dùng cho cả dòng menu (tiếng
+    /// Việt hoá) lẫn snapshot (giữ nguyên tiếng Anh để grep bug report). tapRouting,
+    /// không phải các getter per-mode: page content trong browser routes sang tap BY
+    /// POLICY (06/08) mà app không hề nằm trong set tap-mode nào.
+    func strategyLabel(_ id: String?, localized: Bool) -> String {
+        let routing = AppState.shared.tapRouting(id)
+        if routing.selection { return localized ? VTLocalized("Selection-replace") : "tap · selection-replace (Chromium)" }
+        if routing.tap { return localized ? VTLocalized("Tap (backspace)") : "tap · backspace" }
+        if routing.emptyReset { return localized ? VTLocalized("Empty-reset") : "tap · emptyReset" }
+        if usesMarkedNow(id) { return localized ? VTLocalized("Marked text") : "IMKit · marked text" }
+        return localized ? VTLocalized("In-place") : "IMKit · in-place"
+    }
+
     private func showDebugLog() {
         // Snapshot là lúc user đang thắc mắc "sao thế này" — re-check secure input
         // ngay thay vì đợi nhịp poll 5s.
@@ -2226,13 +2255,7 @@ final class TelexInputController: IMKInputController {
         // tap BY POLICY (2026-08-06) without the app ever being in a tap-mode set,
         // so the old usesTapMode-based label showed "in-place" for a key the tap
         // actually handled.
-        let routing = AppState.shared.tapRouting(id)
-        let mode: String
-        if routing.selection { mode = "tap · selection-replace (Chromium)" }
-        else if routing.tap { mode = "tap · backspace" }
-        else if routing.emptyReset { mode = "tap · emptyReset" }
-        else if AppState.shared.usesMarkedText(id) { mode = "IMKit · marked text" }
-        else { mode = "IMKit · in-place" }
+        let mode = strategyLabel(id, localized: false)
         let s = AppState.shared
         let bundle = Bundle(for: TelexInputController.self)
         let ver = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
@@ -2248,8 +2271,21 @@ final class TelexInputController: IMKInputController {
                 + (SyntheticKeyboard.tripped ? " (breaker tripped)" : ""),
             SecureInputMonitor.shared.snapshotLine,
             "Spotlight visible: \(SpotlightDetector.isVisible ? "yes" : "no")",
-            "Current app: \(id)",
+            "Current app: \(id)"
+                + (FrontmostApp.shared.bundleID.map { $0 == id ? "" : "  (frontmost: \($0))" } ?? ""),
             "Strategy: \(mode)",
+            "",
+            "— why this strategy —",
+            "Built-in rule: \(AppState.shared.autoResolvedMode(id).map { "\($0)" } ?? "none (unknown app)")",
+            "Manual pin: \(AppState.shared.manualMode(id).map { "\($0)" } ?? "none")",
+            "Learned: \(AppState.shared.isLearnedInPlace(id) ? "in-place OK" : "—")"
+                + (AppState.shared.usesTapMode(id) ? " / tap-fallback" : ""),
+            "Unknown apps → safe channel: \(onOff(s.safeUnknownApps))",
+            "Field verdict: selection=\(FocusedFieldDetector.wantsSelection ? "yes" : "no")"
+                + " marked=\(FocusedFieldDetector.wantsMarkedField ? "yes" : "no")"
+                + " forcedMarked=\(fieldForcedMarked ? "yes" : "no")",
+            "Web host: \(FocusedFieldDetector.debugLastHost ?? "—")",
+            "AX role chain: [\(FocusedFieldDetector.debugRoleChain())]",
             "",
             "Simple Telex: \(onOff(s.simpleTelex))",
             "Free marking: \(onOff(s.freeMarking))",
@@ -2258,11 +2294,18 @@ final class TelexInputController: IMKInputController {
             "Auto restore: \(onOff(s.autoRestore))",
             "Collision priority: \(s.collisionPrefersVietnamese ? "Vietnamese" : "English")",
         ]
-        // No popup — just copy the debug snapshot to the clipboard so the user can
-        // paste it straight away (typing is unreliable when something's wrong).
+        // Copy vào clipboard để user dán thẳng vào báo lỗi (lúc có sự cố thì gõ lại
+        // không đáng tin). CÓ alert xác nhận: đây là dòng menu TƯỜNG MINH ("Chế độ
+        // gõ: …"), khác hidden feature click-dòng-version đã bỏ 15/08 — user bấm có
+        // chủ đích thì phải biết chuyện gì vừa xảy ra.
         let text = lines.joined(separator: "\n")
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+        let alert = NSAlert()
+        alert.messageText = VTLocalized("Debug info copied")
+        alert.informativeText = VTLocalized("Paste it into your bug report (⌘V).")
+        alert.addButton(withTitle: VTLocalized("OK"))
+        alert.runModal()
     }
 
 }

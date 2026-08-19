@@ -268,3 +268,9 @@ Bấm “Sửa tự động”: VTX tự xoá mục bị kẹt của chính nó 
 "Erase the collected words?" = "Xoá dữ liệu đã gom?";
 "The word list and its file are deleted and counting starts from zero. This can’t be undone." = "Danh sách từ và file của nó bị xoá, bộ đếm về 0. Không hoàn tác được.";
 "Erase" = "Xoá";
+
+/* Dòng "Chế độ gõ" trong menu (maintainer 19/08/2026) */
+"Typing mode" = "Chế độ gõ";
+"Click to copy the debug info explaining this choice" = "Bấm để sao chép thông tin gỡ lỗi giải thích lựa chọn này";
+"Debug info copied" = "Đã sao chép thông tin gỡ lỗi";
+"Paste it into your bug report (⌘V)." = "Dán vào báo lỗi của bạn (⌘V).";

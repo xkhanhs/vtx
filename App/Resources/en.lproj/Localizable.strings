@@ -110,3 +110,9 @@ Press “Repair automatically”: VTX removes its own stuck entry and asks for t
 
 /* TẠM THỜI — bộ ghi từ hay gõ (WordLog). Gỡ cùng tính năng. */
 "VietTelex: enough typing samples collected" = "VTX: enough typing samples collected";
+
+/* Typing-mode menu line (maintainer 19/08/2026) */
+"Typing mode" = "Typing mode";
+"Click to copy the debug info explaining this choice" = "Click to copy the debug info explaining this choice";
+"Debug info copied" = "Debug info copied";
+"Paste it into your bug report (⌘V)." = "Paste it into your bug report (⌘V).";
