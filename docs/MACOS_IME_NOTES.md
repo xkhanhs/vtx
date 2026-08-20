@@ -78,6 +78,23 @@ Ba chi tiết phải giữ:
 Cache: TTL 300ms + invalidate khi `activateServer` (đổi ô/đổi app). Ký tự ĐẦU của
 password mà đọc trễ thì vô hại — engine chỉ ghi lại text từ phím thứ hai của âm tiết.
 
+## Khoá secure input MỒ CÔI: process chết không nhả — 2026-08-18 (field case Lark)
+
+Lark bật secure input (ô mật khẩu) rồi bị quit → `ps -p <pid>` trống nhưng
+`ioreg` vẫn báo PID đó giữ `kCGSSessionSecureInputPID` — record kẹt theo PHIÊN,
+`pkill` thêm gì cũng vô ích, mọi IME bên thứ ba vô hiệu. Bình thường macOS tự
+dọn khi process chết; ca này là bookkeeping của WindowServer kẹt lại.
+
+Gỡ, theo thứ tự rẻ → chắc:
+1. **Khoá màn hình (⌃⌘Q) rồi mở lại** — FIELD-VERIFIED 18/08: loginwindow chiếm
+   secure input lúc lock rồi nhả khi unlock, ghi đè record mồ côi. Đây là hint
+   icon Vᵀ⃠ hiện khi `Holder.alive == false`.
+2. Đăng xuất / đăng nhập lại — chắc chắn 100%.
+
+Không chặn trước được: secure input là nguyên thủy bảo mật của OS, không có API
+cho app thứ ba từ chối/nhả hộ (cố tình — nhả hộ được thì malware cũng làm được).
+Fix gốc thuộc về app giữ khoá (lớp bug Electron: Enable không Disable khi thoát).
+
 ## "Quyền Trợ năng bị kẹt": nguyên nhân thật và cách sửa dứt điểm — 2026-07-27
 
 **Cơ chế.** Grant Accessibility nằm ở TCC.db hệ thống, mỗi dòng gồm bundle id + một
@@ -679,6 +696,99 @@ cfprefsd`. Cũng nhớ thêm lại layout non-Apple đã mất cùng — nó rơ
 Bẫy phụ khi dọn: `~/Library/Preferences/com.viettelex.settings.plist` **KHÔNG** phải rác
 của upstream — đó là suite settings VTX đang dùng thật (xem `CLAUDE.md`). Xoá nó là mất
 `manualAppModes`, `keyboardLayoutID`, toàn bộ cấu hình người dùng.
+
+## WebKit KHÔNG nuốt synthetic — nó bỏ event ĐẾN CÙNG LÚC (đo 2026-08-19)
+
+Sửa lại hiểu biết từ #44/#47: comment cũ ghi "Safari/WebKit macOS 26 nuốt synthetic
+burst của tap" — **sai cơ chế**. Đo trực tiếp vào page content Safari (probe tự
+post + user đọc màn hình, macOS 26):
+
+| Thí nghiệm | Kết quả |
+|---|---|
+| 1 ký tự qua `.cghidEventTap` | **sống** |
+| 1 ký tự qua `.cgSessionEventTap` | **sống** |
+| 3 ký tự, nghỉ 40ms giữa các phím | **sống** |
+| burst `⌫ ⌫ + XY`, **không nghỉ** (gap 0µs) | **BỊ NUỐT TRỌN** |
+| cùng burst, gap **1ms** giữa mỗi event | **sống** |
+| gap 3ms / 5ms / 10ms / 20ms | **sống** |
+
+Kết luận: điểm post KHÔNG quan trọng (HID và session như nhau); thứ bị bỏ là các
+event mang timestamp/thời điểm **quá sát nhau** — WebKit coalesce hoặc rate-limit
+chuỗi event không có gốc phần cứng. **Thêm ~1ms nhịp giữa mỗi event là burst sống
+hoàn hảo** (⌫ ăn đúng, thứ tự đúng).
+
+Hệ quả: lớp bug #44 (Safari), #47 (Spark), Outlook, MarkEdit đáng lẽ chữa được
+bằng NHỊP, không phải bằng cách né sang in-place/marked. Xác nhận chéo: bộ gõ
+event-tap khác (xkey) dùng injection delay 1000–6000µs mỗi phím — giờ biết vì sao
+họ cần nó. Cái giá của nhịp: tone edit 1⌫+1 chữ = 4 event ⇒ ~4-8ms, dưới một
+frame 60Hz, không cảm nhận được.
+
+Ghi chú đo: process đo có `canPostEvents=true` nhưng `AXIsProcessTrusted()` báo
+true trong khi đọc AX trả `-25204` (kAXErrorAPIDisabled) — post được mà đọc
+không được. Đây lại là một biến thể "AXIsProcessTrusted nói dối", cùng họ với
+mục stale-grant ở trên: dùng preflight đúng-quyền, đừng tin cờ tổng.
+
+
+### …nhưng NHỊP KHÔNG DÙNG ĐƯỢC trong kiến trúc tap hiện tại (thử và REVERT 19/08)
+
+Đã thử đúng lời giải mà bảng đo chỉ ra: gap 2ms giữa mỗi event (chỉ họ WebKit),
+ngân sách 30ms/burst, bỏ carve-out để page content Safari đi tap. Kết quả
+field-test NGAY ca đầu (comment TikTok, gõ nhanh): `chuur tichj gif` → **"chu
+ticị gi"** — mất dấu, lộn chữ. Revert toàn bộ.
+
+Nguyên nhân: `SyntheticKeyboard.apply` chạy **TRONG tap callback**, và callback là
+SERIAL — mỗi µs nghỉ trong đó là một µs phím thật của user bị chặn ở cửa. Gõ
+nhanh (~30ms/phím) mà burst giữ cửa 8-30ms thì phím kế tiếp dồn lại và engine
+mất đồng bộ với màn hình. Nhịp cứu được WebKit nhưng phá chính hợp đồng
+"engine ↔ màn hình" mà cả kiến trúc tap dựa vào.
+
+Nghĩa là: **gap-0 không phải sơ suất, nó là hệ quả bắt buộc của việc post đồng bộ
+trong callback.** Muốn dùng nhịp thì phải đổi kiến trúc: post burst trên một
+serial queue RIÊNG (callback trả về ngay), và khi đó phải thiết kế lại toàn bộ
+phần đồng bộ hiện có — `queueDrained`, in-flight counter, thứ tự với phím thật,
+guard echo của Electron. Đó là việc lớn, chưa làm.
+
+Cho tới lúc đó, đường né vẫn là đường đúng cho lớp WebKit: page content Safari →
+IMKit in-place (carve-out #44), editor nào phá in-place → marked theo host
+(`markedFieldURL`: Google Docs canvas, TikTok comment box). Bảng đo ở mục trên
+vẫn giá trị — nó nói *vì sao* burst chết, và rằng ranh giới không phải "WebKit
+chặn synthetic".
+
+
+## Editor web lớp marked: KHÔNG chốt được từ cuối nếu không có event THẬT đi sau — 2026-08-19/20 (TikTok/Safari)
+
+Field: comment box TikTok trên Safari, gõ "thử xem" + Enter → post ra **mỗi
+"thử"**. Đường đi: Safari page content → in-place (carve-out #44), editor TikTok
+phá in-place → `markedFieldURL` cho về marked; ở marked, Enter phải chốt
+composition trước.
+
+**SÁU ngả đã thử, đo từng ngả, VỠ CẢ SÁU:**
+
+| Ngả | Kết quả |
+|---|---|
+| nuốt + re-post Enter ngay (hành vi mặc định) | mất từ cuối |
+| nuốt + re-post hoãn 60ms | mất từ cuối |
+| nuốt + re-post hoãn 300ms | mất từ cuối |
+| KHÔNG nuốt, để Enter thật đi sau commit | mất từ cuối |
+| chốt + post space SYNTHETIC rồi Enter | mất từ cuối |
+| nuốt hẳn (chốt), user bấm Enter lần hai | **vẫn** mất từ cuối |
+
+Ngả cuối là bằng chứng quyết định: nếu chỉ là chuyện thứ tự thì "chốt rồi để user
+tự bấm" phải đúng. Nó vẫn sai ⇒ **`insertText` commit KHÔNG vào DOM chút nào** khi
+không có event THẬT của người dùng đi sau. Đối chứng trong cùng câu: từ "thử" —
+chốt bởi **space thật** — luôn vào; space **synthetic** thì không. Tức editor
+phân biệt event thật/giả ở tầng nào đó trong đường composition; không API nào của
+IME chạm tới được.
+
+**Chốt: đây là GIỚI HẠN ĐÃ BIẾT, không sửa.** Ngả "Enter hai lần" đã revert vì
+không cứu được TikTok mà lại làm Google Docs tệ hơn (Enter hai lần mới xuống dòng).
+
+Workaround cho user (đã field-verify 20/08):
+1. **Bấm dấu cách trước Enter** — space thật chốt được từ cuối. ✅ xác nhận đủ chữ.
+2. **Dùng Chrome cho TikTok** — page content Chromium đi kênh tap, không dính lớp này.
+
+Đừng thử lại sáu ngả trên mà chưa có bằng chứng mới (ví dụ macOS/WebKit đổi hành vi).
+
 
 ## Debug commands
 
