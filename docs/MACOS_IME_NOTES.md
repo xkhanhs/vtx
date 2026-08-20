@@ -397,6 +397,55 @@ Những chỗ dễ sai:
 làm `AppleEnabledInputSources` bị dựng lại (xem mục ⌘R ở dưới) — export
 `com.apple.HIToolbox` ra file trước khi cài.
 
+## Tự cài một bố cục bàn phím (Colemak DH-Việt) — 2026-08-20
+
+VTX không định nghĩa bố cục nào cả; nó **ghim** vào một layout đã cài trong máy. Nên
+"đổi VTX sang bố cục X" thật ra là hai việc rời nhau: cài X thành một keyboard layout
+của macOS, rồi trỏ VTX vào nó.
+
+Bước trỏ ấy có **hai** khoá, không phải một (mục trên), và ghi nhầm khoá thì không có
+triệu chứng gì — chỉ là bố cục vừa cài không bao giờ được dùng. Đo 20/08/2026: ghi
+`keyboardLayoutID` trong khi bố cục mới thuộc về mode `.altLayout`, kết quả là mode
+Colemak vẫn gõ bố cục cũ *và* mode Telex bị đổi oan, không mode nào kêu một tiếng. Đọc
+`InputMode.pinnedLayoutID` để biết mode nào đọc khoá nào trước khi `defaults write`.
+
+Bố cục DH-Việt — Colemak-DH-angle chỉnh lại cho luồng phím Telex — sinh ra bằng
+`Scripts/make-dh-viet-layout.py`, hoán vị 12 keycode trên bản Colemak DH ANSI của
+colemakmods. Số đo, corpus kiểm định và lý do từng cú đổi nằm ở repo `keybear`
+(`docs/dh_viet_layout.md`). Ba điều đo được ở đây:
+
+**Bundle cấp user KHÔNG cần logout.** Tài liệu và mọi hướng dẫn trên mạng đều bảo phải
+đăng xuất, vì `## Registration only PERSISTS via the login scan` đúng cho *input
+method*. Keyboard layout thì khác: chép vào `~/Library/Keyboard Layouts/` xong,
+`TISCreateInputSourceList` thấy ngay trong cùng một phiên (đo 2026-08-20). Đừng bắt
+người dùng đăng xuất cho một việc không cần.
+
+**`TISInputSourceID` trong `Info.plist` bị bỏ qua.** Nó *trông như* chỗ khai id, nhưng
+macOS tự dựng id từ `<keyboard name=>` của tệp `.keylayout`, bỏ khoảng trắng:
+
+```
+Info.plist  TISInputSourceID = …colemakdhviet.keylayout.ColemakDHViet
+thực tế TIS trả về            …colemakdhviet.keylayout.ColemakDH-Viet
+```
+
+Ghim vào cái id trong plist thì `apply` báo `not installed` rồi im lặng không remap —
+lại một kiểu hỏng không triệu chứng. Luôn đọc id thật ra bằng `TISCreateInputSourceList`
+trước khi ghim.
+
+**Hoán vị phải chạy trên CẢ TÁM key map, và mang theo attribute chứ không mang ký tự.**
+Tệp nguồn có 8 map (thường, shift, caps, option, và các tổ hợp) cộng một bảng `action`
+cho dấu Option. Một phím có thể là `output="q"` hoặc `action="14"` (phím chết); chép
+`output` mà bỏ `action` thì bảng dấu Option lệch khỏi chữ, và sáu tháng sau mới lộ.
+Script vì thế bê nguyên chuỗi attribute, và tự kiểm: sau hoán vị, tập keycode và
+multiset giá trị của từng map phải y hệt bản gốc.
+
+Kiểm chứng cuối cùng là `UCKeyTranslate` trên `kTISPropertyUnicodeKeyLayoutData` đọc
+ra từ TIS — đúng đường VTX đi — chứ không phải đọc lại tệp XML mình vừa ghi.
+
+Lưu ý ngược lại: `defaultAltLayoutID()` dò theo TÊN (`"colemak dh"` + `"ansi"`), nên khi
+`altKeyboardLayoutID` trống nó vẫn rơi về **DH ANSI**, không phải DH-Việt. Bố cục này
+chỉ được dùng khi có giá trị ghi thật.
+
 ## Menu badge metrics — match the system, measured — 2026-08-13
 
 The badge looked small next to the system's own and no amount of margin tuning fixed
