@@ -2008,7 +2008,12 @@ final class TerminalTapController {
         // flagsChanged: cho hotkey chuyển bộ gõ chỉ-gồm-modifier (SwitchHotkey).
         // Chi phí khi tắt hotkey: một string compare rồi return pass mỗi lần nhấn/nhả
         // modifier — không chạm engine, không chạm policy.
+        // keyUp is in the mask for ONE reason: a ⌘/⌃/⌥ chord whose keycode we rewrite on
+        // the way down must be rewritten on the way up too, or the app sees a press and a
+        // release of two DIFFERENT keys (see the keyUp branch in handle()). Every other
+        // keyUp is a type compare and a return.
         let mask = CGEventMask((1 << CGEventType.keyDown.rawValue)
+                             | (1 << CGEventType.keyUp.rawValue)
                              | (1 << CGEventType.flagsChanged.rawValue)
                              | (1 << CGEventType.leftMouseDown.rawValue)
                              | (1 << CGEventType.rightMouseDown.rawValue))
@@ -2188,11 +2193,29 @@ final class TerminalTapController {
     /// macOS is on a different one, the same fence the typing path uses.
     ///
     /// TAP THREAD. `KeyboardLayoutOverride.chordRemap` is lock-guarded for exactly this.
+    /// Re-address a ⌘/⌃/⌥ chord to the pinned layout: hand the app the keycode that the
+    /// LIVE layout resolves to the character the PINNED layout has on the physical key.
+    ///
+    /// KNOWN BROKEN, cause not found (2026-08-31). The event this produces matches a
+    /// genuine chord in every readable field, and the app still does not act on it;
+    /// posting a fresh replacement event instead was tried and fails identically. See
+    /// docs/MACOS_IME_NOTES.md before touching this again.
     private func remapChordKeyCode(_ event: CGEvent, shift: Bool) {
         guard let remap = KeyboardLayoutOverride.chordRemap else { return }
         let code = UInt16(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeycode))
         guard let substitute = remap.substitute(for: code, shift: shift) else { return }
-        event.setIntegerValueField(.keyboardEventKeycode, value: Int64(substitute))
+        event.setIntegerValueField(.keyboardEventKeycode, value: Int64(substitute.code))
+        // The keycode alone is NOT enough. The window server had already resolved the
+        // ORIGINAL keycode into the event's unicode payload before the tap ever saw it,
+        // and that payload is what NSEvent.characters / charactersIgnoringModifiers is
+        // built from — which is how AppKit matches ⌘ key equivalents. Rewriting only the
+        // keycode left the two halves disagreeing, and an app that trusts the characters
+        // still acted on the OLD key: on a pinned Colemak, ⌘C arrived as keycode C with
+        // payload 'v' and PASTED (field report 2026-08-31, observed on a downstream
+        // listen-only tap). ⌘A and ⌘W looked fine only because those keys sit in the same
+        // place on both layouts, so nothing disagreed. Rewrite the payload to match.
+        var unit = UniChar(substitute.ascii)
+        event.keyboardSetUnicodeString(stringLength: 1, unicodeString: &unit)
     }
 
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -2254,6 +2277,22 @@ final class TerminalTapController {
                 engine.reset()
                 DebugLog.log("tap disabled + Accessibility revoked → full teardown, input native")
                 DispatchQueue.main.async { TerminalTapController.shared.trustMayHaveChanged() }
+            }
+            return pass
+        }
+
+        // keyUp. The engine never sees one — the ONLY thing a keyUp can need is the same
+        // re-addressing its keyDown got. Without it the two halves of a chord name
+        // DIFFERENT keys, and Chromium/Electron, which tracks key state by keycode, saw
+        // ⌘C pressed and ⌘V released: the copy never committed (field report 2026-08-31,
+        // ABC's own ⌘C copied fine in the same app and the same window). Nothing else in
+        // this callback applies, so return immediately — a plain keyUp costs one type
+        // compare, one flags read and a return.
+        if type == .keyUp {
+            let flags = event.flags
+            if imeActive,
+               !flags.intersection([.maskCommand, .maskControl, .maskAlternate]).isEmpty {
+                remapChordKeyCode(event, shift: flags.contains(.maskShift))
             }
             return pass
         }

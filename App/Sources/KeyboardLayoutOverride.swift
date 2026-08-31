@@ -104,16 +104,20 @@ enum KeyboardLayoutOverride {
         let pinned: KeyboardLayoutTranslator
         let live: KeyboardLayoutTranslator
 
-        /// The keycode to substitute, or nil to leave the event alone (the key is not
-        /// an ASCII key on the pinned layout, or the live layout can't produce that
-        /// character at all — a substitution guess there would be worse than none).
-        func substitute(for keyCode: UInt16, shift: Bool) -> UInt16? {
+        /// The keycode to substitute AND the character it must resolve to, or nil to
+        /// leave the event alone (the key is not an ASCII key on the pinned layout, or
+        /// the live layout can't produce that character at all — a substitution guess
+        /// there would be worse than none).
+        ///
+        /// The character is returned, not just the keycode, because the event carries
+        /// BOTH and they have to agree — see the caller.
+        func substitute(for keyCode: UInt16, shift: Bool) -> (code: UInt16, ascii: UInt8)? {
             guard let want = pinned.ascii(keyCode: keyCode, shift: shift),
                   live.ascii(keyCode: keyCode, shift: shift) != want,
                   let code = live.keyCode(forASCII: want, shift: shift),
                   code != keyCode
             else { return nil }
-            return code
+            return (code, want)
         }
     }
 
