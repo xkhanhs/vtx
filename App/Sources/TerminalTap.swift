@@ -2186,36 +2186,52 @@ final class TerminalTapController {
     }
 
     // Returning nil suppresses the key; returning the event passes it through.
-    /// Rewrite a ⌘/⌃/⌥ chord's keycode so the app resolves it on the PINNED layout.
+    /// TAP-thread confined: which physical keycodes' keyDowns were substituted, and to
+    /// what — so the matching keyUp gets the SAME substitution, by PAIR, not by flags.
+    /// Users routinely release ⌘ before the letter, so a keyUp gated on modifier flags
+    /// misses exactly those releases and the app sees down/up naming different keys
+    /// (Chromium tracks key state by keycode and never commits the chord).
+    private var chordRemapDowns: [Int64: Int64] = [:]
+
+    /// Re-address a ⌘/⌃/⌥ chord to the pinned layout, IN PLACE: write the keycode the
+    /// LIVE layout resolves to the pinned layout's character, and CLEAR the unicode
+    /// payload so the system re-derives it from the new keycode. Costs one lock-guarded
+    /// read and two array reads, and only for chords; nothing happens unless a layout
+    /// is pinned AND macOS is on a different one — the same fence the typing path uses.
     ///
-    /// Costs one lock-guarded read and two array reads, and only for chords — a plain
-    /// keystroke never gets here. Nothing happens at all unless a layout is pinned AND
-    /// macOS is on a different one, the same fence the typing path uses.
+    /// Both halves are load-bearing (measured 2026-08-31, probe app on macOS 26):
+    ///  • Rewriting only `.keyboardEventKeycode` leaves the window server's precomputed
+    ///    unicode payload naming the OLD key, and apps act on that payload: on a pinned
+    ///    Colemak, ⌘C arrived as keycode C with payload 'v' and PASTED.
+    ///  • "Fixing" the payload with keyboardSetUnicodeString(length 1) makes the event
+    ///    read perfectly in every field (`characters`, `charactersIgnoringModifiers`,
+    ///    flags — verified downstream AND in the receiving app's sendEvent) yet AppKit's
+    ///    key-equivalent matcher no longer matches it against ANY menu item: the chord
+    ///    dies silently. Same result when an unrelated process's tap makes the call, so
+    ///    it is the length-1 set itself that poisons matching, not who performs it.
+    ///  • keyboardSetUnicodeString(length 0) — CLEARING the payload — forces the system
+    ///    to re-derive it from the (new) keycode, and matching works.
     ///
     /// TAP THREAD. `KeyboardLayoutOverride.chordRemap` is lock-guarded for exactly this.
-    /// Re-address a ⌘/⌃/⌥ chord to the pinned layout: hand the app the keycode that the
-    /// LIVE layout resolves to the character the PINNED layout has on the physical key.
-    ///
-    /// KNOWN BROKEN, cause not found (2026-08-31). The event this produces matches a
-    /// genuine chord in every readable field, and the app still does not act on it;
-    /// posting a fresh replacement event instead was tried and fails identically. See
-    /// docs/MACOS_IME_NOTES.md before touching this again.
-    private func remapChordKeyCode(_ event: CGEvent, shift: Bool) {
-        guard let remap = KeyboardLayoutOverride.chordRemap else { return }
-        let code = UInt16(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeycode))
-        guard let substitute = remap.substitute(for: code, shift: shift) else { return }
-        event.setIntegerValueField(.keyboardEventKeycode, value: Int64(substitute.code))
-        // The keycode alone is NOT enough. The window server had already resolved the
-        // ORIGINAL keycode into the event's unicode payload before the tap ever saw it,
-        // and that payload is what NSEvent.characters / charactersIgnoringModifiers is
-        // built from — which is how AppKit matches ⌘ key equivalents. Rewriting only the
-        // keycode left the two halves disagreeing, and an app that trusts the characters
-        // still acted on the OLD key: on a pinned Colemak, ⌘C arrived as keycode C with
-        // payload 'v' and PASTED (field report 2026-08-31, observed on a downstream
-        // listen-only tap). ⌘A and ⌘W looked fine only because those keys sit in the same
-        // place on both layouts, so nothing disagreed. Rewrite the payload to match.
-        var unit = UniChar(substitute.ascii)
-        event.keyboardSetUnicodeString(stringLength: 1, unicodeString: &unit)
+    /// Returns true if the event was rewritten.
+    @discardableResult
+    private func remapChord(_ event: CGEvent, keyDown: Bool) -> Bool {
+        let code = event.getIntegerValueField(.keyboardEventKeycode)
+        let target: Int64
+        if keyDown {
+            guard let remap = KeyboardLayoutOverride.chordRemap,
+                  let sub = remap.substitute(for: UInt16(truncatingIfNeeded: code),
+                                             shift: event.flags.contains(.maskShift))
+            else { chordRemapDowns.removeValue(forKey: code); return false }
+            target = Int64(sub.code)
+            chordRemapDowns[code] = target
+        } else {
+            guard let paired = chordRemapDowns.removeValue(forKey: code) else { return false }
+            target = paired
+        }
+        event.setIntegerValueField(.keyboardEventKeycode, value: target)
+        event.keyboardSetUnicodeString(stringLength: 0, unicodeString: nil)
+        return true
     }
 
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -2289,11 +2305,10 @@ final class TerminalTapController {
         // this callback applies, so return immediately — a plain keyUp costs one type
         // compare, one flags read and a return.
         if type == .keyUp {
-            let flags = event.flags
-            if imeActive,
-               !flags.intersection([.maskCommand, .maskControl, .maskAlternate]).isEmpty {
-                remapChordKeyCode(event, shift: flags.contains(.maskShift))
-            }
+            // Remap is decided by the PAIR (was this key's keyDown remapped?), never by
+            // the current flags: ⌘ is routinely released before the letter, so the
+            // letter's keyUp often carries no modifier at all.
+            remapChord(event, keyDown: false)
             return pass
         }
 
@@ -2420,8 +2435,9 @@ final class TerminalTapController {
             // The chord itself is resolved by the APP, through macOS's live layout —
             // never by us, so pinning a layout could not reach it and ⌘R on a pinned
             // QWERTY fired ⌘P while macOS sat on Colemak. Re-address the event here,
-            // the one place that sees every chord in every app.
-            remapChordKeyCode(event, shift: flags.contains(.maskShift))
+            // the one place that sees every chord in every app (see remapChord for the
+            // two macOS traps that shaped HOW).
+            remapChord(event, keyDown: true)
             // Sticky-source: chord = có thể là hotkey đổi input source (⌃Space/custom)
             // — dấu vết để KHÔNG giành lại (StickyInputSource).
             StickyInputSource.shared.noteUserModifierChord()

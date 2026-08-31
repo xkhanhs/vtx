@@ -1,7 +1,16 @@
 # ⌘-chord bị remap thì KHÔNG có tác dụng — 31/08/2026
 
-Trạng thái: **CHƯA GIẢI QUYẾT**. Đã tìm và sửa hai lỗi thật trên đường đi, nhưng triệu
-chứng gốc còn nguyên. Ghi lại để phiên sau không đi lại các ngõ cụt.
+Trạng thái: **ĐÃ GIẢI QUYẾT cùng ngày** (phiên 10:14). Root cause:
+`keyboardSetUnicodeString(stringLength: 1)` trên chord event làm AppKit không match
+key equivalent nữa — dù mọi trường đọc lại đều hoàn hảo. Fix trong
+`TerminalTap.remapChord`: đổi keycode tại chỗ + `keyboardSetUnicodeString(length 0)`
+(XOÁ payload để hệ tự dẫn xuất lại), keyUp remap theo CẶP thay vì theo cờ. Toàn bộ
+chuỗi thí nghiệm, bảng ma trận và ba kết luận cũ bị lật (trong đó có "nội dung event
+đã loại trừ" và đầu mối "tap ngoài thì được" — hoá ra bị nhiễu bởi mode):
+`docs/MACOS_IME_NOTES.md`, mục "root cause found". Xác nhận bằng phím thật của user:
+⌘C/⌘V chạy ở mode Colemak đang remapping.
+
+Phần dưới giữ nguyên làm hồ sơ lịch sử của phiên điều tra buổi sáng.
 
 Bối cảnh: fork VTX, hai input mode. `VTX Telex` ghim `com.apple.keylayout.ABC`,
 `VTX Colemak` ghim `com.vtx.keyboardlayout.colemakdhviet.keylayout.ColemakDH-Viet`
