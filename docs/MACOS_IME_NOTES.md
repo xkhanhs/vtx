@@ -410,7 +410,7 @@ what the app receives, so "keycode right, payload wrong" is one run away instead
 guess. Reading only our own logs would never have shown it — VTX logged
 `layout-override … remapping` and was, as far as it knew, doing its job.
 
-### …and a rewritten chord DOES NOT ACT — root cause still open (2026-08-31)
+### …and a rewritten chord DOES NOT ACT — RESOLVED same day, see next section (2026-08-31)
 
 With both halves above repaired — keycode AND payload rewritten, keyDown AND keyUp — a
 ⌘ chord that the remap **touches** still does nothing in the app. A chord it leaves
@@ -454,6 +454,67 @@ select it once, so macOS's live layout IS the pinned one. `apply()` then returns
 on that layout itself; Vietnamese still comes from the IME above it. Note this MOVES the
 defect to the other input mode — whichever mode pins something different from the live
 layout is now the one that remaps — so pin both modes to the same layout.
+
+### …root cause found: `keyboardSetUnicodeString(length 1)` poisons key-equivalent matching — 2026-08-31
+
+Found by driving the whole reproduction synthetically (System Events `keystroke` as the
+key source — its chords DO act, unlike bare `CGEventPost` chords built by hand — plus a
+minimal AppKit app whose menu logs which key equivalent actually FIRED, and a
+tail-append listen tap for what goes downstream). That probe app is the instrument that
+cracked it: clipboard-based measurement cannot distinguish "chord ignored" from "chord
+fired an invisible action", and `sendEvent` logging proved delivery while the menu log
+proved (non-)matching. The full matrix, all on macOS 26, all fields byte-identical
+downstream unless noted:
+
+| what reaches the app | how it was made | menu equivalent |
+|---|---|---|
+| kc8 'c' ⌘, untouched | SysEvents keystroke | **fires** |
+| kc8 'c' ⌘, keycode+payload rewritten in a tap | VTX's tap — or an EXTERNAL tap | **dead** |
+| kc0 'a'→payload-only rewrite to 'c' | external tap | **dead** |
+| kc0→kc8, keycode only, payload left | external tap | **fires** (payload re-derived!) |
+| fresh event, keycode 8, no payload set | returned from external tap | **fires** |
+| kc0→kc8 + `keyboardSetUnicodeString(length 0)` (CLEAR) | external tap, and VTX itself | **fires** |
+
+So THREE prior conclusions fall at once:
+
+- "The event content is identical, so content is ruled out" — false. The poison is
+  invisible to every reader: after a length-1 `keyboardSetUnicodeString`,
+  `characters` / `charactersIgnoringModifiers` read back perfectly, but AppKit's
+  key-equivalent matcher no longer matches the event against ANY menu item. Whatever
+  the matcher consults is written by that call and is not exposed to read back.
+- "An external tap doing the same rewrite works, so it's about the IME's process" —
+  false. The one supporting observation was made with VTX in Telex mode, where
+  delivering a well-formed ⌘C works trivially. Under mode-controlled conditions the
+  external rewrite dies identically. Process identity is innocent.
+- "Posting a replacement event fails too, so the delivery mechanism doesn't matter" —
+  the replacement also had its payload set with `keyboardSetUnicodeString(length 1)`.
+  That is why it died.
+
+It also re-explains the ORIGINAL half-applied bug: rewriting only the keycode leaves
+the window server's precomputed payload naming the OLD key — on a HARDWARE event that
+payload is attached and stale (⌘C pasted); on a SysEvents event there is none attached,
+so the system derives it fresh from the new keycode and the chord works. Both halves of
+the old fix were individually right about a real problem and jointly fatal.
+
+**The shipped fix** (`TerminalTap.remapChord`): rewrite `.keyboardEventKeycode` in
+place AND `keyboardSetUnicodeString(stringLength: 0, unicodeString: nil)` — CLEAR, not
+set. The system then re-derives the payload from the new keycode on delivery, matching
+works, and the event keeps its hardware source identity (no fresh-event substitution
+needed). keyUps are remapped by PAIR — a dictionary of which physical keycodes'
+keyDowns were rewritten — never by current flags, because ⌘ is routinely released
+before the letter and a flag-gated keyUp misses exactly those (the same trap that
+invalidated a measurement harness earlier the same day).
+
+Verified against the probe app with VTX's own build in `remapping` state: previously
+dead ⌘C (kc9→kc8) fires Charlie, ⌘C-position (kc8→kc15) fires Romeo, untouched ⌘A
+fires Alpha.
+
+Harness traps this added on top of the report's list: bare `CGEvent` keyboard events
+built in a CLI and posted to any tap location deliver fine but NEVER fire menu
+equivalents (use System Events `keystroke` as the vehicle instead); and on macOS 26 a
+background process may be DENIED activation, so a probe window must be forced frontmost
+via System Events and VERIFIED frontmost immediately before every shot — two "fix
+doesn't work" false negatives came from the probe quietly not having focus.
 
 ## Hai input mode trong MỘT bundle — 2026-08-18
 
