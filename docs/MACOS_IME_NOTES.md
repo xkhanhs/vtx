@@ -374,6 +374,87 @@ Not repaired when the live layout has no `uchr` data to invert (old `KCHR` resou
 logged as `live layout … not invertible`. Non-ASCII keys (⌫, arrows, F-keys) have no
 entry in the table and are never touched.
 
+### …and the keycode is only HALF the chord — 2026-08-31
+
+The address fix above shipped incomplete for two weeks. Field report: on the pinned
+Colemak DH-Việt, ⌘C **pasted**, ⌘X printed, ⌘Z bolded — while ⌘A and ⌘W were fine.
+
+A keyDown carries **two** representations of the key, and the window server resolved the
+second one from the ORIGINAL keycode before the tap ever ran:
+
+- `.keyboardEventKeycode` — what `remapChordKeyCode` rewrote.
+- the unicode payload (`keyboardGetUnicodeString`) — untouched, and the thing
+  `NSEvent.characters` / `charactersIgnoringModifiers` is built from, which is how
+  AppKit matches ⌘ key equivalents.
+
+Measured on a downstream listen-only tap (`.cgSessionEventTap` + `.tailAppendEventTap`,
+which sees events AFTER our `.headInsertEventTap`), pinned DH-Việt / live ABC:
+
+```
+⌘ kc=0  app-sees(ABC)='a'  payload='a'   ⌘A  → correct
+⌘ kc=8  app-sees(ABC)='c'  payload='v'   ⌘C  → PASTES
+⌘ kc=9  app-sees(ABC)='v'  payload='x'   ⌘V  → cuts
+⌘ kc=7  app-sees(ABC)='x'  payload='p'   ⌘X  → prints
+```
+
+**A chord that "works" proves nothing** unless its key sits in the SAME place on both
+layouts. ⌘A (kc 0) and ⌘W (kc 13) are identical on ABC and DH-Việt, so their two halves
+agreed by accident and the bug read as "một số phím tắt không bấm được" instead of
+"the remap is half-applied". 18 of the 20 common letter chords were wrong.
+
+Fix: `remapChordKeyCode` now writes the payload too — `substitute` returns the wanted
+ASCII alongside the keycode so the two can never drift apart again.
+
+That downstream tap is also the diagnostic to reach for first here: it prints exactly
+what the app receives, so "keycode right, payload wrong" is one run away instead of a
+guess. Reading only our own logs would never have shown it — VTX logged
+`layout-override … remapping` and was, as far as it knew, doing its job.
+
+### …and a rewritten chord DOES NOT ACT — root cause still open (2026-08-31)
+
+With both halves above repaired — keycode AND payload rewritten, keyDown AND keyUp — a
+⌘ chord that the remap **touches** still does nothing in the app. A chord it leaves
+alone works. That is the whole rule, and it is app-independent (Claude Desktop, Chrome,
+TextEdit alike):
+
+| chord | rewrite | result |
+|---|---|---|
+| ⌘A (kc 0→0), ⌘W (13→13) | none | works |
+| ⌘C (9→8), ⌘V (7→9), ⌘R (8→15) | yes | **nothing happens** |
+
+Measured with a downstream listen-only tap and an `NSEvent` global monitor: `keyCode`,
+`characters`, `charactersIgnoringModifiers`, `flags`, autorepeat, keyboard type and
+event-source fields are ALL indistinguishable from a genuine ⌘C — which copies fine in
+the same app, same window, same selection. So the defect is NOT in the content of the
+event, and no further field-level comparison will find it.
+
+One observation suggests an *external* head-inserted tap performing the identical
+kc9→kc8 rewrite DOES copy, i.e. the problem may be specific to the rewrite coming from
+the active input method's own process. It is recorded as UNCONFIRMED: two replication
+attempts were both invalidated by defects in the test harness (a keyUp that escaped the
+⌘ filter once the modifier was released first; a `.defaultTap` that macOS disabled and
+the harness never re-enabled, so it died silently and read as "no events"). **A
+`.defaultTap` used for diagnosis MUST handle `tapDisabledByTimeout`/`ByUserInput`** or it
+will lie by omission.
+
+**Posting a replacement instead of editing was tried and FAILS identically** (same day):
+swallow the physical chord, build a fresh `CGEvent` on a private source with the target
+keycode, copy the flags, set the unicode payload, post it to `.cgSessionEventTap`. The
+app does not act on that either. So the defect survives a completely different delivery
+mechanism, which argues the trigger is not the event object at all. Reverted — swallowing
+shortcuts is strictly riskier than editing them, for no gain.
+
+Full investigation record — every case tried, what is ruled out with evidence, what is
+still unconfirmed, and the harness traps that produced two false negatives:
+`plans/reports/debug-260831-1002-chord-remap-khong-tac-dung.md`.
+
+**Workaround that works today**: install the pinned layout as a real input source and
+select it once, so macOS's live layout IS the pinned one. `apply()` then returns early
+(`off (live=…)`) and never rewrites a chord. Typing stays correct because the OS is now
+on that layout itself; Vietnamese still comes from the IME above it. Note this MOVES the
+defect to the other input mode — whichever mode pins something different from the live
+layout is now the one that remaps — so pin both modes to the same layout.
+
 ## Hai input mode trong MỘT bundle — 2026-08-18
 
 Bố cục bàn phím Telex gõ lên (`keyboardLayoutID`) vốn là MỘT setting toàn cục: muốn
