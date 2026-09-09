@@ -61,6 +61,7 @@ Tùy chọn (Simple Telex, bỏ dấu tự do, kiểu cũ/mới, kiểm tra chí
 - **Không thấy trong Input Sources** → đăng xuất/đăng nhập lại một lần.
 - **Không gõ được trong Terminal/Chrome** → cấp quyền Accessibility (đã bật mà vẫn lỗi thì bỏ tick rồi tick lại).
 - **Ô mật khẩu** → tự tắt trong secure field (đúng hành vi).
+- **Mở máy từ sleep, đang mở 1Password thì không gõ được** → 1Password giữ Secure Input của macOS (mọi bộ gõ bên thứ ba đều chết). Bấm vào cửa sổ 1Password rồi bấm ra, hoặc Quit 1Password. Chi tiết: [ghi chú kỹ thuật](docs/MACOS_IME_NOTES.md).
 
 ## Đóng góp & giấy phép
 
