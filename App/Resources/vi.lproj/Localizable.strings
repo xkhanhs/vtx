@@ -270,9 +270,9 @@ Bấm “Sửa tự động”: VTX tự xoá mục bị kẹt của chính nó 
 "Erase" = "Xoá";
 
 /* Dòng "Chế độ gõ" trong menu (maintainer 19/08/2026) */
-"Typing mode" = "Chế độ gõ";
+"Typing mode" = "Cơ chế gõ";
 "Click to copy the debug info explaining this choice" = "Bấm để sao chép thông tin gỡ lỗi giải thích lựa chọn này";
 "Debug info copied" = "Đã sao chép thông tin gỡ lỗi";
 "Paste it into your bug report (⌘V)." = "Dán vào báo lỗi của bạn (⌘V).";
 
-"Click: open the typing-modes guide + copy debug info" = "Bấm: mở hướng dẫn về các kiểu gõ + sao chép thông tin gỡ lỗi";
+"Click: open the Typing modes table + copy debug info" = "Bấm: mở Bảng cơ chế gõ + sao chép thông tin gỡ lỗi";
