@@ -65,13 +65,18 @@ Changing bundle id or input-mode metadata in `Info.plist` needs a logout/login o
 - **Two installed copies fight over one `InputMethodConnectionName`** — the menu shows
   the IME as selected while keys go somewhere else. Check `pgrep -lf VTX` finds exactly
   one process, from `~/Library/Input Methods/`.
-- **NEVER ⌘B/⌘R in Xcode.app** — that builds into `~/Library/Developer/Xcode/DerivedData/
-  VietTelex-*`, a second bundle with the same connection name, and macOS resolves the
+- **NEVER build into the default DerivedData** — `~/Library/Developer/Xcode/DerivedData/
+  VietTelex-*` is a second bundle with the same connection name, and macOS resolves the
   fight by REBUILDING `AppleEnabledInputSources`: VTX drops out of the menu bar and the
-  user's non-Apple layout silently drops with it. Happened 2026-08-15; the directory was
-  back (491 MB) and deleted again 2026-08-18, so check it, don't assume. `mdfind -name
-  "VTX.app"` must return only `~/Library/Input Methods/VTX.app` before an install.
-  Opening Xcode to read or edit is harmless — only Build/Run is not.
+  user's non-Apple layout silently drops with it. Two ways in, and BOTH have now bitten:
+  ⌘B/⌘R in Xcode.app (2026-08-15; the directory was back at 491 MB and deleted again
+  2026-08-18), and a bare `xcodebuild` with no `-derivedDataPath` — including
+  `xcodebuild … test`, which needs no Run to do the damage (2026-09-12, VTX out of
+  `AppleEnabledInputSources` within the same minute). So: every build or test goes
+  through `Scripts/*-install.sh`, or passes `-derivedDataPath "${TMPDIR}/vtx-derived-dev"`
+  by hand. Check, don't assume: `mdfind -name "VTX.app"` must return only
+  `~/Library/Input Methods/VTX.app` before an install, and `pgrep -lf VTX` exactly one
+  line. Opening Xcode to read or edit is harmless — only building is not.
 - **`gh` resolves to `ptrinh/viettelex`, not this fork.** With two remotes it picks
   upstream, so a bare `gh release create` publishes to SOMEONE ELSE'S repo. On the
   1.6.10 sync it only missed because upstream already had that tag. `gh repo
