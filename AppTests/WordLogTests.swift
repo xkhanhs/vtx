@@ -24,6 +24,7 @@ final class WordLogTests: XCTestCase {
         AppState.shared.logTypedWords = wasOn
         WordLog.shared.resetForTesting()
         WordLog.storeURLOverride = nil
+        WordLog.onMilestone = { DispatchQueue.main.async { WordLogNotifier.postMilestone() } }
         try? FileManager.default.removeItem(at: tempDir)
         super.tearDown()
     }
@@ -71,4 +72,41 @@ final class WordLogTests: XCTestCase {
         XCTAssertEqual(stats.unique, 2)
     }
 
+    // MARK: Mốc mẫu
+
+    func testMilestoneFiresExactlyOnce() {
+        AppState.shared.logTypedWords = true
+        let fired = Counter()
+        WordLog.onMilestone = { fired.bump() }
+        WordLog.shared.resetForTesting(words: ["anh": WordLog.sampleTarget - 1],
+                                       total: WordLog.sampleTarget - 1)
+        WordLog.shared.note("người")                      // chạm mốc
+        for _ in 0..<5 { WordLog.shared.note("người") }   // không được lặp
+        _ = WordLog.shared.stats()
+        XCTAssertEqual(fired.value, 1)
+    }
+
+    func testMilestoneFlagSurvivesAReload() throws {
+        AppState.shared.logTypedWords = true
+        let fired = Counter()
+        WordLog.onMilestone = { fired.bump() }
+        WordLog.shared.resetForTesting(words: ["anh": WordLog.sampleTarget - 1],
+                                       total: WordLog.sampleTarget - 1)
+        WordLog.shared.note("người")
+        _ = WordLog.shared.stats()                        // ép flush cờ ra file
+        XCTAssertEqual(fired.value, 1)
+
+        // Khởi động lại: đọc corpus cũ, cờ đã lưu nên không bắn lại.
+        WordLog.shared.resetForTestingByReloadingStore()
+        WordLog.shared.note("người")
+        _ = WordLog.shared.stats()
+        XCTAssertEqual(fired.value, 1)
+    }
+
+    /// `nonisolated(unsafe) static var onMilestone` là closure `() -> Void`, nên đếm
+    /// phải nằm ngoài struct value semantics.
+    private final class Counter {
+        private(set) var value = 0
+        func bump() { value += 1 }
+    }
 }
