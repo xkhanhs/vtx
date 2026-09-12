@@ -252,3 +252,5 @@ Bấm “Sửa tự động”: VTX tự xoá mục bị kẹt của chính nó 
 "Collected: %1$d words typed, %2$d distinct. File: %3$@" = "Đã gom: %1$d lượt từ, %2$d từ khác nhau. File: %3$@";
 "VietTelex: enough typing samples collected" = "VTX: đã đủ mẫu từ hay gõ";
 "Open Settings → Experimental to export your most-typed words." = "Mở Cài đặt → Thử Nghiệm để xuất danh sách từ hay gõ.";
+"Export most-typed words…" = "Xuất từ hay gõ…";
+"Exported %1$d words to %2$@" = "Đã xuất %1$d từ vào %2$@";

@@ -911,6 +911,7 @@ struct ExperimentalTab: View {
     /// Đọc corpus một lần mỗi lần mở tab (io.sync + có thể đọc file) — KHÔNG đọc
     /// trong body, thứ SwiftUI dựng lại mỗi lần gạt một toggle nào đó trong tab.
     @State private var wordStats: (total: Int, unique: Int) = (0, 0)
+    @State private var exportResult: String?
 
     var body: some View {
         Form {
@@ -971,6 +972,13 @@ struct ExperimentalTab: View {
                 Text(String(format: model.loc("Collected: %1$d words typed, %2$d distinct. File: %3$@"),
                             wordStats.total, wordStats.unique, WordLog.storeDisplayPath))
                     .font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                Button { exportWords() } label: {
+                    Label(model.loc("Export most-typed words…"), systemImage: "square.and.arrow.up")
+                }
+                .disabled(wordStats.total == 0)
+                if let exportResult {
+                    Text(exportResult).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                }
             }
             Section(header: Label(model.loc("Diagnostics"), systemImage: "stethoscope")) {
                 Toggle(model.loc("Record debug log"), isOn: $model.debugLogging)
@@ -988,6 +996,25 @@ struct ExperimentalTab: View {
         }
         .formStyle(.grouped)
         .onAppear { wordStats = WordLog.shared.stats() }
+    }
+
+    /// Top-N từ hay gõ ra JSON `[{word,count}]` — đầu vào của importer bên beartype.
+    /// NSSavePanel: file rời khỏi vùng dữ liệu của VTX nên người dùng phải tự chọn
+    /// đích, y như Lưu nhật ký gỡ lỗi.
+    private func exportWords() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "beartype-words.json"
+        panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try WordLog.shared.export(to: url)
+            let count = min(wordStats.unique, WordLog.exportTopN)
+            exportResult = String(format: model.loc("Exported %1$d words to %2$@"),
+                                  count, url.lastPathComponent)
+        } catch {
+            exportResult = model.loc("Couldn’t save the file.")
+        }
     }
 
     /// Clipboard, not a file. The report flow (BAO-LOI.md) ends with the log pasted
