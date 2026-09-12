@@ -2264,6 +2264,7 @@ final class TelexInputController: IMKInputController {
             "Modern tone placement: \(onOff(s.modernOrthography))",
             "Live spell check: \(onOff(s.liveSpellCheck))",
             "Auto restore: \(onOff(s.autoRestore))",
+            "Collision priority: \(s.collisionPrefersVietnamese ? "Vietnamese" : "English")",
         ]
         // No popup — just copy the debug snapshot to the clipboard so the user can
         // paste it straight away (typing is unreliable when something's wrong).
