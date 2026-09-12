@@ -1786,6 +1786,9 @@ final class TelexInputController: IMKInputController {
     // MARK: - Input-method menu (IMK-provided, no NSStatusItem)
 
     override func menu() -> NSMenu! {
+        // Không còn dòng version trong menu: header "VTX" do TextInputMenuAgent vẽ
+        // từ Info.plist là tĩnh, không nhúng version được, nên dòng "VTX 1.6.x" thừa.
+        // Version vẫn ở Cài đặt → Giới thiệu và dòng đầu của snapshot debug.
         let menu = NSMenu(title: "VTX")
         // macOS appends a standard "Edit Text Substitutions…" item to input-method
         // menus. Strip it (and any trailing separator) each time the menu opens.
@@ -1822,17 +1825,6 @@ final class TelexInputController: IMKInputController {
             status.target = self
             menu.addItem(status)
         }
-
-        // Version + build, disabled: testers report "which build?" straight from the
-        // menu without opening Settings. Not localized — it's an identifier.
-        // (Tính năng ẩn click-copy-snapshot đã BỎ hẳn 15/08/2026 — maintainer;
-        // snapshot vẫn lấy được qua Cài đặt → Thử nghiệm → Copy debug log.)
-        let bundle = Bundle(for: TelexInputController.self)
-        let ver = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
-        let build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
-        let version = NSMenuItem(title: "VTX \(ver) (build \(build))", action: nil, keyEquivalent: "")
-        version.isEnabled = false
-        menu.addItem(version)
 
         // Everything else lives in the Settings window (Chung + Gõ tắt tabs). The menu
         // stays minimal: status + Settings.
