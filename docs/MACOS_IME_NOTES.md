@@ -839,6 +839,49 @@ Bẫy phụ khi dọn: `~/Library/Preferences/com.viettelex.settings.plist` **KH
 của upstream — đó là suite settings VTX đang dùng thật (xem `CLAUDE.md`). Xoá nó là mất
 `manualAppModes`, `keyboardLayoutID`, toàn bộ cấu hình người dùng.
 
+### Không chỉ GUI: `xcodebuild` trần cũng làm y hệt — 2026-09-12
+
+Sửa lại kết luận ở trên. Mục 15/08 viết "thư mục đó **chỉ có thể** sinh ra từ ⌘B/⌘R
+trong Xcode.app GUI". Sai. `xcodebuild` dòng lệnh **không truyền `-derivedDataPath`**
+cũng ghi thẳng vào `~/Library/Developer/Xcode/DerivedData/VietTelex-*`, và không cần
+Run: chỉ `xcodebuild … test` là đủ, vì hosted test bundle khởi chạy VTX.app làm
+TEST_HOST.
+
+Đo được, trong lúc làm bộ ghi từ hay gõ (5-6 lượt `xcodebuild … test` để chạy
+`AppTests`):
+
+```
+mdfind -name "VTX.app"
+  ~/Library/Developer/Xcode/DerivedData/VietTelex-ffscvufezyyl…/Build/Products/Debug/VTX.app
+  ~/Library/Input Methods/VTX.app
+
+AppleEnabledInputSources   = [ ABC, Colemak DH ANSI, CharacterPalette, PressAndHold ]
+AppleInputSourceHistory    = [ …, com.vtx.inputmethod.telex.vi-colemak,
+                                  com.vtx.inputmethod.telex.vi, … ]
+AppleInputSourceUpdateTime = 2026-09-12 23:06 (local)
+```
+
+Lại đúng dấu hiệu cũ: VTX rớt từ **enabled** xuống chỉ còn **history**, app vẫn lành
+(`spctl` → `accepted / Notarized Developer ID`). Khác lần 15/08 ở hai điểm, nên đừng
+dùng chúng làm dấu hiệu nhận biết: macOS **không** nhét `VietnameseSimpleTelex` vào thế
+chỗ, và layout `Colemak DH ANSI` của user **vẫn còn** trong enabled. Cái mất là VTX.
+
+Hai khoá ghim layout trong `com.viettelex.settings` không bị ảnh hưởng
+(`keyboardLayoutID` = ABC, `altKeyboardLayoutID` = ColemakDH-Viet vẫn nguyên), và
+`Colemak DH-Viet.bundle` vẫn nằm trong `~/Library/Keyboard Layouts/` — layout VTX ghim
+vào **không** cần có trong enabled list, nên nó vắng mặt ở đó là bình thường, không
+phải triệu chứng.
+
+Khôi phục lần này KHÔNG cần `defaults import` + logout: xoá thư mục DerivedData, rồi
+người dùng thêm lại bằng System Settings → Keyboard → Input Sources → + → Vietnamese →
+VTX là xong, VTX hiện ra ngay trong danh sách. Đường `defaults export/import` +
+logout/login của mục 15/08 để dành cho ca enabled list bị dựng lại từ mặc định (có
+`VietnameseSimpleTelex` chen vào) và VTX không xuất hiện trong danh sách `+`.
+
+Luật đã sửa trong `CLAUDE.md`: **mọi** lượt build/test đều qua `Scripts/*-install.sh`
+hoặc tự truyền `-derivedDataPath "${TMPDIR}/vtx-derived-dev"`. Hai script cài đặt đã
+làm đúng từ đầu; chỗ hở là lệnh `xcodebuild` gõ tay.
+
 ## WebKit KHÔNG nuốt synthetic — nó bỏ event ĐẾN CÙNG LÚC (đo 2026-08-19)
 
 Sửa lại hiểu biết từ #44/#47: comment cũ ghi "Safari/WebKit macOS 26 nuốt synthetic
