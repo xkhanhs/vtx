@@ -777,8 +777,9 @@ final class EngineGoldenTests: XCTestCase {
         XCTAssertEqual(composeSpell("secret"), "secret")
         XCTAssertEqual(commit("secret"), "secret")
         XCTAssertEqual(commit("secrets"), "secrets")
-        // ưk exception: huyền still lands; hỏi/ngã still cannot (literal).
-        XCTAssertEqual(compose("uwkf"), "ừk")
+        // No ưk teencode rime in this fork: huyền drops at render like "baft" → "bat";
+        // hỏi/ngã after the coda stay literal.
+        XCTAssertEqual(compose("uwkf"), "ưk")
         XCTAssertEqual(compose("uwkr"), "ưkr")
         XCTAssertEqual(compose("uwkx"), "ưkx")
     }
