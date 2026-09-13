@@ -21,8 +21,15 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     private var model: SettingsModel?
 
-    func show(tab: SettingsTab) {
+    /// `modeFilter`: điền sẵn ô lọc của Bảng cơ chế gõ (menu "Cơ chế gõ" truyền bundle
+    /// id của app đang gõ — maintainer 12/09/2026). Mở tab nâng cao theo đường này
+    /// thì tự tắt "Ẩn tính năng nâng cao": user bấm là muốn thấy bảng, không phải
+    /// rơi về Tùy chỉnh.
+    func show(tab: SettingsTab, modeFilter: String? = nil) {
         NSApp.setActivationPolicy(.regular)
+        if tab == .modeTable || tab == .experimental, !AppState.shared.advancedFeatures {
+            AppState.shared.advancedFeatures = true       // trước khi model đọc (init fallback về .general)
+        }
         if window == nil {
             let model = SettingsModel(selected: tab)
             let root = SettingsView().environmentObject(model)
@@ -44,7 +51,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             self.window = win
             self.model = model
         }
+        if model?.hideAdvanced == true, tab == .modeTable || tab == .experimental {
+            model?.hideAdvanced = false
+        }
         model?.selectedTab = tab
+        if let modeFilter { model?.modeFilter = modeFilter }
         // NOT in this runloop turn: the .accessory→.regular policy flip above needs a
         // window-server round trip before an activation can stick. Activating in the
         // same turn intermittently loses the race — the window is created but never
@@ -112,6 +123,7 @@ final class SettingsModel: ObservableObject {
     @Published var contextualEnglish: Bool { didSet { AppState.shared.contextualEnglish = contextualEnglish } }
     @Published var reEditWord: Bool { didSet { AppState.shared.reEditWord = reEditWord } }
     @Published var safeUnknownApps: Bool { didSet { AppState.shared.safeUnknownApps = safeUnknownApps } }
+    @Published var collisionPrefersVietnamese: Bool { didSet { AppState.shared.collisionPrefersVietnamese = collisionPrefersVietnamese } }
     @Published var stickyInputSource: Bool { didSet { AppState.shared.stickyInputSource = stickyInputSource } }
     @Published var switchHotkey: String { didSet { AppState.shared.switchHotkey = switchHotkey } }
     @Published var bracketVowels: Bool { didSet { AppState.shared.bracketVowels = bracketVowels } }
@@ -143,12 +155,14 @@ final class SettingsModel: ObservableObject {
     /// TẠM THỜI (xem WordLog.swift) — opt-in, mặc định tắt.
     @Published var logTypedWords: Bool { didSet { AppState.shared.logTypedWords = logTypedWords } }
     @Published var autoUpdateCheck: Bool { didSet { AppState.shared.autoUpdateCheck = autoUpdateCheck } }
-    /// Shows/hides the Bảng chế độ gõ + Thử Nghiệm tabs. When turned off while one
-    /// of them is frontmost, selection falls back to Tùy chỉnh.
-    @Published var advancedFeatures: Bool {
+    /// INVERTED view of AppState.advancedFeatures (maintainer 09/09/2026: label đổi
+    /// thành "Ẩn tính năng nâng cao", default TẮT = tab vẫn hiện). Storage giữ
+    /// nguyên key advancedFeatures nên setting cũ của user không đổi nghĩa.
+    /// When hiding while an advanced tab is frontmost, selection falls back to Tùy chỉnh.
+    @Published var hideAdvanced: Bool {
         didSet {
-            AppState.shared.advancedFeatures = advancedFeatures
-            if !advancedFeatures,
+            AppState.shared.advancedFeatures = !hideAdvanced
+            if hideAdvanced,
                selectedTab == .modeTable || selectedTab == .experimental {
                 selectedTab = .general
             }
@@ -194,6 +208,7 @@ final class SettingsModel: ObservableObject {
         contextualEnglish = AppState.shared.contextualEnglish
         reEditWord = AppState.shared.reEditWord
         safeUnknownApps = AppState.shared.safeUnknownApps
+        collisionPrefersVietnamese = AppState.shared.collisionPrefersVietnamese
         stickyInputSource = AppState.shared.stickyInputSource
         switchHotkey = AppState.shared.switchHotkey
         bracketVowels = AppState.shared.bracketVowels
@@ -217,7 +232,7 @@ final class SettingsModel: ObservableObject {
         debugLogging = AppState.shared.debugLogging
         logTypedWords = AppState.shared.logTypedWords
         autoUpdateCheck = AppState.shared.autoUpdateCheck
-        advancedFeatures = AppState.shared.advancedFeatures
+        hideAdvanced = !AppState.shared.advancedFeatures
         uiLanguage = AppState.shared.uiLanguage
         reloadShortcuts()
         reloadModeTable()
@@ -552,7 +567,7 @@ struct SettingsView: View {
         HStack(spacing: 2) {
             tabButton(.general, "Settings", "slider.horizontal.3")
             tabButton(.shortcuts, "Shortcuts", "keyboard")
-            if model.advancedFeatures {
+            if !model.hideAdvanced {
                 tabButton(.modeTable, "Typing modes", "list.bullet.rectangle")
                 tabButton(.experimental, "Experimental", "flask")
             }
@@ -581,8 +596,8 @@ struct SettingsView: View {
     }
 
     @ViewBuilder private var activeTab: some View {
-        // selectedTab không bao giờ trỏ vào tab advanced khi advancedFeatures tắt —
-        // SettingsModel tự đưa về .general (xem didSet của advancedFeatures).
+        // selectedTab không bao giờ trỏ vào tab advanced khi đang ẩn nâng cao —
+        // SettingsModel tự đưa về .general (xem didSet của hideAdvanced).
         switch model.selectedTab {
         case .general:      GeneralTab()
         case .shortcuts:    ShortcutsTab()
@@ -685,6 +700,19 @@ struct GeneralTab: View {
                     .font(.caption).foregroundStyle(.secondary)
                 // Graduated from the Experimental tab (2026-08-03) — shipped ON by
                 // default since 1.4.22 with no field complaints.
+                // "Ưu tiên khi trùng" (maintainer 12/09/2026, default tiếng Việt): kết
+                // thúc chuỗi tranh cãi từng-từ (#60 last/lát, PR#76 list/lít) — user
+                // chọn. Radio cùng dòng như Telex/VNI: hai lựa chọn loại trừ nhau.
+                Picker(model.loc("When a word is both English and Vietnamese"), selection: Binding(
+                    get: { model.collisionPrefersVietnamese ? "vi" : "en" },
+                    set: { model.collisionPrefersVietnamese = ($0 == "vi") })) {
+                    Text(model.loc("Prefer Vietnamese")).tag("vi")
+                    Text(model.loc("Prefer English")).tag("en")
+                }
+                .pickerStyle(.radioGroup)
+                .horizontalRadioGroupLayout()
+                Text(model.loc("For words like last/lát, list/lít, his/hí. Prefer Vietnamese: double the tone key to keep English (lisst → list). Prefer English: put the tone at the end for Vietnamese (lits → lít). Inside an English sentence the word stays English either way."))
+                    .font(.caption).foregroundStyle(.secondary)
                 Toggle(model.loc("Context-based decision"), isOn: $model.contextualEnglish)
                 Text(model.loc("After an English word, an ambiguous next word whose keys spell an English word is kept English instead of Vietnamese — “he is” → “he is”, not “he í”. After a Vietnamese or unclear word it stays Vietnamese — “sao í”."))
                     .font(.caption).foregroundStyle(.secondary)
@@ -699,8 +727,8 @@ struct GeneralTab: View {
                 }
             }
             Section {
-                Toggle(model.loc("Show advanced features"), isOn: $model.advancedFeatures)
-                Text(model.loc("Adds the Typing modes and Experimental tabs — per-app overrides, latency flags, debug log. Not needed for everyday typing."))
+                Toggle(model.loc("Hide advanced features"), isOn: $model.hideAdvanced)
+                Text(model.loc("Hides the Typing modes and Experimental tabs — per-app overrides, latency flags, debug log. Not needed for everyday typing."))
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
@@ -1120,7 +1148,7 @@ enum DebugHeader {
             // from every prior debug log meant a tester's own `defaults write` was invisible
             // evidence ("chỉ mỗi em bị" — 2026-08-05).
             "flags: modifyInPlace=\(s.tapModifyEventInPlace) skipKeyUp=\(s.tapSkipSyntheticKeyUp) axReplace=\(s.axSelectionReplace) breaker=\(s.tapCascadeBreaker) nativeFastPath=\(s.tapNativeFastPath)",
-            "settings: simpleTelex=\(s.simpleTelex) freeMarking=\(s.freeMarking) modern=\(s.modernOrthography) liveSpell=\(s.liveSpellCheck) autoRestore=\(s.autoRestore) vni=\(s.vniMode) quick=\(s.quickTelex) ctxEnglish=\(s.contextualEnglish) reEdit=\(s.reEditWord) bracket=\(s.bracketVowels) safeUnknown=\(s.safeUnknownApps)",
+            "settings: simpleTelex=\(s.simpleTelex) freeMarking=\(s.freeMarking) modern=\(s.modernOrthography) liveSpell=\(s.liveSpellCheck) autoRestore=\(s.autoRestore) vni=\(s.vniMode) quick=\(s.quickTelex) ctxEnglish=\(s.contextualEnglish) collisionVN=\(s.collisionPrefersVietnamese) reEdit=\(s.reEditWord) bracket=\(s.bracketVowels) safeUnknown=\(s.safeUnknownApps)",
             // Count only — the trigger/expansion pairs are USER-TYPED content the log
             // must never carry (same rule as everywhere else here), but a nonzero count
             // is itself diagnostic: a custom gõ tắt entry colliding with a Vietnamese

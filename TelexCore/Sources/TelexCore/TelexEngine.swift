@@ -112,6 +112,13 @@ public struct TelexEngine {
     /// gen-english turns this OFF to regenerate the table against the
     /// validator-only behavior (the table must not observe itself).
     public var englishWordRestore = true
+    /// Khi một từ VỪA là tiếng Anh trong bảng collision VỪA gõ ra âm tiết Việt hợp lệ
+    /// (last/lát, list/lít, his/hí): true → giữ tiếng Việt, false → khôi phục tiếng
+    /// Anh (hành vi cũ). Chỉ gate bảng collision ĐỨNG MỘT MÌNH: trong mạch tiếng Anh
+    /// (contextualEnglish + từ trước là English) bảng vẫn khôi phục ("the list"),
+    /// âm tiết không hợp lệ vẫn về raw, cử chỉ gõ đúp không đổi. Engine default
+    /// false để golden cũ nguyên; AppState default TRUE (maintainer 12/09/2026).
+    public var collisionPrefersVietnamese = false
 
     static let capacity = 32
 
@@ -671,7 +678,11 @@ public struct TelexEngine {
             // did NOT clean the word up ("excess"→"êcs", "lenses"→"lêns").
             return composedHasDiacritic()
         }
-        if rawIsEnglishCollision() { return true }
+        // Ưu tiên tiếng Việt khi trùng (collisionPrefersVietnamese): từ Việt hợp lệ
+        // thắng bảng collision khi đứng một mình; trong mạch tiếng Anh xem nhánh
+        // context bên dưới (bảng vẫn khôi phục ở đó).
+        if rawIsEnglishCollision(),
+           !(collisionPrefersVietnamese && composedIsValidSyllable()) { return true }
         // `isTeencodeKeep()` runs AFTER the English table above on purpose: the dictionary
         // still wins ("google" restores), and only a word that no dictionary claims gets
         // kept as "valid syllable + repeated tail" ("hôngggg", "vângggg", "đẹpppp").
@@ -682,7 +693,8 @@ public struct TelexEngine {
         // Gated so vniMode/default typing pays nothing (the String build only runs when the
         // flag is on AND the previous word was English).
         if contextualEnglish, previousWordEnglish,
-           rawIsEnglishContextWord(includingRestoreOnly: true) { return true }
+           rawIsEnglishContextWord(includingRestoreOnly: true)
+               || (collisionPrefersVietnamese && rawIsEnglishCollision()) { return true }
         return false
     }
 
@@ -1179,6 +1191,16 @@ public struct TelexEngine {
         return false
     }
 
+    /// ua/uu retarget may land on a predecessor `u` that is unmarked (first w → ư)
+    /// or already horned (second w CANCELS that ư: huaww→huaw, luuww→luuw).
+    /// A standalone-w ư is excluded: a later w must breve/horn the leftover
+    /// vowel (waw→ưă, wuw→ưư) instead of consuming w at a distance (waw→wa).
+    @inline(__always)
+    private func uaUuPredecessorAllowsRetarget(_ pred: Int) -> Bool {
+        let m = letters[pred].mark
+        return m == .none || (m == .horn && !letterCreatedByW(pred))
+    }
+
     @inline(__always)
     private func hasLowercaseBefore(_ at: Int) -> Bool {
         for i in 0..<at where raw[i] >= UInt8(ascii: "a") && raw[i] <= UInt8(ascii: "z") {
@@ -1530,6 +1552,15 @@ public struct TelexEngine {
                         rawLetter[toneKeys[j]] = pCount - 1
                     }
                     pToneKeyCount = 0
+                } else if stopCodaRejectsTone(t) {
+                    // OpenKey (`if !isChanged insertKey`): huyền/hỏi/ngã on a
+                    // stop coda are a no-op — render() would drop them and the
+                    // key vanished ("sec"+"r" stayed "sec", so "secret" needed
+                    // a doubled r). Type the letter instead. Tone-THEN-coda
+                    // ("baft"→bat) still drops at render: the tone was legal
+                    // when typed.
+                    appendLetter(base: lower, mark: .none, upper: upper)
+                    rawLetter[at] = pCount - 1
                 } else {
                     pTone = t
                     // English/code signal ONLY when a lowercase letter came BEFORE
@@ -1554,7 +1585,11 @@ public struct TelexEngine {
         // of being silently swallowed.
         if lower == UInt8(ascii: "z") {
             if pTone != .none {                          // a tone to clear -> consume z
-                pCancelled = true; pToneCancelAt = at
+                // NOT pCancelled: z là lệnh "xóa dấu" tường minh của Telex, khác cử
+                // chỉ gõ-đúp (ss/ff) = "từ này tiếng Anh". Latch pCancelled từng
+                // khóa mọi dấu sau z: "tooiszs" ra "tôis" thay vì "tối" (issue #78,
+                // 11/09/2026). Giữ pToneCancelAt/Span cho provenance ⌫.
+                pToneCancelAt = at
                 pToneCancelSpan = pToneKeyCount > 0 ? at - toneKeys[pToneKeyCount - 1] : 1
                 pTone = .none
                 if upper && hasLowercaseBefore(at) { upperToneKey = true }
@@ -1584,23 +1619,28 @@ public struct TelexEngine {
             }
             // "ua" nucleus: w horns the u (→ ưa: mưa, chưa, nữa), not breve the a
             // — "uă" is not a valid Vietnamese nucleus. So an unmarked 'a' target
-            // whose immediate predecessor is a REAL, unmarked 'u' vowel retargets
-            // to that u. Excludes the "qu" glide ("quatw"→quăt) and "oa" (→ oă:
+            // whose immediate predecessor is a REAL 'u' vowel retargets to that u.
+            // If that typed u is already horned, the same retarget lets a second w
+            // CANCEL ư (huaw→hưa, huaww→huaw) instead of breving the leftover a
+            // (hưă). A standalone-w ư is not a typed u — leave it so waw→ưă.
+            // Excludes the "qu" glide ("quatw"→quăt) and "oa" (→ oă:
             // hoăc), where breve on a is correct. Makes marks order-free:
             // "nuawx" and "nuwax" both give "nữa".
             if tIdx >= 1,
                letters[tIdx].base == UInt8(ascii: "a"), letters[tIdx].mark == .none,
-               letters[tIdx - 1].base == UInt8(ascii: "u"), letters[tIdx - 1].mark == .none,
+               letters[tIdx - 1].base == UInt8(ascii: "u"),
+               uaUuPredecessorAllowsRetarget(tIdx - 1),
                !(tIdx >= 2 && letters[tIdx - 2].base == UInt8(ascii: "q")) {
                 tIdx -= 1
             }
             // "uu" nucleus: w horns the FIRST u (→ ưu: lưu, cứu, hưu) — "uư" is not
             // a valid Vietnamese nucleus, so "luuw"→lưu / "cuuws"→cứu instead of
-            // the useless "luư". Same shape as the "ua" retarget above, and the
-            // same "qu" exclusion ("quuw" keeps the glide u untouched).
+            // the useless "luư". A second w cancels the same way ("luuww"→luuw).
+            // Same standalone-w guard (wuw→ưư) and "qu" exclusion.
             if tIdx >= 1,
                letters[tIdx].base == UInt8(ascii: "u"), letters[tIdx].mark == .none,
-               letters[tIdx - 1].base == UInt8(ascii: "u"), letters[tIdx - 1].mark == .none,
+               letters[tIdx - 1].base == UInt8(ascii: "u"),
+               uaUuPredecessorAllowsRetarget(tIdx - 1),
                !(tIdx >= 2 && letters[tIdx - 2].base == UInt8(ascii: "q")) {
                 tIdx -= 1
             }
@@ -1809,6 +1849,9 @@ public struct TelexEngine {
                         rawLetter[toneKeys[j]] = pCount - 1
                     }
                     pToneKeyCount = 0
+                } else if stopCodaRejectsTone(t) {
+                    appendLetter(base: key, mark: .none, upper: false)
+                    rawLetter[at] = pCount - 1
                 } else {
                     pTone = t
                     rawLetter[at] = -1
@@ -1824,7 +1867,8 @@ public struct TelexEngine {
         // 0 → clear tone (like Telex z): consume only when there's a tone to remove.
         if key == UInt8(ascii: "0") {
             if pTone != .none {
-                pCancelled = true; pToneCancelAt = at
+                // Cùng luật với Telex z (issue #78): 0 xóa dấu, dấu sau đó vẫn gõ được.
+                pToneCancelAt = at
                 pToneCancelSpan = pToneKeyCount > 0 ? at - toneKeys[pToneKeyCount - 1] : 1
                 pTone = .none
                 rawLetter[at] = -1
@@ -1845,12 +1889,14 @@ public struct TelexEngine {
                 if Self.vniMarkAccepts(base: letters[k].base, mark: mark) {
                     // "uu" nucleus: 7 (horn) đặt lên chữ u ĐẦU (→ ưu: lưu, cứu, hưu)
                     // — "uư" không phải nhân âm tiếng Việt. Cùng luật với w-handler
-                    // Telex ("luuw"→lưu), cùng ngoại lệ "qu" (glide giữ nguyên).
-                    // Issue #66 (29/08/2026): VNI "uu7" ra "uư" thay vì "ưu".
+                    // Telex ("luuw"→lưu, "luuww"→luuw): predecessor u may already
+                    // be horned so the second 7 CANCELS that ư ("luu77"→luu7), and
+                    // cancel must use `target` not `k` or the leftover u gets
+                    // horned instead. Cùng ngoại lệ "qu". Issue #66 (29/08/2026).
                     var target = k
                     if mark == .horn, target >= 1,
                        letters[target].base == UInt8(ascii: "u"), letters[target].mark == .none,
-                       letters[target - 1].base == UInt8(ascii: "u"), letters[target - 1].mark == .none,
+                       letters[target - 1].base == UInt8(ascii: "u"),
                        !(target >= 2 && letters[target - 2].base == UInt8(ascii: "q")) {
                         target -= 1
                     }
@@ -1859,8 +1905,8 @@ public struct TelexEngine {
                         rawLetter[at] = target
                         return
                     }
-                    if letters[k].mark == mark {        // re-applied → cancel, literal digit
-                        letters[k].mark = .none
+                    if letters[target].mark == mark {   // re-applied → cancel, literal digit
+                        letters[target].mark = .none
                         pCancelled = true
                         appendLetter(base: key, mark: .none, upper: false)
                         rawLetter[at] = pCount - 1
@@ -2075,6 +2121,39 @@ public struct TelexEngine {
             return true
         }
         return false
+    }
+
+    /// Parse-time twin of `hasStopCoda` — `renderLetters` is stale inside parseStep.
+    @inline(__always)
+    private func lettersHaveStopCoda(_ count: Int) -> Bool {
+        guard count > 0 else { return false }
+        let last = letters[count - 1].base
+        if last == UInt8(ascii: "p") || last == UInt8(ascii: "t")
+            || last == UInt8(ascii: "c") || last == UInt8(ascii: "k") {
+            return true
+        }
+        if last == UInt8(ascii: "h"), count >= 2, letters[count - 2].base == UInt8(ascii: "c") {
+            return true
+        }
+        return false
+    }
+
+    /// Parse-time twin of `isUkRime`.
+    @inline(__always)
+    private func lettersAreUkRime(_ count: Int) -> Bool {
+        count >= 2 && letters[count - 1].base == UInt8(ascii: "k")
+            && letters[count - 2].base == UInt8(ascii: "u")
+            && letters[count - 2].mark == .horn
+    }
+
+    /// True when applying `tone` now would be silently dropped by render()
+    /// (huyền/hỏi/ngã on a stop coda, except ừk). The key should be a letter.
+    @inline(__always)
+    private func stopCodaRejectsTone(_ tone: Tone) -> Bool {
+        guard tone == .grave || tone == .hook || tone == .tilde else { return false }
+        guard lettersHaveStopCoda(pCount) else { return false }
+        if tone == .grave && lettersAreUkRime(pCount) { return false }
+        return true
     }
 
     @inline(__always)

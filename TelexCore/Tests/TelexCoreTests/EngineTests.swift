@@ -518,6 +518,65 @@ final class EngineGoldenTests: XCTestCase {
         // "qu" glide keeps breve on a (the u belongs to the onset, not retargeted).
         XCTAssertEqual(compose("quawt"), "quăt")   // w adjacent to a -> breve, not horn-u
         XCTAssertEqual(compose("quaw"), "quă")
+
+        // Cancel mirror of the ua retarget (Laban/UniKey parity): the leftover
+        // unmarked a is NOT a new breve target. One more w undoes ư and types
+        // literal w, so "huawei" is visible while typing — not "hưă" until space.
+        XCTAssertEqual(compose("huaw"), "hưa")
+        XCTAssertEqual(compose("huaww"), "huaw")
+        XCTAssertEqual(compose("huawwe"), "huawe")
+        XCTAssertEqual(compose("huawwei"), "huawei")
+        XCTAssertEqual(commit("huawwei"), "huawei")
+        XCTAssertEqual(commit("huaww"), "huaw")     // trailing cancel keeps the screen
+        XCTAssertEqual(compose("muaww"), "muaw")
+        XCTAssertEqual(compose("chuaww"), "chuaw")
+        XCTAssertEqual(composeSimple("huaww"), "huaw")
+        XCTAssertEqual(composeFree("huaww"), "huaw")
+        XCTAssertEqual(composeSpell("huaww"), "huaw")
+        // "oa"/"qu" still breve-then-cancel on a (the retarget never applied).
+        XCTAssertEqual(compose("hoaww"), "hoaw")
+        XCTAssertEqual(compose("quaww"), "quaw")
+        // Same cancel shape on the "uu" nucleus: lưu + w → luuw, not lưư.
+        XCTAssertEqual(compose("luuw"), "lưu")
+        XCTAssertEqual(compose("luuww"), "luuw")
+        XCTAssertEqual(commit("luuww"), "luuw")
+        XCTAssertEqual(composeFree("luuww"), "luuw")
+
+        // Standalone-w ư is not a typed-u retarget: the next w breves/horns the
+        // leftover vowel (classic Telex), instead of consuming w at a distance.
+        XCTAssertEqual(compose("waw"), "ưă")
+        XCTAssertEqual(compose("waww"), "ưaw")      // ă-cancel, same as aww→aw
+        XCTAssertEqual(compose("thwaw"), "thưă")
+        XCTAssertEqual(compose("wuw"), "ưư")
+        // Typed-u cancel still works with a tone already on the syllable; the
+        // literal w is a coda so the tone re-homes onto a (same as awsw→áw).
+        XCTAssertEqual(compose("nuawxw"), "nuãw")
+    }
+
+    /// ⌫ after the ua-horn cancel must drop the literal w (back to hưa), never
+    /// desync into extra w's on screen ("huawww").
+    func testUaHornCancelBackspace() {
+        var e = TelexEngine()
+        for ch in "huaww" { _ = e.feed(ch) }
+        XCTAssertEqual(e.composed, "huaw")
+        _ = e.backspace()
+        XCTAssertEqual(e.composed, "hưa")
+        XCTAssertEqual(compose(e.rawKeystrokes), e.composed)
+        _ = e.backspace()
+        XCTAssertEqual(e.composed, "hư")           // drop displayed 'a'; leftover huw → hư
+        XCTAssertEqual(compose(e.rawKeystrokes), e.composed)
+    }
+
+    /// Standalone-w ư + a + w must stay ưă (not consume w). ⌫ drops the whole ă
+    /// (a + the breve w), leaving ư — same provenance as `aw` → ă → ⌫.
+    func testStandaloneWUaKeepsBreveBackspace() {
+        var e = TelexEngine()
+        for ch in "waw" { _ = e.feed(ch) }
+        XCTAssertEqual(e.composed, "ưă")
+        _ = e.backspace()
+        XCTAssertEqual(e.composed, "ư")
+        XCTAssertEqual(compose(e.rawKeystrokes), e.composed)
+        XCTAssertEqual(e.rawKeystrokes, "w")
     }
 
     // Simple Telex: a standalone w is ALWAYS literal — type `uw` for ư.
@@ -678,8 +737,10 @@ final class EngineGoldenTests: XCTestCase {
     }
 
     // B2: stop codas -p, -t, -c, -ch only allow sắc (´) and nặng (.). An invalid
-    // huyền/hỏi/ngã is dropped (the syllable keeps no tone) rather than composing
-    // an illegal word like "bàt".
+    // huyền/hỏi/ngã typed AFTER the coda is a literal letter (OpenKey: if the
+    // tone cannot land, insert the key) rather than composing "bàt" OR swallowing
+    // the key ("sec"+"r" used to stay "sec"). Tone typed BEFORE the coda still
+    // drops at render — it was legal when entered.
     func testStopCodaToneConstraint() {
         // Allowed: sắc / nặng.
         XCTAssertEqual(compose("bats"), "bát")
@@ -688,13 +749,18 @@ final class EngineGoldenTests: XCTestCase {
         XCTAssertEqual(compose("hocj"), "học")
         XCTAssertEqual(compose("caps"), "cáp")
 
-        // Rejected on stop coda -> tone dropped.
-        XCTAssertEqual(compose("batf"), "bat")   // no huyền on -t
-        XCTAssertEqual(compose("batr"), "bat")   // no hỏi on -t
-        XCTAssertEqual(compose("batx"), "bat")   // no ngã on -t
-        XCTAssertEqual(compose("sachf"), "sach") // no huyền on -ch
-        XCTAssertEqual(compose("capr"), "cap")   // no hỏi on -p
-        XCTAssertEqual(compose("hocf"), "hoc")   // no huyền on -c
+        // Rejected on stop coda -> key is a letter, not a vanished tone.
+        XCTAssertEqual(compose("batf"), "batf")   // no huyền on -t
+        XCTAssertEqual(compose("batr"), "batr")   // no hỏi on -t
+        XCTAssertEqual(compose("batx"), "batx")   // no ngã on -t
+        XCTAssertEqual(compose("sachf"), "sachf") // no huyền on -ch
+        XCTAssertEqual(compose("capr"), "capr")   // no hỏi on -p
+        XCTAssertEqual(compose("hocf"), "hocf")   // no huyền on -c
+
+        // Tone first, then stop coda: still dropped at render (illegal "bàt").
+        XCTAssertEqual(compose("baft"), "bat")
+        XCTAssertEqual(compose("bart"), "bat")
+        XCTAssertEqual(compose("baxt"), "bat")
 
         // Non-stop codas (-n, -ng, -nh, -m) still allow every tone.
         XCTAssertEqual(compose("banf"), "bàn")
@@ -703,17 +769,33 @@ final class EngineGoldenTests: XCTestCase {
         XCTAssertEqual(compose("lamf"), "làm")
     }
 
+    // User report: typing "secret" in Vietnamese Telex required "secrret" because
+    // the first r after "sec" was consumed as hỏi and then dropped on stop coda -c.
+    func testSecretDoesNotSwallowRAfterStopCoda() {
+        XCTAssertEqual(compose("secr"), "secr")
+        XCTAssertEqual(compose("secret"), "secret")
+        XCTAssertEqual(composeSpell("secret"), "secret")
+        XCTAssertEqual(commit("secret"), "secret")
+        XCTAssertEqual(commit("secrets"), "secrets")
+        // No ưk teencode rime in this fork: huyền drops at render like "baft" → "bat";
+        // hỏi/ngã after the coda stay literal.
+        XCTAssertEqual(compose("uwkf"), "ưk")
+        XCTAssertEqual(compose("uwkr"), "ưkr")
+        XCTAssertEqual(compose("uwkx"), "ưkx")
+    }
+
     // Regression: the render-time tone drop must cover EXACTLY the stop codas the
     // validator's toneMask calls stop — including -k (ak/ăk/ưk: Đắk, Lắk). "bakf"
     // used to render "bàk" (an illegal syllable that only the boundary auto-restore
-    // cleaned up) while "batf" silently dropped the huyền. Parity across all five.
+    // cleaned up). Invalid tones AFTER the coda are now letters; tone-THEN-coda
+    // still drops at render. Parity across all five.
     func testStopCodaToneDropParityAcrossAllCodas() {
-        // Invalid tones (huyền/hỏi/ngã) are dropped, not composed, on every stop coda.
+        // Invalid tones after a stop coda type through as letters.
         for (coda, keys) in [("t", "bat"), ("c", "bac"), ("p", "bap"),
                              ("ch", "bach"), ("k", "bak")] {
             for tone in ["f", "r", "x"] {
-                XCTAssertEqual(compose(keys + tone), keys,
-                               "tone \(tone) must be dropped on stop coda -\(coda)")
+                XCTAssertEqual(compose(keys + tone), keys + tone,
+                               "tone \(tone) must type through on stop coda -\(coda)")
             }
         }
         // …and the legal sắc/nặng on a -k rime still compose (Đắk Lắk, "ưk").
@@ -725,11 +807,10 @@ final class EngineGoldenTests: XCTestCase {
         // Bare "k" is a stop coda; "kh"/"ng" are not — a following tone key still lands.
         XCTAssertEqual(compose("khof"), "khò")
         XCTAssertEqual(compose("bangf"), "bàng")
-        // A -k word that is not Vietnamese still reverts to the raw keys at the
-        // boundary; dropping the tone must not make the word look valid.
+        // A -k word that is not Vietnamese stays the raw keys (f is now a letter).
         var e = TelexEngine(); e.liveSpellCheck = true
         for ch in "bakf" { _ = e.feed(ch) }
-        XCTAssertEqual(e.composed, "bak")
+        XCTAssertEqual(e.composed, "bakf")
         XCTAssertEqual(e.commitText(autoRestore: true), "bakf")
     }
 
@@ -855,6 +936,10 @@ final class EngineGoldenTests: XCTestCase {
             ("ooo", "oo"),
             ("ddd", "dd"),
             ("aww", "aw"),
+            ("huaww", "huaw"), // ua-horn cancel, not hưă
+            ("luuww", "luuw"),
+            ("waw", "ưă"),    // standalone-w ư stays; w breves a
+            ("waww", "ưaw"),
             ("ass", "as"),   // double sắc cancels, literal s
             ("aff", "af"),
             ("arr", "ar"),
@@ -1063,5 +1148,19 @@ final class BracketVowelTests: XCTestCase {
         }
         XCTAssertEqual(e.composed, "th")
         XCTAssertEqual(e.rawKeystrokes, "th")
+    }
+
+    /// ua-retarget cancel also hits a `]`-typed ư (stored as u+horn). That ư was
+    /// not created by w, so cancel strips the horn and appends w — same gesture
+    /// as `huaww`, not a new breve on the leftover a.
+    func testUaCancelOnBracketHorn() {
+        var e = TelexEngine(); e.bracketVowels = true
+        for ch in "h]aw" { _ = e.feed(ch) }
+        XCTAssertEqual(e.composed, "huaw")
+        XCTAssertEqual(e.rawKeystrokes, "h]aw")
+        XCTAssertEqual(e.commitText(autoRestore: true), "huaw")
+        var f = TelexEngine(); f.bracketVowels = true
+        for ch in "]aw" { _ = f.feed(ch) }
+        XCTAssertEqual(f.composed, "uaw")
     }
 }

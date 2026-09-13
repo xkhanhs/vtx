@@ -130,6 +130,8 @@ final class VNITests: XCTestCase {
         // Same mark digit twice cancels → mark gone, digit literal.
         XCTAssertEqual(vni("a66"), "a6")
         XCTAssertEqual(vni("a88"), "a8")
+        XCTAssertEqual(vni("u77"), "u7")
+        XCTAssertEqual(vni("o77"), "o7")
         XCTAssertEqual(vni("d99"), "d9")
         // Lone 0 with no tone is a literal digit.
         XCTAssertEqual(vni("a0"), "a0")
@@ -150,6 +152,17 @@ final class VNITests: XCTestCase {
         XCTAssertEqual(vniCommit("Windows10", spell: true), "Windows10")
         // Plain English letters (no digits) type through unchanged.
         XCTAssertEqual(vniCommit("hello"), "hello")
+    }
+
+    // Invalid VNI tone digits after a stop coda type through (same OpenKey rule
+    // as Telex s/f/r/x/j): "sec3" must stay "sec3", not swallow 3 as hỏi.
+    func testStopCodaRejectsToneDigitAsLiteral() {
+        XCTAssertEqual(vni("sec3"), "sec3")
+        XCTAssertEqual(vni("bat2"), "bat2")
+        XCTAssertEqual(vni("bat3"), "bat3")
+        XCTAssertEqual(vni("bat4"), "bat4")
+        XCTAssertEqual(vni("bat1"), "bát")   // sắc still lands
+        XCTAssertEqual(vni("bat5"), "bạt")   // nặng still lands
     }
 
     // MARK: Boundary restore reverts invalid VNI tokens

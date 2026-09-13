@@ -54,13 +54,15 @@ https://github.com/user-attachments/assets/b07b7321-912f-4d81-a741-bcaa9a43f07d
 `s f r x j` = sắc huyền hỏi ngã nặng · `aa ee oo` = â ê ô · `aw ow uw` = ă ơ ư · `dd` = đ · `z` xóa dấu.
 Ví dụ: `vieejt` → việt · `truowngf` → trường · `hoas` → hóa.
 
-Tùy chọn (Simple Telex, bỏ dấu tự do, kiểu cũ/mới, kiểm tra chính tả, gõ tắt) ở menu bộ gõ → **Cài đặt…**
+Tùy chọn (Simple Telex, bỏ dấu tự do, kiểu cũ/mới, kiểm tra chính tả, ưu tiên Anh/Việt khi từ trùng, gõ tắt) ở menu bộ gõ → **Cài đặt…**
 
 ## Khắc phục sự cố
 
 - **Không thấy trong Input Sources** → đăng xuất/đăng nhập lại một lần.
 - **Không gõ được trong Terminal/Chrome** → cấp quyền Accessibility (đã bật mà vẫn lỗi thì bỏ tick rồi tick lại).
 - **Ô mật khẩu** → tự tắt trong secure field (đúng hành vi).
+- **Một app cụ thể gõ lỗi** → menu bộ gõ → dòng **Cơ chế gõ: …**: mở Bảng cơ chế gõ lọc sẵn app đang gõ để đổi cơ chế, đồng thời copy thông tin gỡ lỗi vào clipboard.
+- **Mở máy từ sleep, đang mở 1Password thì không gõ được** → 1Password giữ Secure Input của macOS (mọi bộ gõ bên thứ ba đều chết). Bấm vào cửa sổ 1Password rồi bấm ra, hoặc Quit 1Password. Chi tiết: [ghi chú kỹ thuật](docs/MACOS_IME_NOTES.md).
 
 ## Đóng góp & giấy phép
 
