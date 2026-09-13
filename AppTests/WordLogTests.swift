@@ -25,6 +25,7 @@ final class WordLogTests: XCTestCase {
         WordLog.shared.resetForTesting()
         WordLog.storeURLOverride = nil
         WordLog.onMilestone = { DispatchQueue.main.async { WordLogNotifier.postMilestone() } }
+        InputModeState.select(.telex)
         try? FileManager.default.removeItem(at: tempDir)
         super.tearDown()
     }
@@ -72,6 +73,20 @@ final class WordLogTests: XCTestCase {
         XCTAssertEqual(stats.unique, 2)
     }
 
+    /// Chế độ VTX Colemak là nơi tập layout mới — gõ ở đó KHÔNG được vào corpus,
+    /// nếu không danh sách "từ hay gõ" chỉ phản chiếu bài tập cũ.
+    func testNoteIsNoOpOutsideTelexMode() {
+        AppState.shared.logTypedWords = true
+        InputModeState.select(.altLayout)
+        WordLog.shared.note("trường")
+        WordLog.shared.note("người")
+        XCTAssertEqual(WordLog.shared.stats().total, 0)
+
+        InputModeState.select(.telex)
+        WordLog.shared.note("trường")
+        XCTAssertEqual(WordLog.shared.stats().total, 1)
+    }
+
     // MARK: Top-N
 
     func testTopIsDescendingByCountThenAlphabetical() {
@@ -93,6 +108,24 @@ final class WordLogTests: XCTestCase {
         let text = String(decoding: data, as: UTF8.self)
         XCTAssertTrue(text.contains("\"word\""))
         XCTAssertTrue(text.contains("\"count\""))
+    }
+
+    /// Xoá file mà không đi qua reset() thì bộ đếm trong RAM ghi nó trở lại — đây là
+    /// lý do nút "Xoá dữ liệu" tồn tại thay vì bảo người dùng vào Finder.
+    func testResetClearsRamAndFile() {
+        AppState.shared.logTypedWords = true
+        for _ in 0..<3 { WordLog.shared.note("trường") }
+        _ = WordLog.shared.stats()
+
+        try? FileManager.default.removeItem(at: WordLog.storeURL)
+        WordLog.shared.note("người")                       // flush kế tiếp dựng lại file
+        _ = WordLog.shared.stats()
+        XCTAssertEqual(WordLog.shared.stats().total, 4, "xoá file không xoá được bộ đếm")
+
+        WordLog.shared.reset()
+        XCTAssertEqual(WordLog.shared.stats().total, 0)
+        XCTAssertEqual(WordLog.shared.stats().unique, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: WordLog.storeURL.path))
     }
 
     // MARK: Mốc mẫu

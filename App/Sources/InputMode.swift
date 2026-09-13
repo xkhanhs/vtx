@@ -30,6 +30,15 @@ enum InputMode: String {
     /// (changing input-mode metadata costs a notarize + logout).
     case altLayout = "com.vtx.inputmethod.telex.vi-colemak"
 
+    /// Tên như nó hiện trong trình đơn input source. Không dịch: đây là tên riêng,
+    /// và người dùng đối chiếu nó với cái đang thấy trên menu bar.
+    var menuName: String {
+        switch self {
+        case .telex:     return "VTX Telex"
+        case .altLayout: return "VTX Colemak"
+        }
+    }
+
     /// The layout id this mode composes on, as KeyboardLayoutOverride.apply wants it.
     ///
     /// Empty means opposite things for the two modes, which is why this is not one
@@ -61,14 +70,27 @@ enum InputMode: String {
 enum InputModeState {
     /// Defaults to `.telex`: if IMKit ever fails to hand us a mode, behaving as the
     /// mode that existed before this feature is the safe direction to be wrong in.
-    private(set) static var current: InputMode = .telex
+    ///
+    /// Lock-guarded since WordLog reads it: `select` runs on MAIN (IMKit's setValue)
+    /// while the TAP thread reads the mode at every word boundary. Every other reader
+    /// is main-thread, so this costs a few uncontended ns and nothing else.
+    private static let lock = NSLock()
+    private static var _current: InputMode = .telex
+    static var current: InputMode { lock.withLock { _current } }
 
     /// Record the mode macOS just switched to and re-pin the layout immediately —
     /// waiting for the next activateServer would leave the very next keystroke
     /// composing on the previous mode's layout.
+    ///
+    /// The Carbon re-pin happens OUTSIDE the lock: `KeyboardLayoutOverride.apply` does
+    /// TIS calls, far too much to hold a lock the tap thread wants per word.
     static func select(_ mode: InputMode) {
-        guard mode != current else { return }
-        current = mode
+        let changed = lock.withLock { () -> Bool in
+            guard mode != _current else { return false }
+            _current = mode
+            return true
+        }
+        guard changed else { return }
         DebugLog.log("input-mode: \(mode.rawValue) → layout \(mode.pinnedLayoutID.isEmpty ? "(follow)" : mode.pinnedLayoutID)")
         KeyboardLayoutOverride.apply(mode.pinnedLayoutID)
     }
