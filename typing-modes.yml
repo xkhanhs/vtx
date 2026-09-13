@@ -107,16 +107,17 @@ com.apple.MobileSMS: inPlace
 # Spark Classic — composer là WebView, WebKit macOS 26 nuốt synthetic burst của
 # tap (issue #47, cùng gốc #44); reporter field-verify in-place OK 13/08/2026.
 com.readdle.smartemail-Mac: inPlace
-# MarkEdit — editor là CodeMirror 6 trong WKWebView: nó xử lý Backspace bằng JS và
-# áp edit vào document model BẤT ĐỒNG BỘ, nên loạt ⌫+retype của tap về sai thứ tự.
-# Maintainer field-test 14/08/2026, gõ "Đây là tiếng việt và nó bị lỗi như thế này"
-# ở mode tap: tap phát đủ 17 edit (log đếm đúng 17 `tap-emit`, không thiếu lần nào)
-# nhưng màn hình ra "Đây là tiêng viịt va nó bị loỗ như thê naà" — dấu rơi mất, "loỗ"
-# còn thừa `o` (backspace không ăn), "naà" lệch một ô (chèn trước khi ⌫ kịp áp dụng).
-# Cùng lớp lỗi WebView của #47/#44, KHÁC lớp Electron biên-từ ở trên (Electron
-# self-report caret thật thà nên in-place học nhầm; MarkEdit thì honor thật:
-# probe đo được `regionMatch=yes → honored`, reprobe `imkMatch2=yes`, không gạch chân).
-app.cyan.markedit: inPlace
+# MarkEdit — editor là CodeMirror 6 trong WKWebView. Tap hỏng (đo 14/08/2026: tap
+# phát đủ 17 `tap-emit` mà màn hình ra "tiêng viịt … loỗ … naà" vì CodeMirror áp ⌫
+# giả lập bất đồng bộ). In-place honor thật (probe `regionMatch=yes → honored`,
+# reprobe `imkMatch2=yes`) nhưng KHOÁ PHÍM (đo 13/09/2026, phím CGEvent thật, 12/12
+# lần): sau một ⌫ (native hoặc rewrite của VTX), chữ kế tiếp trong ~1 s đi
+# `insertText(replacementRange:)` xong 10–20 ms thì WebKit gửi `deactivateServer`,
+# `activateServer` lại sau 250 ms, và từ đó KHÔNG phím nào tới handle() nữa —
+# MarkEdit beep cho tới khi có ⌘-chord/Alt-Tab. Cả hai input mode, cả remap lẫn
+# không. Marked: cùng chuỗi phím, 0 deactivate, đủ chữ. Chi tiết:
+# docs/MACOS_IME_NOTES.md mục "WKWebView + in-place: deactivateServer sau ⌫".
+app.cyan.markedit: marked
 # Outlook — compose là web editor trong WKWebView, cùng lớp #44/#47 (field
 # report Facebook 14/08: từ có dấu "cũng/được/làm" không gõ được vì burst bị
 # nuốt, từ không dấu vẫn ăn). Word/PowerPoint đã inPlace sẵn; Outlook bị thiếu.
