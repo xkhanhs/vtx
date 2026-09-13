@@ -911,6 +911,9 @@ struct ExperimentalTab: View {
     /// Đọc corpus một lần mỗi lần mở tab (io.sync + có thể đọc file) — KHÔNG đọc
     /// trong body, thứ SwiftUI dựng lại mỗi lần gạt một toggle nào đó trong tab.
     @State private var wordStats: (total: Int, unique: Int) = (0, 0)
+    /// Chế độ đang chạy, đọc lúc mở tab — để cái gate "chỉ thu ở VTX Telex" luôn
+    /// nhìn thấy được, không im lặng.
+    @State private var liveMode: InputMode = .telex
     @State private var exportResult: String?
 
     var body: some View {
@@ -969,11 +972,19 @@ struct ExperimentalTab: View {
                 Toggle(model.loc("Record most-typed words (local, temporary)"), isOn: $model.logTypedWords)
                 Text(model.loc("Counts the Vietnamese and English words you finish typing — WITH diacritics, in a file on this Mac only, never sent anywhere — so the list can be used as typing practice. Off by default; while off nothing is written at all. Passwords, digits, shortcuts and ⌘-combos are never counted."))
                     .font(.caption).foregroundStyle(.secondary)
+                Text(String(format: model.loc("Only VTX Telex is recorded, so practising a new layout in VTX Colemak never lands in the list. Live now: %@."),
+                            liveMode.menuName))
+                    .font(.caption)
+                    .foregroundStyle(liveMode == .telex ? Color.secondary : Color.orange)
                 Text(String(format: model.loc("Collected: %1$d words typed, %2$d distinct. File: %3$@"),
                             wordStats.total, wordStats.unique, WordLog.storeDisplayPath))
                     .font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                 Button { exportWords() } label: {
                     Label(model.loc("Export most-typed words…"), systemImage: "square.and.arrow.up")
+                }
+                .disabled(wordStats.total == 0)
+                Button(role: .destructive) { clearWords() } label: {
+                    Label(model.loc("Erase collected words"), systemImage: "trash")
                 }
                 .disabled(wordStats.total == 0)
                 if let exportResult {
@@ -995,7 +1006,7 @@ struct ExperimentalTab: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear { wordStats = WordLog.shared.stats() }
+        .onAppear { wordStats = WordLog.shared.stats(); liveMode = InputModeState.current }
     }
 
     /// Top-N từ hay gõ ra JSON `[{word,count}]` — đầu vào của importer bên beartype.
@@ -1015,6 +1026,23 @@ struct ExperimentalTab: View {
         } catch {
             exportResult = model.loc("Couldn’t save the file.")
         }
+    }
+
+    /// Xoá corpus. Hỏi lại trước: không hoàn tác được, và nếu người dùng đã gom vài
+    /// ngày thì đây là vài ngày gõ.
+    ///
+    /// Phải đi qua `WordLog.reset()` chứ không phải xoá file trong Finder: bộ đếm nằm
+    /// trong RAM và sẽ ghi đè file trở lại trong vòng 5 giây (xem `WordLog.reset`).
+    private func clearWords() {
+        let alert = NSAlert()
+        alert.messageText = model.loc("Erase the collected words?")
+        alert.informativeText = model.loc("The word list and its file are deleted and counting starts from zero. This can’t be undone.")
+        alert.addButton(withTitle: model.loc("Erase"))
+        alert.addButton(withTitle: model.loc("Cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        WordLog.shared.reset()
+        wordStats = WordLog.shared.stats()
+        exportResult = nil
     }
 
     /// Clipboard, not a file. The report flow (BAO-LOI.md) ends with the log pasted
