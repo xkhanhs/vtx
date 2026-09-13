@@ -827,7 +827,8 @@ Kiểm tra sức khoẻ (đúng 1 dòng, đúng đường dẫn `~/Library/Input
 
 ```bash
 pgrep -lf VTX
-mdfind -name "VTX.app"        # phải chỉ ra bản trong Input Methods
+# KHÔNG dùng mdfind — Spotlight không index $TMPDIR (xem mục 13/09). Hỏi LaunchServices:
+lsregister -dump | grep -E '^path:.*/VTX\.app \(0x'   # đúng 1 dòng, bản trong Input Methods
 ```
 
 Khôi phục sau khi đã dọn: ghi lại `AppleEnabledInputSources` bằng `defaults export` →
@@ -872,15 +873,72 @@ Hai khoá ghim layout trong `com.viettelex.settings` không bị ảnh hưởng
 vào **không** cần có trong enabled list, nên nó vắng mặt ở đó là bình thường, không
 phải triệu chứng.
 
-Khôi phục lần này KHÔNG cần `defaults import` + logout: xoá thư mục DerivedData, rồi
-người dùng thêm lại bằng System Settings → Keyboard → Input Sources → + → Vietnamese →
-VTX là xong, VTX hiện ra ngay trong danh sách. Đường `defaults export/import` +
+Thêm lại bằng System Settings → Keyboard → Input Sources → + → Vietnamese → VTX thì VTX
+hiện ra ngay, không cần `defaults import` + logout. Đường `defaults export/import` +
 logout/login của mục 15/08 để dành cho ca enabled list bị dựng lại từ mặc định (có
 `VietnameseSimpleTelex` chen vào) và VTX không xuất hiện trong danh sách `+`.
 
-Luật đã sửa trong `CLAUDE.md`: **mọi** lượt build/test đều qua `Scripts/*-install.sh`
-hoặc tự truyền `-derivedDataPath "${TMPDIR}/vtx-derived-dev"`. Hai script cài đặt đã
-làm đúng từ đầu; chỗ hở là lệnh `xcodebuild` gõ tay.
+> **Sai, sửa ở mục 13/09 ngay dưới.** Bản đầu của mục này ghi "khôi phục = xoá thư mục
+> DerivedData" và "luật: tự truyền `-derivedDataPath` là an toàn". Cả hai đều sai: xoá
+> thư mục KHÔNG huỷ đăng ký LaunchServices, và `xcodebuild test` vẫn đăng ký test host dù
+> build ở đâu. Hôm sau VTX rớt lần nữa đúng vì hai điều đó.
+
+### Thứ cần đếm là bản đăng ký LaunchServices, không phải bundle trên đĩa — 2026-09-13
+
+Sáng hôm sau VTX rớt khỏi `AppleEnabledInputSources` **lần nữa**, dù không còn thư mục
+DerivedData mặc định nào, và các lượt test đều đã truyền `-derivedDataPath
+"$TMPDIR/vtx-derived-test"` đúng như luật vừa ghi hôm trước.
+
+Mốc thời gian loại được bước cài đặt: danh sách bị dựng lại lúc **08:48:30**, còn PR
+merge lúc 08:48:49 và `notarize-install.sh` chạy sau đó. Trong khoảng ấy chỉ có một thứ
+khởi chạy VTX: hai lượt `xcodebuild … test`. Log hệ thống lúc 08:46:13 cho thấy
+LaunchServices trỏ bundle id sang chính bản test host:
+
+```
+"com.vtx.inputmethod.telex" = "/private/var/folders/…/T/vtx-derived-test/Build/Products/Debug/VTX.app"
+```
+
+`lsregister -dump` lọc theo bundle id ra **bốn** bản đăng ký:
+
+```
+path: ~/Library/Developer/Xcode/DerivedData/VietTelex-ffscvufezyyl…/Debug/VTX.app   reg 2026-09-12 23:04
+path: $TMPDIR/vtx-derived-test/Build/Products/Debug/VTX.app                        reg 2026-09-13 08:47
+path: $TMPDIR/vtx-derived/Build/Products/Release/VTX.app                           reg 2026-09-13 08:49
+path: ~/Library/Input Methods/VTX.app                                              reg 2026-09-13 08:49
+```
+
+Cùng lúc đó `mdfind -name "VTX.app"` chỉ ra **một** bản.
+
+Bốn điều rút ra, điều nào cũng lật lại một điều đã ghi trước đây:
+
+- **Vị trí build không bảo vệ gì.** Test hosted (`TEST_HOST` = `VTX.app`) khởi chạy và
+  đăng ký bundle ở bất cứ đâu nó được build. Mục 15/08 nói `$TMPDIR` "an toàn hơn vì nằm
+  ngoài Spotlight nên không bị macOS tự khởi chạy". Không cần macOS tự khởi chạy:
+  `xcodebuild` tự làm việc đó.
+- **Xoá thư mục không huỷ đăng ký.** Bản ghi số 1 trỏ vào thư mục đã `rm -rf` từ tối hôm
+  trước mà vẫn còn sống.
+- **`mdfind` mù hẳn với ca này.** Spotlight không index `$TMPDIR`, nên phép kiểm tra "mdfind
+  chỉ ra một bản" báo sạch trong khi LaunchServices giữ bốn bản.
+- **Script cài đặt cũng để lại một bản.** Bản ghi số 3 là thư mục build Release của chính
+  `notarize-install.sh`. Mục 15/08 nói hai script "làm đúng từ đầu"; về LaunchServices thì
+  không.
+
+Dọn: `lsregister -u <path>` cho ba bản thừa (exit 0 cả ba, **kể cả bản mà thư mục đã mất**),
+rồi mới xoá thư mục. Dump lại thì còn đúng một bản.
+
+Mức chắc chắn: LaunchServices trỏ sang test host thì có log, chắc chắn. Việc chính nó làm
+VTX rớt là suy luận mạnh (sự kiện duy nhất khởi chạy VTX trong khoảng thời gian đó, bước
+cài đặt bị mốc giờ loại trừ) chứ chưa tái hiện có kiểm soát. `AppleInputSourceUpdateTime`
+còn nhảy thêm một lần lúc 08:51:10, gần lúc chạy `lsregister -u`; lần đó danh sách không
+đổi, nhưng chưa loại trừ được việc huỷ đăng ký cũng làm macOS quét lại.
+
+Sửa đi kèm: cả hai script cài đặt giờ `lsregister -u` bản build của mình ngay sau khi cài,
+rồi cảnh báo nếu số bản đăng ký khác 1. Phép kiểm tra trong `CLAUDE.md` đổi từ `mdfind`
+sang:
+
+```bash
+lsregister -dump | grep -E '^path:.*/VTX\.app \(0x'   # đúng 1 dòng
+```
 
 ## WebKit KHÔNG nuốt synthetic — nó bỏ event ĐẾN CÙNG LÚC (đo 2026-08-19)
 
