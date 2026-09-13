@@ -2114,12 +2114,6 @@ final class TelexInputController: IMKInputController {
         SettingsWindowController.shared.show(tab: .general)
     }
 
-    /// Trang giải thích các kiểu gõ (In-place/Tap/Marked…) — GitHub render sẵn
-    /// docs/TYPING-STRATEGIES.md; GitHub Pages serve .md dạng raw nên không dùng
-    /// viettelex.com cho file này.
-    /// Trang hướng dẫn kiểu gõ cho user cuối — vẫn link từ Bảng cơ chế gõ / README.
-    static let typingModesGuideURL = "https://ptrinh.github.io/viettelex/typing-modes"
-
     @objc private func copyStrategySnapshot(_ sender: Any?) {
         // Async: menu input-method còn đang đóng (cùng lý do đã ghi ở showStatus).
         // Click dòng "Cơ chế gõ": copy debug VÀ mở thẳng Bảng cơ chế gõ trong Cài đặt
