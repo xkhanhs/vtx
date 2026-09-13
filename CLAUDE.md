@@ -65,18 +65,26 @@ Changing bundle id or input-mode metadata in `Info.plist` needs a logout/login o
 - **Two installed copies fight over one `InputMethodConnectionName`** — the menu shows
   the IME as selected while keys go somewhere else. Check `pgrep -lf VTX` finds exactly
   one process, from `~/Library/Input Methods/`.
-- **NEVER build into the default DerivedData** — `~/Library/Developer/Xcode/DerivedData/
-  VietTelex-*` is a second bundle with the same connection name, and macOS resolves the
-  fight by REBUILDING `AppleEnabledInputSources`: VTX drops out of the menu bar and the
-  user's non-Apple layout silently drops with it. Two ways in, and BOTH have now bitten:
-  ⌘B/⌘R in Xcode.app (2026-08-15; the directory was back at 491 MB and deleted again
-  2026-08-18), and a bare `xcodebuild` with no `-derivedDataPath` — including
-  `xcodebuild … test`, which needs no Run to do the damage (2026-09-12, VTX out of
-  `AppleEnabledInputSources` within the same minute). So: every build or test goes
-  through `Scripts/*-install.sh`, or passes `-derivedDataPath "${TMPDIR}/vtx-derived-dev"`
-  by hand. Check, don't assume: `mdfind -name "VTX.app"` must return only
-  `~/Library/Input Methods/VTX.app` before an install, and `pgrep -lf VTX` exactly one
-  line. Opening Xcode to read or edit is harmless — only building is not.
+- **Exactly ONE LaunchServices registration of VTX, ever — and check it with
+  LaunchServices, not `mdfind`.** Any other `VTX.app` macOS has registered, wherever it
+  lives, is a second bundle with the same connection name, and macOS resolves the fight
+  by REBUILDING `AppleEnabledInputSources`: VTX drops out of the menu bar (on 2026-08-15
+  the user's non-Apple layout dropped with it). **Build location does not protect you.**
+  Ways in that have bitten: ⌘B/⌘R in Xcode.app (2026-08-15, again 2026-08-18), a bare
+  `xcodebuild` (2026-09-12), and `xcodebuild … test` even WITH `-derivedDataPath
+  "$TMPDIR/…"` — the hosted test launches and registers its `VTX.app` wherever it was
+  built (2026-09-13). **Deleting a bundle does not unregister it:** a DerivedData copy
+  removed the night before still had a live record the next morning. And `mdfind` is
+  blind here — Spotlight doesn't index `$TMPDIR`, so it showed one bundle while
+  LaunchServices held four. The install scripts now unregister their own build copy
+  and warn when the count isn't 1. Check by hand (must print exactly one line, the
+  `~/Library/Input Methods` one):
+  ```bash
+  /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -dump | grep -E '^path:.*/VTX\.app \(0x'
+  ```
+  Fix a stray one with `lsregister -u <path>` BEFORE deleting its directory (it also
+  works on a record whose directory is already gone). After running `AppTests` by hand,
+  unregister the test host the same way. Opening Xcode to read or edit is harmless.
 - **`gh` resolves to `ptrinh/viettelex`, not this fork.** With two remotes it picks
   upstream, so a bare `gh release create` publishes to SOMEONE ELSE'S repo. On the
   1.6.10 sync it only missed because upstream already had that tag. `gh repo

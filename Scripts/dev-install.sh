@@ -33,10 +33,21 @@ codesign --force --options runtime \
          --entitlements App/Resources/VietTelex.entitlements \
          --sign "$SIGN_ID" "$APP"
 
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 pkill -x VTX 2>/dev/null || true
 rm -rf "$DEST"
 ditto "$APP" "$DEST"
-/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$DEST"
+"$LSREGISTER" -f "$DEST"
+# Same as notarize-install: the build copy is a second registration of our bundle id,
+# and a second registration is what drops VTX out of AppleEnabledInputSources.
+# Unregister it, then say so if anything else is still registered.
+"$LSREGISTER" -u "$APP" 2>/dev/null || true
+registered=$("$LSREGISTER" -dump 2>/dev/null | grep -E '^path:.*/VTX\.app \(0x')
+if [ "$(printf '%s\n' "$registered" | grep -c .)" -ne 1 ]; then
+  echo "WARNING: LaunchServices has more than one VTX.app — VTX may drop out of the menu bar."
+  echo "Unregister every path below except ~/Library/Input Methods with: $LSREGISTER -u <path>"
+  printf '%s\n' "$registered" | sed 's/^/  /'
+fi
 
 # The keyboard menu is drawn by TextInputMenuAgent, which keeps an IMK
 # connection to the OLD (now dead) IME process. Without this restart the
