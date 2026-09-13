@@ -800,6 +800,12 @@ riêng: **layout Colemak DH ANSI của user cũng mất** khỏi enabled, và ma
 `VietnameseSimpleTelex` của Apple vào thế chỗ — dấu hiệu điển hình của việc cả
 enabled list bị dựng lại từ mặc định.
 
+> **Đọc lại 13/09.** Triệu chứng ở mục này là thật: VTX biến khỏi menu bar, và `pgrep` ra
+> hai process. Còn bảng plist ở trên thì tự nó không chứng minh được gì — key
+> `AppleEnabledInputSources` bị cũ trên macOS 26 và có thể thiếu VTX trong khi VTX vẫn
+> bật (mục 12–13/09 bên dưới). Muốn biết VTX có bật không, hỏi TIS:
+> `swift Scripts/check-input-source.swift`.
+
 Thủ phạm — `pgrep -lf VTX` ra **hai** dòng:
 
 ```
@@ -827,7 +833,7 @@ Kiểm tra sức khoẻ (đúng 1 dòng, đúng đường dẫn `~/Library/Input
 
 ```bash
 pgrep -lf VTX
-# KHÔNG dùng mdfind — Spotlight không index $TMPDIR (xem mục 13/09). Hỏi LaunchServices:
+# KHÔNG dùng mdfind — Spotlight không index $TMPDIR (xem mục 12–13/09). Hỏi LaunchServices:
 lsregister -dump | grep -E '^path:.*/VTX\.app \(0x'   # đúng 1 dòng, bản trong Input Methods
 ```
 
@@ -836,69 +842,54 @@ sửa → `defaults import com.apple.HIToolbox`, rồi **logout/login** (đọc 
 import thì thấy đúng, nhưng menu bar chỉ cập nhật sau login scan). Đừng `killall
 cfprefsd`. Cũng nhớ thêm lại layout non-Apple đã mất cùng — nó rơi im lặng.
 
+Trước khi đụng tới đường khôi phục này, xác nhận VTX **thật sự** không bật: nhìn menu bar,
+hoặc hỏi TIS bằng `swift Scripts/check-input-source.swift`. Đừng tin riêng key plist.
+
 Bẫy phụ khi dọn: `~/Library/Preferences/com.viettelex.settings.plist` **KHÔNG** phải rác
 của upstream — đó là suite settings VTX đang dùng thật (xem `CLAUDE.md`). Xoá nó là mất
 `manualAppModes`, `keyboardLayoutID`, toàn bộ cấu hình người dùng.
 
-### Không chỉ GUI: `xcodebuild` trần cũng làm y hệt — 2026-09-12
+### `AppleEnabledInputSources` không đo được gì — hai "sự cố" 12–13/09 không có thật
 
-Sửa lại kết luận ở trên. Mục 15/08 viết "thư mục đó **chỉ có thể** sinh ra từ ⌘B/⌘R
-trong Xcode.app GUI". Sai. `xcodebuild` dòng lệnh **không truyền `-derivedDataPath`**
-cũng ghi thẳng vào `~/Library/Developer/Xcode/DerivedData/VietTelex-*`, và không cần
-Run: chỉ `xcodebuild … test` là đủ, vì hosted test bundle khởi chạy VTX.app làm
-TEST_HOST.
+Tối 12/09 và sáng 13/09 mục này từng ghi "VTX rớt khỏi `AppleEnabledInputSources`" hai lần,
+kèm cơ chế và cách khôi phục. **Cả hai lần đều không xảy ra.** Thứ duy nhất "rớt" là một
+key plist đã cũ. Ghi lại để lần sau đừng đo bằng thước này nữa.
 
-Đo được, trong lúc làm bộ ghi từ hay gõ (5-6 lượt `xcodebuild … test` để chạy
-`AppTests`):
+Cái đã được đọc lúc đó:
 
 ```
-mdfind -name "VTX.app"
-  ~/Library/Developer/Xcode/DerivedData/VietTelex-ffscvufezyyl…/Build/Products/Debug/VTX.app
-  ~/Library/Input Methods/VTX.app
-
-AppleEnabledInputSources   = [ ABC, Colemak DH ANSI, CharacterPalette, PressAndHold ]
-AppleInputSourceHistory    = [ …, com.vtx.inputmethod.telex.vi-colemak,
-                                  com.vtx.inputmethod.telex.vi, … ]
-AppleInputSourceUpdateTime = 2026-09-12 23:06 (local)
+defaults read com.apple.HIToolbox AppleEnabledInputSources
+  = [ ABC, Colemak DH ANSI, CharacterPalette, PressAndHold ]      # không có VTX
+AppleInputSourceHistory = [ …, com.vtx.inputmethod.telex.vi-colemak, com.vtx.inputmethod.telex.vi, … ]
 ```
 
-Lại đúng dấu hiệu cũ: VTX rớt từ **enabled** xuống chỉ còn **history**, app vẫn lành
-(`spctl` → `accepted / Notarized Developer ID`). Khác lần 15/08 ở hai điểm, nên đừng
-dùng chúng làm dấu hiệu nhận biết: macOS **không** nhét `VietnameseSimpleTelex` vào thế
-chỗ, và layout `Colemak DH ANSI` của user **vẫn còn** trong enabled. Cái mất là VTX.
+Cái thật sự đúng, ở cùng những thời điểm đó:
 
-Hai khoá ghim layout trong `com.viettelex.settings` không bị ảnh hưởng
-(`keyboardLayoutID` = ABC, `altKeyboardLayoutID` = ColemakDH-Viet vẫn nguyên), và
-`Colemak DH-Viet.bundle` vẫn nằm trong `~/Library/Keyboard Layouts/` — layout VTX ghim
-vào **không** cần có trong enabled list, nên nó vắng mặt ở đó là bình thường, không
-phải triệu chứng.
+- **Người dùng:** VTX chưa bao giờ biến khỏi menu bar, cũng không phải thêm lại lần nào.
+- **Log hệ thống, 2026-09-12 22:57:15**, ngay trong khoảng bị ghi là "rớt": HUD của ⌃Space
+  in `tsmEnabledInputSourceIDs = ("com.vtx.inputmethod.telex.vi-colemak",
+  "com.vtx.inputmethod.telex.vi", "com.apple.keylayout.ABC")`. Danh sách thật của TSM
+  **có** VTX, và **không có** `Colemak DH ANSI`, thứ plist lại liệt kê. Plist lệch khỏi
+  trạng thái thật theo cả hai chiều.
+- **TIS, 2026-09-13**, lúc plist vẫn thiếu VTX:
+  ```
+  com.vtx.inputmethod.telex.vi          enabled=Y  selected=N  selectCapable=Y
+  com.vtx.inputmethod.telex.vi-colemak  enabled=Y  selected=Y  selectCapable=Y
+  ```
+- Không có bản ByHost nào của `com.apple.HIToolbox`, và trong cả hai khoảng thời gian log
+  **không có sự kiện gỡ input source** nào.
 
-Thêm lại bằng System Settings → Keyboard → Input Sources → + → Vietnamese → VTX thì VTX
-hiện ra ngay, không cần `defaults import` + logout. Đường `defaults export/import` +
-logout/login của mục 15/08 để dành cho ca enabled list bị dựng lại từ mặc định (có
-`VietnameseSimpleTelex` chen vào) và VTX không xuất hiện trong danh sách `+`.
+Luật: **hỏi TIS**, qua `swift Scripts/check-input-source.swift`. Một sự cố chỉ được tính
+khi menu bar thật sự cho thấy nó.
 
-> **Sai, sửa ở mục 13/09 ngay dưới.** Bản đầu của mục này ghi "khôi phục = xoá thư mục
-> DerivedData" và "luật: tự truyền `-derivedDataPath` là an toàn". Cả hai đều sai: xoá
-> thư mục KHÔNG huỷ đăng ký LaunchServices, và `xcodebuild test` vẫn đăng ký test host dù
-> build ở đâu. Hôm sau VTX rớt lần nữa đúng vì hai điều đó.
+#### Phần đo thật: LaunchServices giữ bản đăng ký thừa
 
-### Thứ cần đếm là bản đăng ký LaunchServices, không phải bundle trên đĩa — 2026-09-13
+Đi tìm nguyên nhân cho cái "sự cố" không có thật ấy lại lòi ra mấy điều đúng, đo trực tiếp,
+không phụ thuộc plist.
 
-Sáng hôm sau VTX rớt khỏi `AppleEnabledInputSources` **lần nữa**, dù không còn thư mục
-DerivedData mặc định nào, và các lượt test đều đã truyền `-derivedDataPath
-"$TMPDIR/vtx-derived-test"` đúng như luật vừa ghi hôm trước.
-
-Mốc thời gian loại được bước cài đặt: danh sách bị dựng lại lúc **08:48:30**, còn PR
-merge lúc 08:48:49 và `notarize-install.sh` chạy sau đó. Trong khoảng ấy chỉ có một thứ
-khởi chạy VTX: hai lượt `xcodebuild … test`. Log hệ thống lúc 08:46:13 cho thấy
-LaunchServices trỏ bundle id sang chính bản test host:
-
-```
-"com.vtx.inputmethod.telex" = "/private/var/folders/…/T/vtx-derived-test/Build/Products/Debug/VTX.app"
-```
-
-`lsregister -dump` lọc theo bundle id ra **bốn** bản đăng ký:
+Sau vài lượt `xcodebuild … test` (có truyền `-derivedDataPath "$TMPDIR/vtx-derived-test"`)
+và một lần `notarize-install.sh`, `lsregister -dump` ra **bốn** bản đăng ký cho
+`com.vtx.inputmethod.telex`, trong khi `mdfind -name "VTX.app"` chỉ ra **một**:
 
 ```
 path: ~/Library/Developer/Xcode/DerivedData/VietTelex-ffscvufezyyl…/Debug/VTX.app   reg 2026-09-12 23:04
@@ -907,37 +898,30 @@ path: $TMPDIR/vtx-derived/Build/Products/Release/VTX.app                        
 path: ~/Library/Input Methods/VTX.app                                              reg 2026-09-13 08:49
 ```
 
-Cùng lúc đó `mdfind -name "VTX.app"` chỉ ra **một** bản.
+Log lúc 08:46:13 cho thấy LaunchServices ánh xạ bundle id sang chính bản test host:
+`"com.vtx.inputmethod.telex" = "/private/var/folders/…/T/vtx-derived-test/…/VTX.app"`.
 
-Bốn điều rút ra, điều nào cũng lật lại một điều đã ghi trước đây:
+- **Vị trí build không ngăn được việc đăng ký.** Test hosted (`TEST_HOST` = `VTX.app`)
+  khởi chạy và đăng ký bundle ở bất cứ đâu nó được build. `xcodebuild` trần không có
+  `-derivedDataPath` thì ghi vào DerivedData mặc định.
+- **Xoá thư mục không huỷ đăng ký.** Bản ghi đầu tiên trỏ vào thư mục đã `rm -rf` từ tối
+  hôm trước mà vẫn còn sống.
+- **`mdfind` không thấy gì ở đây**, vì Spotlight không index `$TMPDIR`.
+- **Script cài đặt cũng để lại một bản:** thư mục build Release của `notarize-install.sh`.
+- **`lsregister -u <path>` gỡ được cả ba**, kể cả bản mà thư mục đã mất (exit 0). Dump lại
+  còn đúng một.
 
-- **Vị trí build không bảo vệ gì.** Test hosted (`TEST_HOST` = `VTX.app`) khởi chạy và
-  đăng ký bundle ở bất cứ đâu nó được build. Mục 15/08 nói `$TMPDIR` "an toàn hơn vì nằm
-  ngoài Spotlight nên không bị macOS tự khởi chạy". Không cần macOS tự khởi chạy:
-  `xcodebuild` tự làm việc đó.
-- **Xoá thư mục không huỷ đăng ký.** Bản ghi số 1 trỏ vào thư mục đã `rm -rf` từ tối hôm
-  trước mà vẫn còn sống.
-- **`mdfind` mù hẳn với ca này.** Spotlight không index `$TMPDIR`, nên phép kiểm tra "mdfind
-  chỉ ra một bản" báo sạch trong khi LaunchServices giữ bốn bản.
-- **Script cài đặt cũng để lại một bản.** Bản ghi số 3 là thư mục build Release của chính
-  `notarize-install.sh`. Mục 15/08 nói hai script "làm đúng từ đầu"; về LaunchServices thì
-  không.
+Mức chắc chắn: bốn bản đăng ký thừa là thật. Còn chuyện chúng **gây ra** triệu chứng gì
+cho người dùng thì **chưa có bằng chứng nào**: sáng 13/09 LaunchServices giữ bốn bản mà VTX
+vẫn chạy bình thường. Sự cố 15/08 thì khác: triệu chứng là thật, và nó đi kèm *hai
+process* VTX chạy song song, không chỉ là bản đăng ký.
 
-Dọn: `lsregister -u <path>` cho ba bản thừa (exit 0 cả ba, **kể cả bản mà thư mục đã mất**),
-rồi mới xoá thư mục. Dump lại thì còn đúng một bản.
-
-Mức chắc chắn: LaunchServices trỏ sang test host thì có log, chắc chắn. Việc chính nó làm
-VTX rớt là suy luận mạnh (sự kiện duy nhất khởi chạy VTX trong khoảng thời gian đó, bước
-cài đặt bị mốc giờ loại trừ) chứ chưa tái hiện có kiểm soát. `AppleInputSourceUpdateTime`
-còn nhảy thêm một lần lúc 08:51:10, gần lúc chạy `lsregister -u`; lần đó danh sách không
-đổi, nhưng chưa loại trừ được việc huỷ đăng ký cũng làm macOS quét lại.
-
-Sửa đi kèm: cả hai script cài đặt giờ `lsregister -u` bản build của mình ngay sau khi cài,
-rồi cảnh báo nếu số bản đăng ký khác 1. Phép kiểm tra trong `CLAUDE.md` đổi từ `mdfind`
-sang:
+Vẫn giữ một bản cho sạch. Cả hai script cài đặt giờ `lsregister -u` bản build của mình
+ngay sau khi cài, và cảnh báo nếu số bản khác 1. Kiểm tra bằng tay:
 
 ```bash
-lsregister -dump | grep -E '^path:.*/VTX\.app \(0x'   # đúng 1 dòng
+lsregister -dump | grep -E '^path:.*/VTX\.app \(0x'   # đúng 1 dòng, bản trong Input Methods
+pgrep -lf VTX                                         # đúng 1 process
 ```
 
 ## WebKit KHÔNG nuốt synthetic — nó bỏ event ĐẾN CÙNG LÚC (đo 2026-08-19)

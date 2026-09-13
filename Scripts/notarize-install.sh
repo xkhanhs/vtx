@@ -57,17 +57,16 @@ pkill -x VTX 2>/dev/null || true
 rm -rf "$DEST"
 /usr/bin/ditto "$APP" "$DEST"
 "$LSREGISTER" -f "$DEST"
-# The build copy in $DERIVED is registered too, under the same bundle id — a SECOND
-# VTX with the same connection name, which is what makes macOS rebuild
-# AppleEnabledInputSources and drop VTX from the menu bar. Measured 2026-09-13:
-# LaunchServices held four registrations (this Release copy, a test host, a deleted
-# DerivedData bundle, the real one) while `mdfind` showed one — Spotlight doesn't
-# index $TMPDIR. Unregister BEFORE anything deletes the directory: removing a bundle
-# does not remove its record. See docs/MACOS_IME_NOTES.md.
+# The build copy in $DERIVED is registered too, under our bundle id. A registered
+# stray copy has not been shown to break anything on its own (2026-09-13: four
+# registrations, VTX kept working), but a second VTX PROCESS sharing the connection
+# name did knock VTX out of the menu bar (2026-08-15) — so keep exactly one.
+# Unregister BEFORE anything deletes the directory: removing a bundle does not remove
+# its record, and `mdfind` can't see $TMPDIR. See docs/MACOS_IME_NOTES.md.
 "$LSREGISTER" -u "$APP" 2>/dev/null || true
 registered=$("$LSREGISTER" -dump 2>/dev/null | grep -E '^path:.*/VTX\.app \(0x')
 if [ "$(printf '%s\n' "$registered" | grep -c .)" -ne 1 ]; then
-  echo "  WARNING: LaunchServices has more than one VTX.app — VTX may drop out of the menu bar."
+  echo "  WARNING: LaunchServices has more than one VTX.app registered (expected exactly 1)."
   echo "  Unregister every path below except ~/Library/Input Methods with: $LSREGISTER -u <path>"
   printf '%s\n' "$registered" | sed 's/^/    /'
 fi
