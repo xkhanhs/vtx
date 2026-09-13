@@ -1057,6 +1057,68 @@ Workaround cho user (đã field-verify 20/08):
 Đừng thử lại sáu ngả trên mà chưa có bằng chứng mới (ví dụ macOS/WebKit đổi hành vi).
 
 
+## WKWebView + in-place: `deactivateServer` sau ⌫ rồi khoá phím — MarkEdit, đo 2026-09-13
+
+Field: MarkEdit (`app.cyan.markedit`, WKWebView + CodeMirror 6), VTX Colemak, gõ một
+lúc rồi ⌫ sửa → mọi phím sau đó beep, không chữ nào vào; Alt-Tab ra vào là gõ lại
+được. Tái hiện được **không cần người gõ**: `Scripts/ime-drive.swift` bơm CGEvent thật
+(HID tap) rồi đối chiếu `log show` theo mốc từng phím; đọc màn hình bằng
+`Scripts/ax-read-text.swift` (screencapture bị chặn quyền).
+
+Chuỗi tối thiểu, lặp 12/12 lần: `mootj` · ⌫ ⌫ · `t` (hoặc ⌘A · ⌫ · chữ đầu).
+
+```
+17:39:43.786  VTX  Inserting text            ← chữ `t` sau ⌫⌫, insertText(range: caret,0)
+17:39:43.805  VTX  Deactivate Server         ← 19 ms sau; MarkEdit vẫn key window
+17:39:44.057  VTX  Activate Server           ← +250 ms, client vẫn app.cyan.markedit
+17:39:43.9…   MarkEdit  ModelBundle instruct_3b / runJavaScriptInFrame / SFSafariPlatformSupport
+              credentialSelected: nil       ← MỖI phím sau đó: WebKit tự xử lý, không tới IME
+```
+
+Sau `Activate Server` không phím nào tới `handle()` nữa (WindowServer vẫn giao
+keyDown cho MarkEdit). Một ⌘-chord (⌘A) hoặc đổi app mới mở lại đường IME.
+
+| Biến | Kết quả |
+|---|---|
+| VTX Colemak, live = DH-Việt (không remap) | **khoá** |
+| VTX Colemak, live = DH ANSI (remap) | **khoá** |
+| VTX Telex, live = ABC | **khoá** — bảng "Telex OK" trong handoff cũ là do nhịp tay |
+| Layout thuần, không IME | không lỗi, chữ đúng |
+| ⌫ rồi nghỉ ≥ 1,5 s mới gõ chữ | thường không lỗi, nhưng KHÔNG chắc (T2/T4 vẫn khoá) |
+| MarkEdit ghim **marked** | **không** deactivate, đủ chữ, cả hai chuỗi |
+
+Điểm phân biệt lành/dữ: WebKit đôi lúc tự bắn cặp `Deactivate`+`Activate` cách nhau
+1 ms ngay tại ⌘A hoặc ⌫ — sau cặp đó gõ tiếp bình thường. Khi cặp đó KHÔNG xảy ra ở
+⌫, lệnh `insertText` kế tiếp của IME là thứ kích nó, và lần này `Activate` về sau
+250 ms với phiên IME đã chết. Tức WebKit hoãn một lần reset input context sau khi
+xoá, và reset đó rơi đúng giữa insert của IME. Không phải: remap layout, ký tự
+0x08, VTX tự đổi source, mất key focus, TerminalTap, icon caret, WordLog — đều đã
+loại có số đo (xem `plans/reports/handoff-260913-1730-markedit-colemak-beep.md`).
+
+Đã LOẠI những thứ từng nghi: `NSBeep` không hề xuất hiện trong unified log dù app
+beep — đừng dùng nó làm dấu hiệu; `log stream` rớt message ở nhịp 50 ms/phím,
+dùng `log show --start`.
+
+**Đã thử né bằng dev-install (V1, cùng ngày): chữ thường chèn `kNoRange` thay vì
+`(caret,0)`.** Kết quả: 4/4 chuỗi **hết `Deactivate Server`**, mọi phím tới VTX —
+nhưng chữ SAI: `xin`⌫ → "xx", `mootj`⌫⌫`t` → "tj". Nguyên nhân lộ ra trong log:
+ngay sau ⌘A·⌫ WebKit trả `selectedRange` caret=1 cho tài liệu RỖNG, và sau rewrite ⌫
+IMK `attributedSubstring` nói 3 ký tự trong khi AX nói 1 (`axMatch2=no imkMatch2=yes`).
+Tức UI-process của WebKit cache selection/text CŨ so với DOM; VTX neo anchor/onLen
+trên số cũ → range rewrite lệch. Với range tường minh, insert rơi NGOÀI tài liệu
+thật → WebKit deactivate + khoá; với `kNoRange` thì không deactivate nhưng rewrite
+⌫ kế tiếp vẫn dùng anchor sai → mất chữ. Cả hai nhánh in-place đều thua vì đọc-lại
+của WKWebView không tin được ngay sau xoá — đúng họ bug "modeless IME staging" của
+WebKit main 2026. Đã revert V1.
+
+Chốt: `app.cyan.markedit: marked` trong `typing-modes.yml` (tap đã hỏng từ 14/08,
+in-place khoá phím hoặc mất chữ). Mở lại chỉ khi WebKit/CodeMirror đổi hành vi.
+WebKit `main` (04–06/2026) có cả một chuỗi bug về IME "modeless commit" (chèn qua
+`insertText:replacementRange:` không marked text, nêu đích danh VietnameseSimpleTelex)
+trong editor WebKit — kể cả một bug "confirming composition results in beep"; đường
+`setMarkedText:` không nằm trong chuỗi đó. Trích dẫn và số bug:
+`plans/reports/researcher-260913-1745-webkit-imk-deactivate.md`.
+
 ## Debug commands
 
 **`log` is a zsh builtin.** `log show …` silently runs the builtin and fails; with

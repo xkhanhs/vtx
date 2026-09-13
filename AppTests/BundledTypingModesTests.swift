@@ -65,19 +65,31 @@ final class BundledTypingModesTests: XCTestCase {
         }
     }
 
-    // MARK: Field report 14/08/2026 — MarkEdit (WKWebView + CodeMirror) ở mode tap
+    // MARK: Field report 14/08/2026 — Spark Classic (WebView composer) ở mode tap
 
     func testWebViewEditorsResolveToInPlace() throws {
-        // MarkEdit rơi vào default safe-unknown (.tap) vì không có rule; CodeMirror áp
-        // ⌫ giả lập bất đồng bộ nên burst của tap về sai thứ tự — tap phát đủ 17 edit
-        // mà màn hình ra "tiêng viịt … loỗ … naà" (dấu rơi, thừa ký tự, lệch ô).
-        // In-place được đo là honor thật ở đây (regionMatch=yes, imkMatch2=yes, không
-        // gạch chân), khác Electron ở trên — nơi caret thật thà nhưng edit hỏng biên từ.
-        // Spark Classic đi kèm: cùng lớp WebView, cùng kết luận (#47).
-        for id in ["app.cyan.markedit", "com.readdle.smartemail-Mac"] {
+        // Composer WebView rơi vào default safe-unknown (.tap) vì không có rule; WebKit
+        // bỏ burst synthetic của tap (#47, cùng gốc #44). In-place được đo là honor
+        // thật ở đây (regionMatch=yes, imkMatch2=yes, không gạch chân), khác Electron
+        // ở trên — nơi caret thật thà nhưng edit hỏng biên từ.
+        for id in ["com.readdle.smartemail-Mac"] {
             XCTAssertEqual(try bundledRules()[id], "inPlace", "\(id) thiếu/hỏng trong typing-modes.yml")
             XCTAssertEqual(AppState.shared.autoResolvedMode(id), .inPlace, id)
         }
+    }
+
+    // MARK: Đo 13/09/2026 — MarkEdit (WKWebView + CodeMirror 6): in-place khoá phím sau ⌫
+
+    func testMarkEditResolvesToMarked() throws {
+        // Tap hỏng (14/08: 17 tap-emit đủ mà dấu rơi/lệch ô). In-place honor thật nhưng
+        // sau một ⌫ rồi chữ kế tiếp trong ~1 s, WebKit gửi deactivateServer 10–20 ms sau
+        // insertText(replacementRange:) và từ đó không phím nào tới handle() nữa — app
+        // beep tới khi ⌘-chord/Alt-Tab (12/12 lần, phím CGEvent thật, cả hai input
+        // mode). Marked: cùng chuỗi phím, không deactivate, đủ chữ. Gạch chân là cái
+        // giá chấp nhận — hai mode kia mất chữ.
+        let id = "app.cyan.markedit"
+        XCTAssertEqual(try bundledRules()[id], "marked", "\(id) thiếu/hỏng trong typing-modes.yml")
+        XCTAssertEqual(AppState.shared.autoResolvedMode(id), .marked, id)
     }
 
     // MARK: Issue #55 (17/08/2026) — AppKit remote view service phải có rule riêng
