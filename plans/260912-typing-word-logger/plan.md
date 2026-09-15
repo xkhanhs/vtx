@@ -1,5 +1,9 @@
 # Bộ ghi từ hay gõ (tạm thời, local, opt-in)
 
+**Trạng thái: ĐÃ GỠ (15/09/2026).** Đã xuất top từ sang beartype ở mốc ~9.300 lượt;
+cả 5 commit `feat(wordlog)` được revert. File corpus cũ trên máy người dùng không bị
+code xoá — tự xoá `~/Library/Application Support/VietTelex/typing-corpus.json` nếu muốn.
+
 > Tính năng **tạm thời**, tắt mặc định, chỉ chạy local. Mục tiêu: gom danh sách
 > **từ tiếng Việt kèm tần suất** người dùng gõ nhiều nhất, để đổ về **beartype**
 > luyện đi luyện lại trên layout **Colemak‑DH‑Việt tuỳ biến** đang tập. Đủ mẫu →
