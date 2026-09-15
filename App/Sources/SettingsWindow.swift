@@ -152,8 +152,6 @@ final class SettingsModel: ObservableObject {
     @Published var axSelectionReplace: Bool { didSet { AppState.shared.axSelectionReplace = axSelectionReplace } }
     @Published var tapCascadeBreaker: Bool { didSet { AppState.shared.tapCascadeBreaker = tapCascadeBreaker } }
     @Published var debugLogging: Bool { didSet { AppState.shared.debugLogging = debugLogging } }
-    /// TẠM THỜI (xem WordLog.swift) — opt-in, mặc định tắt.
-    @Published var logTypedWords: Bool { didSet { AppState.shared.logTypedWords = logTypedWords } }
     @Published var autoUpdateCheck: Bool { didSet { AppState.shared.autoUpdateCheck = autoUpdateCheck } }
     /// INVERTED view of AppState.advancedFeatures (maintainer 09/09/2026: label đổi
     /// thành "Ẩn tính năng nâng cao", default TẮT = tab vẫn hiện). Storage giữ
@@ -230,7 +228,6 @@ final class SettingsModel: ObservableObject {
         axSelectionReplace = AppState.shared.axSelectionReplace
         tapCascadeBreaker = AppState.shared.tapCascadeBreaker
         debugLogging = AppState.shared.debugLogging
-        logTypedWords = AppState.shared.logTypedWords
         autoUpdateCheck = AppState.shared.autoUpdateCheck
         hideAdvanced = !AppState.shared.advancedFeatures
         uiLanguage = AppState.shared.uiLanguage
@@ -936,9 +933,6 @@ struct ModeTableTab: View {
 struct ExperimentalTab: View {
     @EnvironmentObject var model: SettingsModel
     @State private var saveResult: String?
-    /// Đọc corpus một lần mỗi lần mở tab (io.sync + có thể đọc file) — KHÔNG đọc
-    /// trong body, thứ SwiftUI dựng lại mỗi lần gạt một toggle nào đó trong tab.
-    @State private var wordStats: (total: Int, unique: Int) = (0, 0)
 
     var body: some View {
         Form {
@@ -991,15 +985,6 @@ struct ExperimentalTab: View {
                 Text(model.loc("Keep this ON. Stops the terminal tap if it ever floods the keyboard with synthetic events, so a bug can’t freeze typing."))
                     .font(.caption).foregroundStyle(.secondary)
             }
-            // TẠM THỜI — gỡ cùng WordLog khi đã lấy đủ danh sách từ để luyện.
-            Section(header: Label(model.loc("Most-typed words"), systemImage: "text.book.closed")) {
-                Toggle(model.loc("Record most-typed words (local, temporary)"), isOn: $model.logTypedWords)
-                Text(model.loc("Counts the Vietnamese and English words you finish typing — WITH diacritics, in a file on this Mac only, never sent anywhere — so the list can be used as typing practice. Off by default; while off nothing is written at all. Passwords, digits, shortcuts and ⌘-combos are never counted."))
-                    .font(.caption).foregroundStyle(.secondary)
-                Text(String(format: model.loc("Collected: %1$d words typed, %2$d distinct. File: %3$@"),
-                            wordStats.total, wordStats.unique, WordLog.storeDisplayPath))
-                    .font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-            }
             Section(header: Label(model.loc("Diagnostics"), systemImage: "stethoscope")) {
                 Toggle(model.loc("Record debug log"), isOn: $model.debugLogging)
                 Text(model.loc("Records tap health events in memory (never the text you type). Turn it on, reproduce the problem, then Copy debug log and paste it into your report — or save it as a file."))
@@ -1015,7 +1000,6 @@ struct ExperimentalTab: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear { wordStats = WordLog.shared.stats() }
     }
 
     /// Clipboard, not a file. The report flow (BAO-LOI.md) ends with the log pasted

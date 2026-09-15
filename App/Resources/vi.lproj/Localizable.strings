@@ -244,7 +244,6 @@ Bấm “Sửa tự động”: VTX tự xoá mục bị kẹt của chính nó 
 "Keep VietTelex when macOS auto-switches the input source (experimental)" = "Giữ VTX khi macOS tự đổi bộ gõ (thử nghiệm)";
 "Some apps (Word comments…) make macOS fall back to the default input source for every new field when “Automatically switch to a document's input source” is on. This switches back to VietTelex — only when the change wasn't yours (no ⌃Space, no menu click, same app)." = "Một số app (ô comment của Word…) làm macOS rơi về bộ gõ mặc định ở mỗi ô mới khi bật “Automatically switch to a document's input source”. Tính năng này tự chuyển lại VTX — chỉ khi thay đổi không phải do bạn (không ⌃Space, không click menu, không đổi app).";
 
-
 /* Switch hotkey (tiếp nối issue #54 — tổ hợp chỉ-modifier mà macOS không cho gán) */
 "Switch hotkey" = "Phím tắt chuyển bộ gõ";
 "Toggle VietTelex with" = "Chuyển VTX bằng";
