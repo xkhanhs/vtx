@@ -2886,15 +2886,10 @@ final class TerminalTapController {
             return true
         }
         let restore = AppState.shared.autoRestore && !suppressAutoRestore
-        // TẠM THỜI (WordLog.swift): một từ vừa chốt — read-only, no-op khi toggle tắt.
-        // `insert` của .replace chỉ là phần đuôi sau tiền tố chung ("gôgle"→"oogle"),
-        // nên từ trên màn hình là `rawWord`; không replace thì là `word` (composed).
         if case let .replace(bs, insert) = engine.commitBoundary(autoRestore: restore) {
-            WordLog.shared.note(rawWord)
             SyntheticKeyboard.apply(backspaces: bs, insert: insert, mode: emitMode)
             return true
         }
-        WordLog.shared.note(word)
         return false
     }
 

@@ -116,7 +116,6 @@ final class AppState: @unchecked Sendable {
         _axSelectionReplace = (defaults.object(forKey: "axSelectionReplace") as? Bool) ?? true
         _tapCascadeBreaker = (defaults.object(forKey: "tapCascadeBreaker") as? Bool) ?? true
         _debugLogging = (defaults.object(forKey: "debugLogging") as? Bool) ?? false
-        _logTypedWords = (defaults.object(forKey: "logTypedWords") as? Bool) ?? false
         _safeUnknownApps = (defaults.object(forKey: "safeUnknownApps") as? Bool) ?? true
         _keyboardLayoutID = (defaults.object(forKey: Key.keyboardLayout) as? String) ?? ""
         _altKeyboardLayoutID = (defaults.object(forKey: Key.altKeyboardLayout) as? String) ?? ""
@@ -461,17 +460,6 @@ final class AppState: @unchecked Sendable {
         get { lock.withLock { _debugLogging } }
         set { lock.withLock { _debugLogging = newValue }
               defaults.set(newValue, forKey: "debugLogging") }
-    }
-
-    /// TẠM THỜI (xem WordLog.swift). Ghi từ hay gõ vào corpus cục bộ — thứ DUY NHẤT
-    /// trong VTX lưu lại chữ người dùng gõ, nên mặc định TẮT và chỉ người dùng tự bật
-    /// trong Cài đặt → Thử Nghiệm. Tắt = `WordLog.note` early-return, không tạo file.
-    /// Đọc ở mỗi ranh giới từ, cùng nhịp với `autoRestore`.
-    private var _logTypedWords: Bool
-    var logTypedWords: Bool {
-        get { lock.withLock { _logTypedWords } }
-        set { lock.withLock { _logTypedWords = newValue }
-              defaults.set(newValue, forKey: "logTypedWords") }
     }
 
     /// Which ASCII keyboard layout Telex composes on — a kTISPropertyInputSourceID

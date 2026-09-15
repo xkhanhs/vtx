@@ -1583,12 +1583,6 @@ final class TelexInputController: IMKInputController {
         // Suppressed next to brackets (code context).
         let autoRestore = AppState.shared.autoRestore && !suppressAutoRestore
         let restored = engine.commitText(autoRestore: autoRestore)
-        // TẠM THỜI (WordLog.swift): một từ vừa chốt — read-only, no-op khi toggle tắt.
-        // Ở ĐÂY, không ở các `return true` bên dưới: khi từ tiếng Việt đã nằm sẵn trên
-        // màn hình (in-place, `restored == word`) nhánh này rơi xuống `return false`
-        // mà từ vẫn đã được chốt. Nhánh gõ tắt ở trên và ⌘-chord (endComposition)
-        // không đi qua đây, đúng như plan muốn.
-        WordLog.shared.note(restored)
         if marked {
             // Commit the marked text (replaces it with the final word).
             client.insertText(restored, replacementRange: kNoRange)

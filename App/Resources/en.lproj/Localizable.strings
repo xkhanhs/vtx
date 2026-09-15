@@ -89,7 +89,6 @@ Press “Repair automatically”: VTX removes its own stuck entry and asks for t
 "Keep VietTelex when macOS auto-switches the input source (experimental)" = "Keep VietTelex when macOS auto-switches the input source (experimental)";
 "Some apps (Word comments…) make macOS fall back to the default input source for every new field when “Automatically switch to a document's input source” is on. This switches back to VietTelex — only when the change wasn't yours (no ⌃Space, no menu click, same app)." = "Some apps (Word comments…) make macOS fall back to the default input source for every new field when “Automatically switch to a document's input source” is on. This switches back to VietTelex — only when the change wasn't yours (no ⌃Space, no menu click, same app).";
 
-
 /* Switch hotkey (issue #54 follow-up — modifier-only toggle macOS can't assign) */
 "Switch hotkey" = "Switch hotkey";
 "Toggle VietTelex with" = "Toggle VietTelex with";
@@ -105,11 +104,6 @@ Press “Repair automatically”: VTX removes its own stuck entry and asks for t
 
 /* Khoá secure input mồ côi (upstream 40be955) */
 "That process exited but the lock is stuck — lock the screen (⌃⌘Q) and unlock; if that fails, log out and back in" = "That process exited but the lock is stuck — lock the screen (⌃⌘Q) and unlock; if that fails, log out and back in";
-
-/* TEMPORARY — most-typed-words logger (WordLog). Goes away with the feature. */
-
-/* TẠM THỜI — bộ ghi từ hay gõ (WordLog). Gỡ cùng tính năng. */
-"VietTelex: enough typing samples collected" = "VTX: enough typing samples collected";
 
 /* Typing-mode menu line (maintainer 19/08/2026) */
 "Typing mode" = "Typing mode";
