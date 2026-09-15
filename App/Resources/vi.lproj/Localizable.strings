@@ -254,14 +254,6 @@ Bấm “Sửa tự động”: VTX tự xoá mục bị kẹt của chính nó 
 /* Khoá secure input mồ côi (upstream 40be955) */
 "That process exited but the lock is stuck — lock the screen (⌃⌘Q) and unlock; if that fails, log out and back in" = "Process đó đã thoát nhưng khoá bị kẹt — khoá màn hình (⌃⌘Q) rồi mở lại; không được thì đăng xuất rồi đăng nhập lại";
 
-/* TẠM THỜI — bộ ghi từ hay gõ (WordLog). Gỡ cùng tính năng. */
-"Most-typed words" = "Từ hay gõ";
-"Record most-typed words (local, temporary)" = "Ghi từ hay gõ (cục bộ, tạm thời)";
-"Counts the Vietnamese and English words you finish typing — WITH diacritics, in a file on this Mac only, never sent anywhere — so the list can be used as typing practice. Off by default; while off nothing is written at all. Passwords, digits, shortcuts and ⌘-combos are never counted." = "Đếm những từ tiếng Việt và tiếng Anh bạn gõ xong — GIỮ NGUYÊN dấu, lưu vào một file trên máy này, không gửi đi đâu — để lấy danh sách đó làm bài luyện gõ. Mặc định tắt; khi tắt thì không ghi gì cả. Mật khẩu, chữ số, gõ tắt và tổ hợp ⌘ không bao giờ được đếm.";
-"Collected: %1$d words typed, %2$d distinct. File: %3$@" = "Đã gom: %1$d lượt từ, %2$d từ khác nhau. File: %3$@";
-"VietTelex: enough typing samples collected" = "VTX: đã đủ mẫu từ hay gõ";
-"Open Settings → Experimental to export your most-typed words." = "Mở Cài đặt → Thử Nghiệm để xuất danh sách từ hay gõ.";
-
 /* Dòng "Chế độ gõ" trong menu (maintainer 19/08/2026) */
 "Typing mode" = "Cơ chế gõ";
 "Click to copy the debug info explaining this choice" = "Bấm để sao chép thông tin gỡ lỗi giải thích lựa chọn này";

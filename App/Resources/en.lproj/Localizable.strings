@@ -106,11 +106,6 @@ Press “Repair automatically”: VTX removes its own stuck entry and asks for t
 /* Khoá secure input mồ côi (upstream 40be955) */
 "That process exited but the lock is stuck — lock the screen (⌃⌘Q) and unlock; if that fails, log out and back in" = "That process exited but the lock is stuck — lock the screen (⌃⌘Q) and unlock; if that fails, log out and back in";
 
-/* TEMPORARY — most-typed-words logger (WordLog). Goes away with the feature. */
-
-/* TẠM THỜI — bộ ghi từ hay gõ (WordLog). Gỡ cùng tính năng. */
-"VietTelex: enough typing samples collected" = "VTX: enough typing samples collected";
-
 /* Typing-mode menu line (maintainer 19/08/2026) */
 "Typing mode" = "Typing mode";
 "Click to copy the debug info explaining this choice" = "Click to copy the debug info explaining this choice";

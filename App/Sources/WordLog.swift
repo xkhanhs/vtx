@@ -15,7 +15,6 @@
 // rewrite/backspace, một từ sẽ bị đếm nhiều lần).
 
 import Foundation
-import UserNotifications
 
 /// Corpus `{từ: số_lần}` tích luỹ cục bộ khi người dùng bật "Ghi từ hay gõ".
 ///
@@ -28,9 +27,6 @@ import UserNotifications
 /// mức đó không đáng đánh đổi thêm state.
 final class WordLog {
     static let shared = WordLog()
-
-    /// Đạt tổng token này thì bắn thông báo "đã đủ mẫu" (một lần duy nhất).
-    static let sampleTarget = 20_000
 
     /// Hai chặn nhiễu thay cho việc hỏi engine: từ tiếng Việt/Anh gõ liền mạch đều
     /// ngắn, còn từ `overflowed` (engine mất đồng bộ sau 32 phím) luôn dài hơn ngưỡng
@@ -108,14 +104,6 @@ final class WordLog {
         counts[word, default: 0] += 1
         total += 1
         unflushed += 1
-        // Mốc mẫu: ghi cờ ra file NGAY (không chờ debounce) rồi mới báo, để một lần
-        // tắt máy ngay sau đó không làm thông báo bắn lại ở lần chạy sau.
-        if !milestoneNotified, total >= Self.sampleTarget {
-            milestoneNotified = true
-            save()
-            Self.onMilestone()
-            return
-        }
         if unflushed >= Self.flushEvery { save(); return }
         guard !flushScheduled else { return }
         flushScheduled = true
@@ -160,12 +148,6 @@ final class WordLog {
 
     // MARK: - Test seam
 
-    /// Hành động khi đạt mốc mẫu. Là biến để test kiểm được "bắn đúng một lần" mà
-    /// không phải xin quyền thông báo của hệ thống.
-    nonisolated(unsafe) static var onMilestone: () -> Void = {
-        DispatchQueue.main.async { WordLogNotifier.postMilestone() }
-    }
-
     /// Quên hết state trong RAM để lần ghi kế tiếp đọc lại file — mô phỏng một lần
     /// khởi động mới của app. Chỉ dùng trong test.
     func resetForTestingByReloadingStore() {
@@ -187,25 +169,6 @@ final class WordLog {
             self.total = total
             self.milestoneNotified = milestoneNotified
             unflushed = 0
-        }
-    }
-}
-
-/// Thông báo "đã đủ mẫu" — đúng MỘT lần cho cả vòng đời corpus (cờ nằm trong file, nên
-/// khởi động lại app không bắn lại). Cùng dáng với `UpdateNotifier`: xin quyền lười,
-/// bị từ chối thì im lặng — dòng trạng thái trong Cài đặt là bề mặt dự phòng.
-enum WordLogNotifier {
-    static let requestID = "viettelex.wordlog.milestone"
-
-    @MainActor static func postMilestone() {
-        let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert]) { granted, _ in
-            guard granted else { return }
-            let content = UNMutableNotificationContent()
-            content.title = VTLocalized("VietTelex: enough typing samples collected")
-            content.body = VTLocalized("Open Settings → Experimental to export your most-typed words.")
-            let req = UNNotificationRequest(identifier: requestID, content: content, trigger: nil)
-            center.add(req, withCompletionHandler: nil)
         }
     }
 }
