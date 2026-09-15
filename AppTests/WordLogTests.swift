@@ -72,29 +72,6 @@ final class WordLogTests: XCTestCase {
         XCTAssertEqual(stats.unique, 2)
     }
 
-    // MARK: Top-N
-
-    func testTopIsDescendingByCountThenAlphabetical() {
-        WordLog.shared.resetForTesting(words: ["trường": 812, "người": 655, "anh": 655, "và": 9],
-                                       total: 2131)
-        let top = WordLog.shared.top(3)
-        XCTAssertEqual(top, [WordLog.Entry(word: "trường", count: 812),
-                             WordLog.Entry(word: "anh", count: 655),
-                             WordLog.Entry(word: "người", count: 655)])
-    }
-
-    func testExportJSONShapeMatchesBeartypeImporter() throws {
-        WordLog.shared.resetForTesting(words: ["trường": 2, "người": 1], total: 3)
-        let data = try WordLog.shared.exportJSON(topN: 2)
-        let decoded = try JSONDecoder().decode([WordLog.Entry].self, from: data)
-        XCTAssertEqual(decoded, [WordLog.Entry(word: "trường", count: 2),
-                                 WordLog.Entry(word: "người", count: 1)])
-        // `[{word,count}]`, đúng thứ tự khoá importer bên beartype đọc.
-        let text = String(decoding: data, as: UTF8.self)
-        XCTAssertTrue(text.contains("\"word\""))
-        XCTAssertTrue(text.contains("\"count\""))
-    }
-
     // MARK: Mốc mẫu
 
     func testMilestoneFiresExactlyOnce() {

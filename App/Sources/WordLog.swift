@@ -31,8 +31,6 @@ final class WordLog {
 
     /// Đạt tổng token này thì bắn thông báo "đã đủ mẫu" (một lần duy nhất).
     static let sampleTarget = 20_000
-    /// Số từ tối đa trong file export.
-    static let exportTopN = 500
 
     /// Hai chặn nhiễu thay cho việc hỏi engine: từ tiếng Việt/Anh gõ liền mạch đều
     /// ngắn, còn từ `overflowed` (engine mất đồng bộ sau 32 phím) luôn dài hơn ngưỡng
@@ -155,39 +153,9 @@ final class WordLog {
 
     // MARK: - Đọc & export (main thread, Cài đặt)
 
-    struct Entry: Codable, Equatable {
-        let word: String
-        let count: Int
-    }
-
     /// Tổng token + số từ khác nhau, cho dòng trạng thái trong Cài đặt.
     func stats() -> (total: Int, unique: Int) {
         io.sync { loadIfNeeded(); return (total, counts.count) }
-    }
-
-    /// Top-N giảm dần theo tần suất. Từ đồng tần sắp theo alphabet để hai lần export
-    /// cùng corpus ra cùng một file.
-    func top(_ n: Int = WordLog.exportTopN) -> [Entry] {
-        io.sync {
-            loadIfNeeded()
-            var entries: [Entry] = []
-            entries.reserveCapacity(counts.count)
-            for (word, count) in counts { entries.append(Entry(word: word, count: count)) }
-            entries.sort { a, b in a.count == b.count ? a.word < b.word : a.count > b.count }
-            if entries.count > n { entries.removeSubrange(n..<entries.count) }
-            return entries
-        }
-    }
-
-    /// `[{word,count}]` — định dạng importer bên beartype đọc.
-    func exportJSON(topN: Int = WordLog.exportTopN) throws -> Data {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return try encoder.encode(top(topN))
-    }
-
-    func export(topN: Int = WordLog.exportTopN, to url: URL) throws {
-        try exportJSON(topN: topN).write(to: url, options: .atomic)
     }
 
     // MARK: - Test seam
