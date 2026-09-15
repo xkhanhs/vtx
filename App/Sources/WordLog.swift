@@ -99,13 +99,6 @@ final class WordLog {
     /// (IMKit chạy trên main, TerminalTap trên luồng tap riêng).
     func note(_ raw: String) {
         guard AppState.shared.logTypedWords else { return }
-        // Chỉ thu ở chế độ VTX Telex. Chế độ VTX Colemak là nơi người dùng TẬP gõ
-        // layout mới, và tập đánh máy là hoạt động gõ dày đặc nhất trong ngày — để nó
-        // vào corpus thì danh sách "từ hay gõ" hoá ra chỉ phản chiếu bài tập cũ, chứ
-        // không phải thứ người dùng thật sự viết. Tách theo chế độ ăn đứt việc nhớ
-        // gạt toggle trước mỗi buổi tập. (ABC / input source khác không tới được đây:
-        // IMKit không chạy, còn tap gate ở `imeActive`.)
-        guard InputModeState.current == .telex else { return }
         guard let word = Self.normalize(raw) else { return }
         io.async { self.record(word) }
     }
@@ -195,26 +188,6 @@ final class WordLog {
 
     func export(topN: Int = WordLog.exportTopN, to url: URL) throws {
         try exportJSON(topN: topN).write(to: url, options: .atomic)
-    }
-
-    /// Xoá sạch corpus — RAM **và** file.
-    ///
-    /// Xoá mỗi file thì KHÔNG được: bộ đếm sống trong RAM, và lần flush kế tiếp ghi nó
-    /// trở lại (đo 13/09/2026 — người dùng xoá file lúc 08:43, ba phút sau nó quay lại
-    /// với 306 lượt, không một dấu hiệu nào báo là xoá hụt). Muốn reset bằng tay khi
-    /// không có nút này thì phải `pkill -x VTX` trước, rồi mới xoá file.
-    ///
-    /// `loaded` giữ nguyên `true`: trạng thái hiện tại "corpus rỗng" là đúng, đọc lại
-    /// file đã xoá chỉ tổ thừa.
-    func reset() {
-        io.sync {
-            loaded = true
-            counts = [:]
-            total = 0
-            milestoneNotified = false
-            unflushed = 0
-            try? FileManager.default.removeItem(at: Self.storeURL)
-        }
     }
 
     // MARK: - Test seam

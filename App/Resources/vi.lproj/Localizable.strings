@@ -263,11 +263,6 @@ Bấm “Sửa tự động”: VTX tự xoá mục bị kẹt của chính nó 
 "Open Settings → Experimental to export your most-typed words." = "Mở Cài đặt → Thử Nghiệm để xuất danh sách từ hay gõ.";
 "Export most-typed words…" = "Xuất từ hay gõ…";
 "Exported %1$d words to %2$@" = "Đã xuất %1$d từ vào %2$@";
-"Only VTX Telex is recorded, so practising a new layout in VTX Colemak never lands in the list. Live now: %@." = "Chỉ thu ở chế độ VTX Telex, nên tập layout mới trong VTX Colemak không bao giờ lẫn vào danh sách. Đang dùng: %@.";
-"Erase collected words" = "Xoá dữ liệu đã gom";
-"Erase the collected words?" = "Xoá dữ liệu đã gom?";
-"The word list and its file are deleted and counting starts from zero. This can’t be undone." = "Danh sách từ và file của nó bị xoá, bộ đếm về 0. Không hoàn tác được.";
-"Erase" = "Xoá";
 
 /* Dòng "Chế độ gõ" trong menu (maintainer 19/08/2026) */
 "Typing mode" = "Cơ chế gõ";
