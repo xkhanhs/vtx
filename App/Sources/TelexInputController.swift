@@ -182,6 +182,16 @@ final class TelexInputController: IMKInputController {
     func _testUsesMarkedNow(_ id: String?) -> Bool { usesMarkedNow(id) }
     #endif
 
+    /// Untrusted marked Return cannot re-post a synthetic key. Fold the newline
+    /// into the same `insertText` that confirms the composition so one Enter both
+    /// drops the underline and breaks the line (Chrome textarea, Notes, …).
+    /// Terminals strip control characters from IME-inserted text, so they keep
+    /// the documented two-press UX. Tab/Esc never inject. Trusted marked keeps
+    /// the existing swallow+re-post path (chat "send" needs a real Return key).
+    static func markedCommitNewlineSuffix(newlineKey: Bool, marked: Bool, trusted: Bool) -> String {
+        (newlineKey && marked && !trusted) ? "\n" : ""
+    }
+
     /// SPLIT-BRAIN → marked (lớp bug issue #55). Fire khi: client id routes họ tap,
     /// KHÁC app với frontmost, mà routing theo frontmost (góc nhìn của TAP — tap
     /// quyết mỗi phím bằng FrontmostApp) lại KHÔNG thuộc họ tap → tap sẽ pass và
@@ -649,7 +659,10 @@ final class TelexInputController: IMKInputController {
             // Enter in terminals is what the TAP path provides — grant Accessibility.
             boundaryCommitInFlight = true
             let wasEdge = edgeTapWord
-            let rewrote = boundary(client, allowShortcuts: Self.shortcutExpansionAllowed(afterDigit: wordGluedToDigit))
+            let suffix = Self.markedCommitNewlineSuffix(
+                newlineKey: newlineKey, marked: markedNow, trusted: Accessibility.isTrusted)
+            let rewrote = boundary(client, allowShortcuts: Self.shortcutExpansionAllowed(afterDigit: wordGluedToDigit),
+                                   commitSuffix: suffix)
             boundaryCommitInFlight = false
             wordGluedToDigit = false
             // Return/Tab/Esc do not put ONE character after the word the way a space
@@ -689,8 +702,9 @@ final class TelexInputController: IMKInputController {
             // No Accessibility → no re-post. Returning false raced the async
             // MARKED commit and the terminal submitted the line missing its tail
             // ("cho tôi⏎" → "cho tô", tester log #6 2026-07-23, Warp untrusted).
-            // Swallow instead: first press commits the word, the second acts —
-            // the documented two-press UX for marked compositions, no text loss.
+            // Swallow the original key. For Return/Enter, `commitSuffix` already
+            // folded "\n" into the marked insertText (Chrome/Cocoa honor it;
+            // terminals strip it and keep the two-press UX).
             if rewrote, !Accessibility.isTrusted,
                usesMarkedNow(AppState.shared.currentBundleID) {
                 return true
@@ -1585,7 +1599,7 @@ final class TelexInputController: IMKInputController {
     }
 
     private func boundary(_ client: IMKTextInput, suppressAutoRestore: Bool = false,
-                          allowShortcuts: Bool = true) -> Bool {
+                          allowShortcuts: Bool = true, commitSuffix: String = "") -> Bool {
         let wasEdge = edgeTapWord
         let prefix = shortcutPrefix.current
         defer { tracking = false; onLen = 0; edgeTapWord = false; shortcutPrefix.startWord(nil) }
@@ -1611,7 +1625,7 @@ final class TelexInputController: IMKInputController {
                                            in: AppState.shared.shortcuts) {
             engine.reset()
             let bs = onScreen + hit.extraBackspaces
-            if marked { client.insertText(hit.expansion, replacementRange: kNoRange) }
+            if marked { client.insertText(hit.expansion + commitSuffix, replacementRange: kNoRange) }
             else if wasEdge { noteEdgeBurst(SyntheticKeyboard.applyForEdge(backspaces: bs, insert: hit.expansion)) }
             else { applyInPlace(bs: bs, insert: hit.expansion, client) }
             return true
@@ -1622,8 +1636,9 @@ final class TelexInputController: IMKInputController {
         let autoRestore = AppState.shared.autoRestore && !suppressAutoRestore
         let restored = engine.commitText(autoRestore: autoRestore)
         if marked {
-            // Commit the marked text (replaces it with the final word).
-            client.insertText(restored, replacementRange: kNoRange)
+            // Commit the marked text (replaces it with the final word). Optional
+            // suffix is a newline folded in when Return cannot be re-posted.
+            client.insertText(restored + commitSuffix, replacementRange: kNoRange)
             return true
         } else if restored != word {
             if wasEdge { noteEdgeBurst(SyntheticKeyboard.applyForEdge(backspaces: onScreen, insert: restored)) }
