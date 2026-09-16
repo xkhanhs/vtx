@@ -78,6 +78,22 @@ final class BundledTypingModesTests: XCTestCase {
         }
     }
 
+    // MARK: Spotlight redesign macOS 26.4+/27 ("Campo") — client id riêng
+    func testSpotlightCampoResolvesToInPlaceLikeSpotlight() throws {
+        // Field report email 16/09/2026 ("lỗi gõ trên spotlight, macOS 27"): IMK báo
+        // client com.apple.campo (remote view service của Spotlight mới). Thiếu rule
+        // → app lạ → tap + split-brain ép marked → hai kênh giành nhau.
+        for id in ["com.apple.Spotlight", "com.apple.campo"] {
+            XCTAssertEqual(try bundledRules()[id], "inPlace", "\(id) thiếu/hỏng trong typing-modes.yml")
+            XCTAssertEqual(AppState.shared.autoResolvedMode(id), .inPlace, id)
+            XCTAssertTrue(AppState.isSpotlight(id), id)
+            // inPlace ⇒ client KHÔNG thuộc họ tap ⇒ split-brain guard không ép marked.
+            XCTAssertFalse(AppState.shared.tapRouting(id).tapDefer, id)
+        }
+        XCTAssertFalse(AppState.isSpotlight("com.apple.campos"))
+        XCTAssertFalse(AppState.isSpotlight(nil))
+    }
+
     // MARK: Đo 13/09/2026 — MarkEdit (WKWebView + CodeMirror 6): in-place khoá phím sau ⌫
 
     func testMarkEditResolvesToMarked() throws {
