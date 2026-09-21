@@ -81,6 +81,23 @@ final class ShortcutPrefixTests: XCTestCase {
         XCTAssertNil(ShortcutPrefix.lookup(word: "abc", raw: "abc", prefix: "/", in: table))
     }
 
+    // MARK: VTX #87 — khoá trần không nở sau ký tự mở token, khoá có tiền tố thì có
+
+    func testBareKeyBlockedAfterTokenOpenerButPrefixedKeyStillExpands() {
+        // "/h3" kiểu Lark: "h" có trong bảng nhưng đây là slash command, không được nở.
+        XCTAssertNil(ShortcutPrefix.lookup(word: "vn", raw: "vn", prefix: "/",
+                                           bareAllowed: false, in: table))
+        // Nhưng khoá người dùng đăng ký hẳn có dấu "/" thì dấu đó LÀ khoá — vẫn nở,
+        // và vẫn xoá luôn dấu "/" trên màn hình. Đây là đường gõ tắt chính của fork.
+        let hit = ShortcutPrefix.lookup(word: "shop", raw: "shop", prefix: "/",
+                                        bareAllowed: false, in: table)
+        XCTAssertEqual(hit?.expansion, table["/shop"])
+        XCTAssertEqual(hit?.extraBackspaces, 1)
+        // Không có tiền tố (ví dụ "5h"): chặn sạch.
+        XCTAssertNil(ShortcutPrefix.lookup(word: "vn", raw: "vn", prefix: nil,
+                                           bareAllowed: false, in: table))
+    }
+
     func testCandidates() {
         XCTAssertTrue(ShortcutPrefix.isCandidate("/"))
         XCTAssertTrue(ShortcutPrefix.isCandidate(";"))

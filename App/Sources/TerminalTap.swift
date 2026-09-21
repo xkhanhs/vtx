@@ -2808,7 +2808,7 @@ final class TerminalTapController {
             let rewrote = emitBoundary(suppressAutoRestore: isBracketUnichar(ch.utf16.first ?? unit),
                                        allowShortcuts: TelexInputController.shortcutExpansionAllowed(afterDigit: lastTapKeyWasDigit))
             shortcutPrefix.boundaryKey(ch)
-            lastTapKeyWasDigit = TelexInputController.isAsciiDigit(ch.asciiValue)
+            lastTapKeyWasDigit = TelexInputController.gluesShortcutToken(ch.asciiValue)   // #82 số, #87 / # @
             // A plain ascii boundary (space, punctuation, digit) leaves exactly ONE
             // character after the word, which is what makes the next ⌫ re-openable
             // (issue #40). Anything else — an option-key symbol, a multi-scalar
@@ -3022,8 +3022,9 @@ final class TerminalTapController {
         // ("ddc" composes to "đc"); the raw form recovers it. Backspaces are always the
         // on-screen composed scalar count regardless of which form matched — plus one
         // for a "/shop"-style key, whose "/" is erased along with the word.
-        if allowShortcuts,
-           let hit = ShortcutPrefix.lookup(word: word, raw: rawWord, prefix: prefix,
+        // allowShortcuts chỉ cấm khoá TRẦN sau ký tự mở token (#82 / #87) — giống IMK.
+        if let hit = ShortcutPrefix.lookup(word: word, raw: rawWord, prefix: prefix,
+                                           bareAllowed: allowShortcuts,
                                            in: AppState.shared.shortcuts) {
             engine.reset()
             SyntheticKeyboard.apply(backspaces: onScreen + hit.extraBackspaces,
