@@ -132,6 +132,11 @@ Quy tắc ổn định đã rút ra khi implement (chi tiết trong `MACOS_IME_N
   liveSpellCheck, simpleTelex, shortcuts `[String: String]`, fallbackApps, probedApps.
 - Cache in-memory load một lần; hot path chỉ đọc cache, không đọc disk.
 - Bảng gõ tắt chỉ tra ở word boundary.
+- Khoá gõ tắt được mở đầu bằng MỘT dấu câu (`/shop`, `;sig`). Dấu câu là ranh giới
+  nên engine chỉ thấy `shop`; `ShortcutPrefix` (TelexCore) nhớ ký tự gõ ngay trước chữ
+  đầu của từ, tra `/shop` trước `shop`, khớp thì xoá lùi thêm 1 ký tự. Bất kỳ phím hay
+  click nào xen giữa dấu câu và chữ đầu đều bỏ tiền tố. App marked text chỉ bung khoá
+  không tiền tố (dấu `/` đã là text đã commit, insertText không với tới).
 
 ## Performance budgets (phải đo, không ước)
 

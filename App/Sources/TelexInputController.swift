@@ -312,6 +312,10 @@ final class TelexInputController: IMKInputController {
             }
         }
 
+        // Every real key spends the pending shortcut prefix: only the word key that
+        // IMMEDIATELY follows the "/" may claim it (echoes above are ours, not keys).
+        let prefixForThisKey = shortcutPrefix.takePending()
+
         // Word-table class (maintainer repro 23/08/2026): the tap witnessed a
         // Tab/arrow that this client swallowed — handle() never saw it, so the word
         // this key would continue was in fact ended in another cell/position. Drop
@@ -693,6 +697,7 @@ final class TelexInputController: IMKInputController {
             let boundaryChar = effectiveCharacters(event)?.utf8.first
             let wasEdge = edgeTapWord
             let rewrote = boundary(client, suppressAutoRestore: boundaryChar.map(isBracket) ?? false)
+            shortcutPrefix.boundaryKey(effectiveCharacters(event)?.first)
             // Only a key that leaves exactly ONE character after the word may be
             // ⌫-ed back into it (issue #40). Arrow/function keys land here too — they
             // move the caret and insert nothing, so the word is no longer adjacent.
@@ -717,6 +722,7 @@ final class TelexInputController: IMKInputController {
         // back to per-op selectedRange (still in-place, no underline) rather than
         // forcing marked text. Only a failed probe pushes an app to marked text.
         if engine.isEmpty {
+            shortcutPrefix.startWord(prefixForThisKey)
             let sel = client.selectedRange()
             if distrustNextAnchor {
                 // Spotlight's session just cycled (see lastSpotlightActivateNs) — the
@@ -1168,6 +1174,7 @@ final class TelexInputController: IMKInputController {
         engine.reset()
         tracking = false
         edgeTapWord = false
+        shortcutPrefix.reset()
         edgeEchoBackspaces = 0
         edgeEchoChunks = []
     }
@@ -1212,6 +1219,9 @@ final class TelexInputController: IMKInputController {
     /// TRUE while handle() is committing because of a BOUNDARY key (Return/Enter/
     /// Tab/Escape). Main-thread confined (only handle() touches it).
     private var boundaryCommitInFlight = false
+
+    /// Dấu câu gõ ngay trước từ đang gõ — cho gõ tắt kiểu "/shop" (xem ShortcutPrefix).
+    private var shortcutPrefix = ShortcutPrefix()
 
     /// A verify probe fired by a boundary commit is evidence-free: Enter typically
     /// SENDS the message and the app clears the field, so the async caret/region
@@ -1555,7 +1565,8 @@ final class TelexInputController: IMKInputController {
     private func boundary(_ client: IMKTextInput, suppressAutoRestore: Bool = false,
                           allowShortcuts: Bool = true) -> Bool {
         let wasEdge = edgeTapWord
-        defer { tracking = false; onLen = 0; edgeTapWord = false }
+        let prefix = shortcutPrefix.current
+        defer { tracking = false; onLen = 0; edgeTapWord = false; shortcutPrefix.startWord(nil) }
         guard !engine.isEmpty else { engine.reset(); return false }
         let marked = usesMarkedNow(AppState.shared.currentBundleID)
         let word = engine.composed
@@ -1570,12 +1581,17 @@ final class TelexInputController: IMKInputController {
         // Try the composed word first, then fall back to the raw keystrokes so a
         // shortcut key containing trigger letters still matches. On-screen backspace
         // count stays `onScreen` (the composed scalar count) either way.
+        // A "/shop"-style key also erases its prefix character — except in MARKED mode,
+        // where insertText only replaces the marked word and the "/" is already
+        // committed text out of reach, so only bare keys expand there.
         if allowShortcuts, !word.isEmpty,
-           let expansion = AppState.shared.shortcuts[word] ?? AppState.shared.shortcuts[rawWord] {
+           let hit = ShortcutPrefix.lookup(word: word, raw: rawWord, prefix: marked ? nil : prefix,
+                                           in: AppState.shared.shortcuts) {
             engine.reset()
-            if marked { client.insertText(expansion, replacementRange: kNoRange) }
-            else if wasEdge { noteEdgeBurst(SyntheticKeyboard.applyForEdge(backspaces: onScreen, insert: expansion)) }
-            else { applyInPlace(bs: onScreen, insert: expansion, client) }
+            let bs = onScreen + hit.extraBackspaces
+            if marked { client.insertText(hit.expansion, replacementRange: kNoRange) }
+            else if wasEdge { noteEdgeBurst(SyntheticKeyboard.applyForEdge(backspaces: bs, insert: hit.expansion)) }
+            else { applyInPlace(bs: bs, insert: hit.expansion, client) }
             return true
         }
 
