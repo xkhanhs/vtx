@@ -7,6 +7,7 @@ Ma trận test tay theo app. Trạng thái: ☐ chưa test / ✅ pass / ❌ fail
 - `ddaay laf nguwowif` → `đây là người`
 - Gõ `hoas` rồi backspace 2 lần rồi gõ tiếp `uyeenf` → không vỡ dấu, không lặp chuỗi
 - Gõ tắt (nếu bật): `vn ` → mở rộng đúng, không nhân đôi kiểu "Googoogle"
+- Gõ tắt có tiền tố: `a /gpm b` và `abc/gpm ` → dấu `/` biến mất, dấu cách sau vẫn còn
 - Gõ 1 câu ~15 từ tốc độ tối đa → không mất/lặp ký tự nào
 - **Ở BIÊN**: đầu dòng trống / đầu message / đầu ô — lớp lỗi Electron chỉ lộ ở đây
 
