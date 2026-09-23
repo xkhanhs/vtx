@@ -387,6 +387,13 @@ enum SpotlightDetector {
     private static var stableRuns = 0
     private static let ttlNs: UInt64 = 200_000_000
     private static let scanQueue = DispatchQueue(label: "com.viettelex.spotlight-scan", qos: .utility)
+    /// IMK đang phục vụ CHÍNH client Spotlight (cũ hoặc Campo) — latch authoritative,
+    /// đè kết quả scan CGWindowList. Cần vì Spotlight redesign (macOS 26.4+/27) chạy
+    /// trong remote view service `com.apple.campo`: cửa sổ KHÔNG thuộc process tên
+    /// "Spotlight" nữa nên scan trả false, `spotlightOverlayForcesRaw` không chặn, và
+    /// mở Spotlight TỪ MỘT APP TAP thì tap (quyết theo frontmost = app phía sau) gõ
+    /// song song với IMKit in-place → "vieejt" ra "vieêệt" (field 16/09/2026).
+    private static var clientFocused = false
 
     /// IMKit just activated the Spotlight client — authoritative proof the overlay
     /// is up. Stamp the cache TRUE immediately instead of waiting for a keystroke
@@ -398,6 +405,7 @@ enum SpotlightDetector {
     static func noteFocused() {
         lock.withLock {
             cached = true
+            clientFocused = true
             lastCheckNs = DispatchTime.now().uptimeNanoseconds
             stableRuns = 0
         }
@@ -417,6 +425,7 @@ enum SpotlightDetector {
     static func noteUnfocused() {
         lock.withLock {
             cached = false
+            clientFocused = false
             lastCheckNs = DispatchTime.now().uptimeNanoseconds
             stableRuns = 0
         }
@@ -426,9 +435,11 @@ enum SpotlightDetector {
     static func _testSetVisible(_ value: Bool) {
         lock.withLock {
             cached = value
+            clientFocused = false          // seam mô phỏng verdict của scan
             lastCheckNs = DispatchTime.now().uptimeNanoseconds
         }
     }
+    static var _testClientFocused: Bool { lock.withLock { clientFocused } }
     /// Read the cache WITHOUT kicking a refresh (a plain `isVisible` read would).
     static var _testVisible: Bool { lock.withLock { cached } }
     #endif
@@ -444,6 +455,12 @@ enum SpotlightDetector {
         if stale {
             scanQueue.async {
                 let visible = scan()                       // heavy call, off the hot path
+                // Latch của IMK thắng scan (xem clientFocused): Spotlight mới
+                // (com.apple.campo) không có cửa sổ mang tên "Spotlight".
+                if lock.withLock({ clientFocused }) {
+                    lock.withLock { refreshing = false; lastCheckNs = DispatchTime.now().uptimeNanoseconds }
+                    return
+                }
                 lock.withLock {
                     stableRuns = visible == cached ? stableRuns + 1 : 0
                     cached = visible
@@ -596,6 +613,13 @@ enum FocusedFieldDetector {
     /// invalidation as `cached`; served by `wantsMarkedField` without kicking its own
     /// refresh (every browser keystroke already reads `wantsSelection` first).
     private static var cachedMarked = false
+    /// Browser-hosted remote desktop (Chrome Remote Desktop): the page is a scancode
+    /// tunnel, so the local IME must stay off. Cache-only like `cachedMarked`.
+    private static var cachedPassthrough = false
+    /// Ô lưới có INLINE AUTOCOMPLETE giữ sẵn vùng chọn (Google Sheets): ⌫ của tap xoá
+    /// vùng chọn thay vì ký tự → lệch mô hình. Cần U+202F dance (.emptyReset) như
+    /// omnibox Chromium/Excel. Cache-only như `cachedMarked`.
+    private static var cachedEmptyReset = false
 
     /// First web-area host seen by the last scan — DIAGNOSTIC ONLY, never read by any
     /// routing decision. Lets a debug log line name the actual site when something
@@ -626,6 +650,10 @@ enum FocusedFieldDetector {
             // Same asymmetry as `cached`: one keystroke of in-place in a Docs canvas
             // is the mild failure; forcing marked into an unknown field is not.
             cachedMarked = false
+            // Same for CRD: one composed key into a remote session (stale default)
+            // is milder than passthrough-ing the first key of every Chrome tab.
+            cachedPassthrough = false
+            cachedEmptyReset = false
             cachedHost = nil
             lastCheckNs = 0
             stableRuns = 0
@@ -671,6 +699,20 @@ enum FocusedFieldDetector {
             lastCheckNs = DispatchTime.now().uptimeNanoseconds
         }
     }
+    /// Same seam for the browser-hosted remote-desktop (passthrough) verdict.
+    static func _testSetPassthrough(_ value: Bool) {
+        lock.withLock {
+            cachedPassthrough = value
+            lastCheckNs = DispatchTime.now().uptimeNanoseconds
+        }
+    }
+    /// Same seam for the grid-autocomplete (emptyReset) verdict.
+    static func _testSetEmptyReset(_ value: Bool) {
+        lock.withLock {
+            cachedEmptyReset = value
+            lastCheckNs = DispatchTime.now().uptimeNanoseconds
+        }
+    }
     /// Same seam for the diagnostic-only host string.
     static func _testSetHost(_ value: String?) {
         lock.withLock {
@@ -684,6 +726,14 @@ enum FocusedFieldDetector {
     /// with marked text. Cache-only read: refreshes piggyback on `wantsSelection`,
     /// which every browser keystroke reads first (tap routing then IMKit routing).
     static var wantsMarkedField: Bool { lock.withLock { cachedMarked } }
+
+    /// True → the focused field is a browser-hosted remote-desktop canvas (Chrome
+    /// Remote Desktop). Cache-only: refreshes piggyback on `wantsSelection`.
+    static var wantsPassthroughField: Bool { lock.withLock { cachedPassthrough } }
+
+    /// True → ô lưới web có inline autocomplete (Google Sheets): tap phải dùng
+    /// U+202F dance. Cache-only: refresh đi kèm `wantsSelection`.
+    static var wantsEmptyResetField: Bool { lock.withLock { cachedEmptyReset } }
 
 
     /// Diagnostic-only: the host last seen for the focused field, or nil (not a web
@@ -702,7 +752,7 @@ enum FocusedFieldDetector {
         if stale {
             scanQueue.async {
                 pokeChromiumAX()
-                let (wants, marked, host) = scan()
+                let (wants, marked, passthrough, emptyReset, host) = scan()
                 // Diagnostic (debug logging only, and off the keystroke path): WHY this
                 // verdict. A browser whose AX tree we cannot read falls back to
                 // selection-replace for EVERY field — including page content, where each
@@ -713,12 +763,16 @@ enum FocusedFieldDetector {
                 // the site for a future report on an unrecognized editor (2026-08-06).
                 if AppState.shared.debugLogging {
                     let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?"
-                    DebugLog.log("field-scan \(front): wantsSelection=\(wants) marked=\(marked) host=\(host ?? "?") roles=[\(roleChain())]")
+                    DebugLog.log("field-scan \(front): wantsSelection=\(wants) marked=\(marked) passthrough=\(passthrough) emptyReset=\(emptyReset) host=\(host ?? "?") roles=[\(roleChain())]")
                 }
                 lock.withLock {
-                    stableRuns = (wants == cached && marked == cachedMarked) ? stableRuns + 1 : 0
+                    stableRuns = (wants == cached && marked == cachedMarked
+                                  && passthrough == cachedPassthrough
+                                  && emptyReset == cachedEmptyReset) ? stableRuns + 1 : 0
                     cached = wants
                     cachedMarked = marked
+                    cachedPassthrough = passthrough
+                    cachedEmptyReset = emptyReset
                     cachedHost = host
                     lastCheckNs = DispatchTime.now().uptimeNanoseconds
                     refreshing = false
@@ -871,8 +925,11 @@ enum FocusedFieldDetector {
         return roles.joined(separator: "→")
     }
 
-    private static func scan() -> (selection: Bool, marked: Bool, host: String?) {
-        guard let focused = focusedElementForScan() else { return (selection: true, marked: false, host: nil) }
+    private static func scan() -> (selection: Bool, marked: Bool, passthrough: Bool,
+                                   emptyReset: Bool, host: String?) {
+        guard let focused = focusedElementForScan() else {
+            return (selection: true, marked: false, passthrough: false, emptyReset: false, host: nil)
+        }
         // NO role short-circuit on the focused element: an AXComboBox/AXSearchField
         // rule used to run BEFORE the ancestor walk ("a search box inside a web area
         // is autocomplete-prone"), but field evidence killed it — youtube.com's search
@@ -896,6 +953,8 @@ enum FocusedFieldDetector {
         // any enclosing web area's URL may still prove Docs.
         var sawWebArea = false
         var marked = false
+        var passthrough = false
+        var emptyReset = false
         // First web-area host seen — DIAGNOSTIC ONLY (never used for routing), so a
         // "stale caret" report names the actual site instead of just
         // "com.google.Chrome" (added after the 2026-08-06 unidentified-tab report).
@@ -906,7 +965,8 @@ enum FocusedFieldDetector {
         // August all chased the same contract-free `insertText(replacementRange:)`
         // channel, and the Discord case proved the failure is undetectable from
         // inside (every self-report said honored while the visible text appended).
-        // Only the marked-class exception (Google Docs) remains URL-based.
+        // URL-based exceptions that remain: marked-class (Google Docs, TikTok) and
+        // passthrough-class (Chrome Remote Desktop — a scancode tunnel, not an editor).
         var host: String?
         // Did the walk STOP because it ran out of hops, rather than because it reached
         // the top of the tree? See `exhaustedMeansPageContent` — that distinction is
@@ -921,18 +981,23 @@ enum FocusedFieldDetector {
                 if verdict {
                     // Toolbar: decisive only BEFORE any web area (an omnibox is never
                     // inside page content — above one, it's just browser chrome).
-                    if !sawWebArea { return (selection: true, marked: false, host: nil) }
+                    if !sawWebArea {
+                        return (selection: true, marked: false, passthrough: false,
+                                emptyReset: false, host: nil)
+                    }
                 } else {
                     sawWebArea = true
-                    if !marked {
+                    if !marked || !passthrough || !emptyReset {
                         var urlRef: CFTypeRef?
                         if AXUIElementCopyAttributeValue(element, "AXURL" as CFString, &urlRef) == .success {
                             let url = urlRef as? URL
                             if host == nil { host = url?.host }
-                            marked = Self.markedFieldURL(url)
+                            if !passthrough { passthrough = Self.passthroughFieldURL(url) }
+                            if !marked { marked = Self.markedFieldURL(url) }
+                            if !emptyReset { emptyReset = Self.emptyResetFieldURL(url) }
                         }
                     }
-                    if marked { break }   // verdicts settled
+                    if marked || passthrough || emptyReset { break }   // verdicts settled
                 }
             }
             var parentRef: CFTypeRef?
@@ -941,12 +1006,15 @@ enum FocusedFieldDetector {
             else { break }
             element = parent as! AXUIElement
         }
-        if sawWebArea { return (selection: false, marked: marked, host: host) }
+        if sawWebArea {
+            return (selection: false, marked: marked, passthrough: passthrough,
+                    emptyReset: emptyReset, host: host)
+        }
         // No decisive ancestor. A walk that DIED ON THE HOP BUDGET is page content, not
         // chrome (see exhaustedMeansPageContent); one that reached the top without a
         // web area is genuinely unknown → selection, the historical safe default.
         return (selection: !Self.exhaustedMeansPageContent(hops: hops),
-                marked: false, host: nil)
+                marked: false, passthrough: false, emptyReset: false, host: nil)
     }
 
     /// Pure: does this web-area URL host an editor that must be typed with marked
@@ -964,6 +1032,29 @@ enum FocusedFieldDetector {
         // Docs/TikTok (editor áp edit theo model JS riêng).
         if host == "antigravity.google.com" { return true }
         return host == "tiktok.com" || host.hasSuffix(".tiktok.com")
+    }
+
+    /// Pure: does this web-area URL host a GRID with inline autocomplete, where a
+    /// plain ⌫ hits the suggestion's selection instead of a typed character? Google
+    /// Sheets suggests a whole column value after the first letter and keeps the rest
+    /// SELECTED, so tap's Backspace+retype desynced: gõ "User " ra "UUser " (field
+    /// 18/09/2026 — log cho thấy biên từ phát bs=2 ins=4 trong khi màn hình còn dư
+    /// chữ "U"). Same cure as the Chromium omnibox and Excel: .emptyReset chèn U+202F
+    /// huỷ gợi ý, xoá, rồi gõ lại. Docs (/document) vẫn là lớp marked — xem
+    /// `markedFieldURL`. Widen only with field evidence.
+    static func emptyResetFieldURL(_ url: URL?) -> Bool {
+        guard let url, let host = url.host?.lowercased() else { return false }
+        guard host == "docs.google.com" else { return false }
+        return url.path.hasPrefix("/spreadsheets")
+    }
+
+    /// Pure: does this web-area URL host a remote-desktop canvas that must NOT be
+    /// composed into locally? Chrome Remote Desktop forwards scancodes to the guest;
+    /// a local tap Backspace+retype plus the guest VietTelex fighting over the same
+    /// keys is the "gõ có dấu cứ nhảy loạn" class. Delegate to ClientPolicy so the
+    /// host list is unit-tested without AX.
+    static func passthroughFieldURL(_ url: URL?) -> Bool {
+        ClientPolicy.isRemoteDesktopURL(url)
     }
 
     /// Ancestor-walk hop budget. 12 → 24 after field report 2026-07-30 (J2TeamNNL,
@@ -1522,13 +1613,14 @@ enum SyntheticKeyboard {
     ///   (repro 2026-08-06: copy posted → passes our tap → never reaches IMKit;
     ///   WhatsApp beeped once, message not sent, shortcut "ko"→"không" needed a
     ///   second Enter).
-    /// So: build a NEW event from the .hidSystemState source (hardware-like for
-    /// Electron, deliverable on macOS 26), same keycode + flags as the original.
-    /// No magic on purpose — when it re-enters IMKit it is handled as a REAL key;
-    /// by then the engine is empty (boundary() just ran) so it passes straight
-    /// through (`rewrote=false`), no loop. The keyUp is posted too so the app
-    /// never sees a keyDown left logically held (the user's physical keyUp
-    /// precedes our down and cannot pair with it).
+    /// So: build a NEW event, same keycode + flags as the original. Plain
+    /// Return uses .hidSystemState and no magic — when it re-enters IMKit it is
+    /// a REAL key; the engine is empty (boundary() just ran) so it passes
+    /// through (`rewrote=false`), no loop, and Electron still fires Enter-to-send.
+    /// Shift+Return uses the private source instead: a hidSystemState re-post
+    /// loses the shift bit and the chat sends (see makeBoundaryRepost). The
+    /// keyUp is posted too so the app never sees a keyDown left logically held
+    /// (the user's physical keyUp precedes our down and cannot pair with it).
     static func postBoundaryCopy(of event: CGEvent) {
         postBoundaryKey(CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode)),
                         flags: event.flags)
@@ -1552,13 +1644,33 @@ enum SyntheticKeyboard {
     }
 
     /// Builds the down/up pair postBoundaryCopy sends. Split out so tests can pin
-    /// the load-bearing properties without posting: .hidSystemState source (NOT the
-    /// private magic source — Electron demotes private-source Return to "newline",
-    /// and magic would make IMKit skip it) and NOT a copy of the hardware event
-    /// (macOS 26 drops re-posted copies before app delivery).
+    /// the load-bearing properties without posting.
+    ///
+    /// Plain Return/Tab/Esc: .hidSystemState, NO magic. Electron treats a private-
+    /// source Return as "insert newline" instead of Enter-to-send, and magic would
+    /// make IMKit skip the key so the message never sends. Not a copy of the
+    /// hardware event either — macOS 26 drops re-posted HID copies before delivery.
+    ///
+    /// Shift+Return / Shift+keypad-Enter: the PRIVATE magic source, flags still
+    /// carrying shift. Two things strip shift off a hidSystemState re-post and turn
+    /// "newline" into "send":
+    /// - the unicode burst posted immediately before this pair sets `flags = []`,
+    ///   and Chromium latches that as "shift is up";
+    /// - the user has often already released Shift (fast chord, or the 60ms
+    ///   marked-web delay) and macOS reconciles hidSystemState flags to the live
+    ///   keyboard.
+    /// Private-source Return is the path already measured to insert a newline and
+    /// NOT fire Enter-to-send. Plain Enter must not take it.
     static func makeBoundaryRepost(key: CGKeyCode, flags: CGEventFlags) -> (down: CGEvent, up: CGEvent)? {
-        let src = CGEventSource(stateID: .hidSystemState)
-        guard let down = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: true),
+        let shiftNewline = flags.contains(.maskShift) && (key == 36 || key == 76)
+        let src: CGEventSource?
+        if shiftNewline, let privateSource = source {
+            src = privateSource
+        } else {
+            src = CGEventSource(stateID: .hidSystemState)
+        }
+        guard let src,
+              let down = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: true),
               let up = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: false) else { return nil }
         down.flags = flags
         up.flags = flags
@@ -1971,6 +2083,8 @@ final class TerminalTapController {
     private var shortcutPrefix = ShortcutPrefix()
     // Thời điểm ⌫ vật lý gần nhất — gate của re-edit(tap), xem reEditGateOpen.
     private var lastDeleteNs: UInt64 = 0
+    // Phím trước từ hiện tại là chữ số → không nở gõ tắt cho từ đó (issue #82, "5h").
+    private var lastTapKeyWasDigit = false
 
     /// TRUE → the Spotlight overlay owns the keys and no one may compose: the
     /// routing verdict (from the app BEHIND the overlay) says tap-family, but a
@@ -1980,6 +2094,19 @@ final class TerminalTapController {
     /// polarity is pinned by tests.
     static func spotlightOverlayForcesRaw(visible: Bool, manualPin: AppState.AppMode?) -> Bool {
         visible && !(manualPin == .selection || manualPin == .tap || manualPin == .emptyReset)
+    }
+
+    /// Emit mode cho một phím mà routing đã quyết là của TAP; nil = tap không giữ
+    /// phím này (IMKit lo, xem nhánh edge-tap/native bên dưới trong callback).
+    /// Thứ tự LÀ chính sách: omnibox (selection, browser → U+202F) trước, rồi
+    /// emptyReset theo ô (Excel, ô Google Sheets — field 18/09/2026 "User " ra
+    /// "UUser "), rồi ⌫ thuần. Pure để test pin được cả chuỗi
+    /// URL → verdict → routing → emit mode.
+    static func emitMode(for routing: AppState.TapRouting, selectionMode: TapEmit) -> TapEmit? {
+        if routing.selection { return selectionMode }
+        if routing.emptyReset { return .emptyReset }
+        if routing.tap { return .backspace }
+        return nil
     }
 
     // Throttle for the imeActive self-heal reconcile (see handle()). TAP-thread
@@ -2338,6 +2465,7 @@ final class TerminalTapController {
             engine.reset()
             shortcutPrefix.reset()
             lastTapKeyWasBoundary = false   // click at a word's end re-arms re-edit
+            lastTapKeyWasDigit = false
             chordRecognizer.disarm()        // click giữa lúc giữ chord = không phải toggle
             // Sticky-source: click trong dải menu bar = user có thể đang tự đổi input
             // source bằng menu — dấu vết để KHÔNG giành lại (StickyInputSource).
@@ -2469,7 +2597,7 @@ final class TerminalTapController {
         // only for an explicit tap-family manual pick. Manual pin consulted FIRST:
         // isVisible kicks a CGWindowList background scan every 200ms while typing,
         // which nobody should pay for unless Spotlight was actually pinned.
-        let spotlightManual = AppState.shared.manualMode(AppState.spotlightBundleID)
+        let spotlightManual = AppState.shared.spotlightManualMode()
         // One-lock snapshot for the whole selection/emptyReset/tap chain below —
         // was 3 separate AppState round trips, two of them re-reading isTrusted.
         let tapKeyRouting = AppState.shared.tapRouting(id)
@@ -2482,7 +2610,8 @@ final class TerminalTapController {
             case .emptyReset: emitMode = .emptyReset
             default: engine.reset(); return pass
             }
-        } else if tapKeyRouting.selection {
+        } else if let mode = Self.emitMode(for: tapKeyRouting,
+                                          selectionMode: AppState.shared.selectionEmitMode(id)) {
             // Chromium omnibox: inline autocomplete keeps the suggestion SELECTED to the
             // right of the caret, so a Shift+Left select-overtype (.selection) is offset
             // just like a plain Backspace — the first Shift+Left shrinks the suggestion
@@ -2493,11 +2622,7 @@ final class TerminalTapController {
             // dismiss the suggestion, delete it + the stale chars, then retype. Spotlight
             // and manual .selection pins (no such inline-autocomplete selection) stay on
             // .selection. Field-verified in a live omnibox 2026-07-24.
-            emitMode = AppState.shared.selectionEmitMode(id)
-        } else if tapKeyRouting.emptyReset {
-            emitMode = .emptyReset
-        } else if tapKeyRouting.tap {
-            emitMode = .backspace
+            emitMode = mode
         } else if !SyntheticKeyboard.queueDrained(),
                   AppState.shared.manualMode(id) == .inPlace {
             // EDGE-TAP ordering guard (06/08/2026): the IMKit controller just posted
@@ -2559,6 +2684,7 @@ final class TerminalTapController {
 
         if keyCode == kDelete {
             lastTapKeyWasBoundary = false   // ⌫ is word-adjacent editing, not a boundary
+            lastTapKeyWasDigit = false
             lastDeleteNs = DispatchTime.now().uptimeNanoseconds
             if engine.isEmpty {
                 // ⌫ on the boundary character the last word ended with re-opens that
@@ -2606,7 +2732,11 @@ final class TerminalTapController {
             // not re-open the word — see tryReopenLastCommitTap.
             defer { engine.forgetLastCommit() }
             if engine.isEmpty, SyntheticKeyboard.queueDrained() { return pass }
-            if emitBoundary(suppressAutoRestore: false) || !SyntheticKeyboard.queueDrained() {
+            let gluedToDigit = lastTapKeyWasDigit
+            lastTapKeyWasDigit = false
+            if emitBoundary(suppressAutoRestore: false,
+                            allowShortcuts: TelexInputController.shortcutExpansionAllowed(afterDigit: gluedToDigit))
+                || !SyntheticKeyboard.queueDrained() {
                 reemit(keyCode: keyCode, string: nil, original: event)
                 return nil
             }
@@ -2675,8 +2805,10 @@ final class TerminalTapController {
             // tapNativeFastPath like the letter fast-path below. (modifyInPlace adds
             // nothing here: with no rewrite pending the untouched event is already
             // exactly what should land, in every emit mode.)
-            let rewrote = emitBoundary(suppressAutoRestore: isBracketUnichar(ch.utf16.first ?? unit))
+            let rewrote = emitBoundary(suppressAutoRestore: isBracketUnichar(ch.utf16.first ?? unit),
+                                       allowShortcuts: TelexInputController.shortcutExpansionAllowed(afterDigit: lastTapKeyWasDigit))
             shortcutPrefix.boundaryKey(ch)
+            lastTapKeyWasDigit = TelexInputController.gluesShortcutToken(ch.asciiValue)   // #82 số, #87 / # @
             // A plain ascii boundary (space, punctuation, digit) leaves exactly ONE
             // character after the word, which is what makes the next ⌫ re-openable
             // (issue #40). Anything else — an option-key symbol, a multi-scalar
@@ -2890,8 +3022,9 @@ final class TerminalTapController {
         // ("ddc" composes to "đc"); the raw form recovers it. Backspaces are always the
         // on-screen composed scalar count regardless of which form matched — plus one
         // for a "/shop"-style key, whose "/" is erased along with the word.
-        if allowShortcuts,
-           let hit = ShortcutPrefix.lookup(word: word, raw: rawWord, prefix: prefix,
+        // allowShortcuts chỉ cấm khoá TRẦN sau ký tự mở token (#82 / #87) — giống IMK.
+        if let hit = ShortcutPrefix.lookup(word: word, raw: rawWord, prefix: prefix,
+                                           bareAllowed: allowShortcuts,
                                            in: AppState.shared.shortcuts) {
             engine.reset()
             SyntheticKeyboard.apply(backspaces: onScreen + hit.extraBackspaces,

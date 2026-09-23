@@ -62,6 +62,7 @@ Tùy chọn (Simple Telex, bỏ dấu tự do, kiểu cũ/mới, kiểm tra chí
 - **Không gõ được trong Terminal/Chrome** → cấp quyền Accessibility (đã bật mà vẫn lỗi thì bỏ tick rồi tick lại).
 - **Ô mật khẩu** → tự tắt trong secure field (đúng hành vi).
 - **Một app cụ thể gõ lỗi** → menu bộ gõ → dòng **Cơ chế gõ: …**: mở Bảng cơ chế gõ lọc sẵn app đang gõ để đổi cơ chế, đồng thời copy thông tin gỡ lỗi vào clipboard.
+- **Gõ qua Chrome Remote Desktop bị nhảy dấu** → bật VTX trên máy ĐANG BỊ điều khiển, không phải máy đang ngồi gõ. Tab `remotedesktop.google.com` tự passthrough (cần quyền Accessibility để đọc URL); hai bộ gõ cùng sửa một chuỗi phím thì con trỏ nhảy loạn.
 - **Mở máy từ sleep, đang mở 1Password thì không gõ được** → 1Password giữ Secure Input của macOS (mọi bộ gõ bên thứ ba đều chết). Bấm vào cửa sổ 1Password rồi bấm ra, hoặc Quit 1Password. Chi tiết: [ghi chú kỹ thuật](docs/MACOS_IME_NOTES.md).
 
 ## Đóng góp & giấy phép

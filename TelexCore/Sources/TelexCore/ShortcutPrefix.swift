@@ -50,7 +50,14 @@ public struct ShortcutPrefix {
     /// Tra bảng gõ tắt cho từ vừa chốt. Khoá có tiền tố được ưu tiên — "/shop" thắng
     /// "shop" khi người dùng thực sự gõ "/shop". `extraBackspaces` = 1 khi khớp khoá
     /// có tiền tố (xoá luôn dấu "/" trên màn hình), 0 khi khớp từ trần.
+    ///
+    /// `bareAllowed == false` khi từ dính liền sau một ký tự MỞ TOKEN (chữ số "5h",
+    /// hay "/" "#" "@" của slash command / hashtag / mention): lúc đó nó không phải
+    /// một từ đứng riêng nên khoá TRẦN không được nở ("/h3" phải giữ nguyên dù "h"
+    /// có trong bảng). Khoá CÓ TIỀN TỐ vẫn nở: người dùng đăng ký hẳn "/shop" thì
+    /// dấu "/" là một phần của khoá, không phải ngữ cảnh lạ (VTX #87).
     public static func lookup(word: String, raw: String, prefix: Character?,
+                              bareAllowed: Bool = true,
                               in shortcuts: [String: String])
         -> (expansion: String, extraBackspaces: Int)? {
         if let p = prefix {
@@ -58,6 +65,7 @@ public struct ShortcutPrefix {
             if !word.isEmpty, let e = shortcuts[lead + word] { return (e, 1) }
             if let e = shortcuts[lead + raw] { return (e, 1) }
         }
+        guard bareAllowed else { return nil }
         if !word.isEmpty, let e = shortcuts[word] { return (e, 0) }
         if let e = shortcuts[raw] { return (e, 0) }
         return nil

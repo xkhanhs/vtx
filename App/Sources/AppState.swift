@@ -668,6 +668,10 @@ final class AppState: @unchecked Sendable {
         var tap = false
         var selection = false
         var emptyReset = false
+        /// Chromium per-field browser, Accessibility off. The tap cannot run and
+        /// in-place `insertText` has no contract with the page editor, so IMKit
+        /// composes marked (underlined) instead of passing raw ASCII.
+        var untrustedMarked = false
         /// True → IMKit must not compose; the tap owns (or deliberately passes) the key.
         var tapDefer: Bool { tap || selection || emptyReset }
     }
@@ -685,15 +689,29 @@ final class AppState: @unchecked Sendable {
 
     /// Applies the Accessibility + per-field gates to a wants snapshot. Pure, and
     /// LAZY on the externals — `trusted` costs a foreign lock (and a TCC refresh
-    /// kick), `wantsSelection`/`wantsMarkedField` cost detector reads; a key in a
-    /// plain in-place app must keep paying for NONE of them (exactly the laziness
-    /// the legacy per-mode getters had).
+    /// kick), `wantsSelection`/`wantsMarkedField`/`wantsPassthroughField` cost
+    /// detector reads; a key in a plain in-place app must keep paying for NONE of
+    /// them (exactly the laziness the legacy per-mode getters had).
     static func gateRouting(_ wants: TapWants,
                             trusted: () -> Bool,
                             wantsSelection: () -> Bool,
                             wantsMarkedField: () -> Bool,
+                            wantsPassthroughField: () -> Bool = { false },
+                            wantsEmptyResetField: () -> Bool = { false },
                             pageContentInPlace: Bool = false) -> TapRouting {
-        guard wants.any, trusted() else { return TapRouting() }
+        guard wants.any else { return TapRouting() }
+        guard trusted() else {
+            // Chromium page content is the tap's job. With Accessibility off the
+            // tap never starts, and the old early-return sent IMKit down in-place
+            // — Lexical/ProseMirror ignore that channel, so the key fell through
+            // as raw ASCII (Messenger composer: "banhs" stayed "banhs", 22/09/2026).
+            // Marked text is the degraded mode the settings banner already
+            // promises ("typing will be underlined"). WebKit is excluded via
+            // pageContentInPlace: its page content does not need the tap.
+            // Terminals and Excel are not per-field browsers and stay put.
+            let chromiumPage = wants.sel == .perField && !pageContentInPlace
+            return TapRouting(untrustedMarked: chromiumPage)
+        }
         // Per-field resolution (browsers, maintainer decision 2026-08-06): PAGE
         // CONTENT defaults to the TAP backspace-retype path — synthetic key events
         // are the only channel every web editor must handle (the EVKey/OpenKey
@@ -705,6 +723,8 @@ final class AppState: @unchecked Sendable {
         // from inside. This replaces the host allowlist with the policy itself.
         // Order: omnibox (toolbar) → selection/emptyReset dance, unchanged; a
         // marked-class field (Google Docs) falls through to IMKit marked text;
+        // a remote-desktop web canvas (Chrome Remote Desktop) falls through to
+        // IMKit which then passthroughs (local IME off — the guest IME composes);
         // everything else in the page → tap.
         //
         // WEBKIT CARVE-OUT (issue #44, 2026-08-13): every motivating bug above was
@@ -714,9 +734,19 @@ final class AppState: @unchecked Sendable {
         // screen unchanged; repro anotepad.com + reporter's bing.com). IMKit is the
         // one channel Apple's own engine is contractually good at, so WebKit page
         // content routes back to in-place (`pageContentInPlace`); the marked-class
-        // fallthrough (Google Docs in Safari) stays.
+        // fallthrough (Google Docs in Safari) stays. CRD in Safari is still
+        // passthrough — in-place into a scancode tunnel is the same fight.
         let perField = wants.sel == .perField
         let pageContent = perField && !wantsSelection()
+        if pageContent && wantsPassthroughField() { return TapRouting() }
+        // Ô lưới web có inline autocomplete (Google Sheets): ⌫ thuần của tap xoá vùng
+        // chọn gợi ý thay vì ký tự → "User " ra "UUser " (field 18/09/2026). Dùng U+202F
+        // dance như omnibox Chromium/Excel. CHỈ cho Chromium: WebKit đã có carve-out
+        // in-place (insertText(replacementRange:) không cần ⌫ nên không đụng vùng chọn),
+        // và Sheets trong Safari chưa có report nào.
+        if pageContent && !pageContentInPlace && wantsEmptyResetField() {
+            return TapRouting(tap: false, selection: false, emptyReset: true)
+        }
         return TapRouting(
             tap: wants.tap || (pageContent && !wantsMarkedField() && !pageContentInPlace),
             selection: wants.sel == .yes || (perField && !pageContent),
@@ -749,7 +779,7 @@ final class AppState: @unchecked Sendable {
             // the same word over TextMate (in-place, no tap wants) worked fine. The
             // tap already force-passes Spotlight's own keys raw independently
             // (spotlightOverlayForcesRaw), so this merge buys Spotlight nothing.
-            if let f = front, f != bundleID, bundleID != Self.spotlightBundleID {
+            if let f = front, f != bundleID, !Self.isSpotlight(bundleID) {
                 w = Self.mergedWants(w, _rawWants(f))
             }
             return w
@@ -758,6 +788,8 @@ final class AppState: @unchecked Sendable {
                                 trusted: { Accessibility.isTrusted },
                                 wantsSelection: { FocusedFieldDetector.wantsSelection },
                                 wantsMarkedField: { FocusedFieldDetector.wantsMarkedField },
+                                wantsPassthroughField: { FocusedFieldDetector.wantsPassthroughField },
+                                wantsEmptyResetField: { FocusedFieldDetector.wantsEmptyResetField },
                                 // The per-field verdict belongs to the focused CLIENT —
                                 // a cheap Set lookup, no laziness needed.
                                 pageContentInPlace: Self.webKitBrowsers.contains(bundleID ?? front ?? ""))
@@ -864,6 +896,19 @@ final class AppState: @unchecked Sendable {
     /// any other app. Only the tap-side DETECTION needs the window scan (the
     /// frontmost app stays whatever is behind the overlay).
     static let spotlightBundleID = "com.apple.Spotlight"
+    /// Spotlight redesign (macOS 26.4+/27, "Campo"): ô tìm kiếm là remote view
+    /// service với client id riêng — mọi chỗ nhận diện Spotlight phải hiểu CẢ HAI
+    /// (đo 16/09/2026: IMK báo com.apple.campo trên macOS 27.0).
+    static let spotlightCampoBundleID = "com.apple.campo"
+    static func isSpotlight(_ bundleID: String?) -> Bool {
+        guard let id = bundleID else { return false }
+        return id == spotlightBundleID || id == spotlightCampoBundleID
+    }
+    /// Ép tay cho Spotlight: pin ở BẤT KỲ id nào trong hai id cũng áp cho cả hai
+    /// (Bảng cơ chế gõ chỉ có một dòng "Spotlight").
+    func spotlightManualMode() -> AppMode? {
+        manualMode(Self.spotlightBundleID) ?? manualMode(Self.spotlightCampoBundleID)
+    }
 
     /// Apps with a built-in special strategy (per-field browsers, forced-marked like
     /// Excel), for the Settings mode table — it lists the installed ones so their

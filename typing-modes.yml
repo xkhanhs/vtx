@@ -24,6 +24,9 @@
 #   emptyReset  — chèn U+202F hủy suggestion rồi backspace-retype. Cho grid
 #                 app mà Shift+← chọn Ô KỀ thay vì ký tự (Excel).
 #   passthrough — IME coi như tắt (app remote/VM forward scancode thô).
+#                 Chrome Remote Desktop (tab remotedesktop.google.com) KHÔNG có
+#                 dòng riêng ở đây vì bundle id vẫn là browser: dò theo URL,
+#                 xem ClientPolicy.isRemoteDesktopURL.
 #
 # Lịch sử đáng nhớ (để khỏi lặp lại):
 # - Lark/Slack/Discord/VSCode (Electron): in-place hỏng Ở BIÊN TỪ (editor áp
@@ -72,6 +75,10 @@ com.apple.ScreenContinuity: inPlace
 com.apple.TextEdit: inPlace
 com.apple.Preview: inPlace
 com.apple.Passwords: inPlace
+# Little Snitch Agent (cửa sổ cảnh báo kết nối / tìm rule) — field 22/09/2026: app
+# lạ → tap backspace-retype → LS từ chối "Simulated Input Ignored" (bảo mật, cùng
+# lớp SecurityAgent). Cocoa thuần, in-place sạch.
+at.obdev.littlesnitch.agent: inPlace
 com.apple.appkit.xpc.openAndSavePanelService: inPlace
 # Popover đổi tên file trên thanh tiêu đề (Preview/TextEdit/Pages…) — cũng là
 # remote view service của AppKit như save panel ở trên. Thiếu rule thì client id
@@ -86,6 +93,13 @@ com.westbridge.stremio5-mac: inPlace
 com.apple.finder: inPlace
 com.apple.ActivityMonitor: inPlace
 com.apple.Spotlight: inPlace
+# Spotlight REDESIGN (macOS 26.4+/27, "Campo"): ô tìm kiếm là REMOTE VIEW SERVICE
+# với client id RIÊNG — IMK báo com.apple.campo, không phải com.apple.Spotlight
+# (đo 16/09/2026 trên macOS 27.0). Thiếu rule thì rơi vào "app lạ → kênh an toàn"
+# = tap, đồng thời split-brain guard ép marked (log: "split-brain → marked:
+# client=com.apple.campo") → hai kênh giành nhau, gõ hỏng (field report email
+# 16/09: "bản cập nhật mới bị lỗi gõ trên spotlight, macOS 27"). Cùng lớp #55.
+com.apple.campo: inPlace
 # Overlay launcher (Alfred, Raycast, LaunchBar): cùng lớp Spotlight — ô tìm kiếm là
 # NSTextField chuẩn, gõ trực tiếp sạch. Thiếu rule thì rơi vào "app lạ → kênh an
 # toàn" = marked text, và user thấy "tự nhiên bị gạch chân khi mở Alfred" (issue
@@ -168,7 +182,9 @@ ai.perplexity.comet: inPlace
 # per-app không tách được 2 vùng này, nên selection chỉ nên là pin thủ công.
 # Grid app: cell autocomplete đua backspace, Shift+← chọn ô kề
 com.microsoft.Excel: emptyReset
-# Remote desktop / VM / screen sharing — scancode thô sang máy khách
+# Remote desktop / VM / screen sharing — scancode thô sang máy khách.
+# Chrome Remote Desktop trong Chrome/Safari/Edge: passthrough theo URL
+# (remotedesktop.google.com), không theo bundle — xem ClientPolicy.isRemoteDesktopURL.
 com.microsoft.rdc.macos: passthrough
 com.microsoft.rdc.osx.beta: passthrough
 com.parallels.desktop.console: passthrough

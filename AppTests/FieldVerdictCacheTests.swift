@@ -233,6 +233,79 @@ final class MarkedFieldURLTests: XCTestCase {
     }
 }
 
+// Browser-hosted remote desktop (Chrome Remote Desktop): the page forwards raw
+// scancodes to the guest OS. Local composition — especially tap Backspace+retype —
+// races the guest IME when both machines run VietTelex ("gõ có dấu cứ nhảy loạn").
+// Matched by URL because the bundle id is still com.google.Chrome.
+final class PassthroughFieldURLTests: XCTestCase {
+
+    func testChromeRemoteDesktopForcesPassthrough() {
+        XCTAssertTrue(FocusedFieldDetector.passthroughFieldURL(
+            URL(string: "https://remotedesktop.google.com/access")))
+        XCTAssertTrue(FocusedFieldDetector.passthroughFieldURL(
+            URL(string: "https://remotedesktop.google.com/support")))
+        XCTAssertTrue(FocusedFieldDetector.passthroughFieldURL(
+            URL(string: "https://www.remotedesktop.google.com/")))
+        XCTAssertTrue(FocusedFieldDetector.passthroughFieldURL(
+            URL(string: "chrome-extension://inomeogfingihgjfjlpeplalcfajhgai/")))
+        XCTAssertTrue(FocusedFieldDetector.passthroughFieldURL(
+            URL(string: "chrome-extension://cmkncekebbebpfilplodngbpllndjkfo/")))
+    }
+
+    func testOtherHostsNeverForcePassthrough() {
+        XCTAssertFalse(FocusedFieldDetector.passthroughFieldURL(
+            URL(string: "https://docs.google.com/document/d/abc/edit")))
+        XCTAssertFalse(FocusedFieldDetector.passthroughFieldURL(
+            URL(string: "https://fakeremotedesktop.google.com/")))
+        XCTAssertFalse(FocusedFieldDetector.passthroughFieldURL(
+            URL(string: "https://remotedesktop.google.com.evil.example/")))
+        XCTAssertFalse(FocusedFieldDetector.passthroughFieldURL(
+            URL(string: "https://google.com/")))
+        XCTAssertFalse(FocusedFieldDetector.passthroughFieldURL(nil))
+    }
+
+    func testInvalidateResetsPassthroughVerdict() {
+        FocusedFieldDetector._testSetPassthrough(true)
+        XCTAssertTrue(FocusedFieldDetector.wantsPassthroughField)
+        FocusedFieldDetector.invalidate()
+        XCTAssertFalse(FocusedFieldDetector.wantsPassthroughField)
+    }
+}
+
+// Google Sheets (field 18/09/2026): ô lưới gợi ý cả giá trị cột sau chữ đầu và giữ
+// phần còn lại ĐANG CHỌN, nên ⌫ của tap xoá vùng chọn thay vì ký tự → gõ "User " ra
+// "UUser " (log: biên từ phát bs=2 ins=4 khi màn hình còn dư "U"). Cùng thuốc với
+// omnibox Chromium/Excel: .emptyReset (U+202F dance).
+final class EmptyResetFieldURLTests: XCTestCase {
+
+    func testGoogleSheetsForcesEmptyReset() {
+        XCTAssertTrue(FocusedFieldDetector.emptyResetFieldURL(
+            URL(string: "https://docs.google.com/spreadsheets/d/abc123/edit")))
+        XCTAssertTrue(FocusedFieldDetector.emptyResetFieldURL(
+            URL(string: "https://docs.google.com/spreadsheets/u/0/")))
+    }
+
+    func testDocsAndOtherHostsUnaffected() {
+        // /document là lớp MARKED (canvas), không phải emptyReset.
+        XCTAssertFalse(FocusedFieldDetector.emptyResetFieldURL(
+            URL(string: "https://docs.google.com/document/d/abc/edit")))
+        XCTAssertTrue(FocusedFieldDetector.markedFieldURL(
+            URL(string: "https://docs.google.com/document/d/abc/edit")))
+        XCTAssertFalse(FocusedFieldDetector.emptyResetFieldURL(
+            URL(string: "https://docs.google.com/presentation/d/abc/edit")))
+        XCTAssertFalse(FocusedFieldDetector.emptyResetFieldURL(
+            URL(string: "https://sheets.evil.example/spreadsheets/d/abc")))
+        XCTAssertFalse(FocusedFieldDetector.emptyResetFieldURL(nil))
+    }
+
+    func testInvalidateResetsEmptyResetVerdict() {
+        FocusedFieldDetector._testSetEmptyReset(true)
+        XCTAssertTrue(FocusedFieldDetector.wantsEmptyResetField)
+        FocusedFieldDetector.invalidate()
+        XCTAssertFalse(FocusedFieldDetector.wantsEmptyResetField)
+    }
+}
+
 // Discord-web (2026-08-05): Lexical composer ignores replacementRange on VISIBLE text
 // while caret + AX say honored — undetectable by probes, marked costs double-Enter.
 // URL rule routes the field through the tap path (như Discord desktop từ ngày đầu).
@@ -240,7 +313,8 @@ final class TapFieldURLTests: XCTestCase {
     /// POLICY 2026-08-06: the per-host tap allowlist (discord.com, chat.zalo.me —
     /// `tapFieldURL`) is GONE. Page content routes to tap in gateRouting for EVERY
     /// site (see RoutingDecisionTests.testPageContentRoutesToTap); the detector only
-    /// carries the marked-class exception (Google Docs) and the diagnostic host.
+    /// carries the marked-class exception (Google Docs), the passthrough-class
+    /// exception (Chrome Remote Desktop), and the diagnostic host.
     /// This test pins the deletion so a future per-host allowlist has to argue with
     /// this comment: three sites broke the same contract-free channel in one week,
     /// and the Discord case proved the failure UNDETECTABLE from self-reports.

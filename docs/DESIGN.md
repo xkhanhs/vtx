@@ -74,8 +74,11 @@ Quy tắc cứng:
 - App chưa phân loại được **probe** (2 tầng: verdict sơ bộ sync từ read-back/caret —
   honored cần xác nhận ở 2 offset khác nhau, chống caret rác hằng số kiểu Lark;
   AX ground truth async override sau). Kết quả persist (`probedApps` / `fallbackApps`).
-- **Remote desktop / VM / screen-share** (`ClientPolicy.forcePassthroughBundleIDs`):
-  forward scancode thô nên IME passthrough hoàn toàn.
+- **Remote desktop / VM / screen-share** (`ClientPolicy.forcePassthroughBundleIDs`
+  + `isRemoteDesktopURL` cho Chrome Remote Desktop trong browser):
+  forward scancode thô nên IME passthrough hoàn toàn. Khi cả máy local lẫn máy
+  remote đều chạy VietTelex, chỉ máy remote được gõ — local tự tắt trong canvas
+  remote (tránh hai bộ gõ giành nhau, dấu nhảy loạn).
 - **Secure input** (password field): kiểm tra `IsSecureEventInputEnabled()` đầu
   `handle()` — bypass sạch, không xử lý, không log.
 
@@ -137,6 +140,12 @@ Quy tắc ổn định đã rút ra khi implement (chi tiết trong `MACOS_IME_N
   đầu của từ, tra `/shop` trước `shop`, khớp thì xoá lùi thêm 1 ký tự. Bất kỳ phím hay
   click nào xen giữa dấu câu và chữ đầu đều bỏ tiền tố. App marked text chỉ bung khoá
   không tiền tố (dấu `/` đã là text đã commit, insertText không với tới).
+- Từ dính liền sau một **ký tự mở token** — chữ số (`5h`), hoặc `/` `#` `@` của slash
+  command / hashtag / mention — không phải từ đứng riêng, nên khoá **trần** không được
+  nở: `/h3` giữ nguyên dù bảng có `h`. Khoá **có tiền tố** thì vẫn nở, vì chính dấu đó
+  là một phần khoá người dùng đăng ký: `/shop` vẫn ra nội dung. Hệ quả: muốn một
+  khoá nở sau `/` thì phải đăng ký hẳn `/<khoá>`. Tham số `bareAllowed` của
+  `ShortcutPrefix.lookup` là chỗ cầm cân hai ngả này.
 
 ## Performance budgets (phải đo, không ước)
 

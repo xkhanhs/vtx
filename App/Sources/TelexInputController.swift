@@ -36,6 +36,10 @@ final class TelexInputController: IMKInputController {
     // key). Reading it after every insert is stale under fast typing and corrupts
     // words ("được" -> "đựoc").
     private var anchor = 0        // document offset where the composition starts
+    /// Phím ngay trước từ hiện tại là CHỮ SỐ (issue #82): "5h" là một token (5h30,
+    /// 5k, 10k) — gõ tắt `h→giờ` không được nở ở đó, chỉ nở khi từ đứng riêng
+    /// ("5 h"). Digit là boundary trong Telex nên từ "h" không tự biết nó dính số.
+    private var wordGluedToDigit = false
     private var onLen = 0         // UTF-16 length of the composition on screen
     private var tracking = false  // is anchor/onLen valid for the current word?
     private var selToClear = 0    // selection length to overwrite on the first insert
@@ -177,6 +181,16 @@ final class TelexInputController: IMKInputController {
     /// decision is a pure read of state (no side effect that a second call would see).
     func _testUsesMarkedNow(_ id: String?) -> Bool { usesMarkedNow(id) }
     #endif
+
+    /// Untrusted marked Return cannot re-post a synthetic key. Fold the newline
+    /// into the same `insertText` that confirms the composition so one Enter both
+    /// drops the underline and breaks the line (Chrome textarea, Notes, …).
+    /// Terminals strip control characters from IME-inserted text, so they keep
+    /// the documented two-press UX. Tab/Esc never inject. Trusted marked keeps
+    /// the existing swallow+re-post path (chat "send" needs a real Return key).
+    static func markedCommitNewlineSuffix(newlineKey: Bool, marked: Bool, trusted: Bool) -> String {
+        (newlineKey && marked && !trusted) ? "\n" : ""
+    }
 
     /// SPLIT-BRAIN → marked (lớp bug issue #55). Fire khi: client id routes họ tap,
     /// KHÁC app với frontmost, mà routing theo frontmost (góc nhìn của TAP — tap
@@ -433,7 +447,7 @@ final class TelexInputController: IMKInputController {
         // ORDER MATTERS for CPU: consult the manual pin FIRST — isVisible kicks a
         // CGWindowList background scan every 200ms while typing, which nobody needs
         // unless Spotlight was explicitly pinned to a tap-family mode (rare).
-        let spotlightManual = AppState.shared.manualMode(AppState.spotlightBundleID)
+        let spotlightManual = AppState.shared.spotlightManualMode()
         let spotlightDefersToTap = (spotlightManual == .selection
                 || spotlightManual == .tap || spotlightManual == .emptyReset)
             && SpotlightDetector.isVisible
@@ -441,6 +455,18 @@ final class TelexInputController: IMKInputController {
         // decision — this used to be 6 separate calls, each re-locking AppState and
         // several re-reading Accessibility.isTrusted.
         let routing = AppState.shared.tapRouting(id, front: frontID)
+        // Browser-hosted remote desktop (Chrome Remote Desktop in Chrome/Safari/Edge):
+        // AFTER tapRouting so the field scan is kicked (wantsSelection). Checking
+        // before that would return early forever on a stale CRD verdict — switching
+        // to Gmail in the same Chrome window never calls activateServer, so the
+        // cache would never refresh. Not gated on isTextInput: a hidden IME
+        // <textarea> on the CRD canvas would look like a real field and re-enable
+        // the local/guest fight.
+        if (AppState.shared.usesAxDetect(id) || AppState.shared.usesAxDetect(frontID)),
+           FocusedFieldDetector.wantsPassthroughField {
+            logDecision("handle \(id ?? "?")/front=\(frontID ?? "?"): web remote-desktop → discard (raw passthrough)")
+            discardComposition(); return false
+        }
         // SPLIT-BRAIN GUARD (lớp bug issue #55): client id routes về họ tap (thường
         // là XPC service lạ rơi vào safe-unknown) nhưng TAP thì quyết theo FRONTMOST
         // — nếu frontmost không thuộc họ tap, tap sẽ pass nguyên phím: IMK nhường,
@@ -458,6 +484,13 @@ final class TelexInputController: IMKInputController {
             fieldForcedMarked = true
             logDecision("split-brain: client \(id ?? "?") routes tap, front \(frontID ?? "?") won't engage → marked for this focus")
             Signposts.log.notice("split-brain → marked: client=\(id ?? "?", privacy: .public) front=\(frontID ?? "?", privacy: .public)")
+        }
+        // Accessibility off on a Chromium page: do not in-place (the editor drops
+        // it and the user sees raw ASCII). Marked underline still composes.
+        // Spotlight stays raw — see the note on the defer below.
+        if routing.untrustedMarked, !spotlightDefersToTap, !fieldForcedMarked {
+            fieldForcedMarked = true
+            logDecision("untrusted chromium → marked (in-place would drop tones)")
         }
         if (routing.tapDefer && !fieldForcedMarked) || spotlightDefersToTap {
             // NOTE: SpotlightDetector.isVisible defers UNCONDITIONALLY, even when the
@@ -501,6 +534,7 @@ final class TelexInputController: IMKInputController {
 
         switch event.keyCode {
         case kDelete:
+            wordGluedToDigit = false
             if engine.isEmpty {
                 // ⌫ on the boundary character the last word ended with puts the caret
                 // back at that word's end, and the user is going to keep editing it
@@ -632,8 +666,12 @@ final class TelexInputController: IMKInputController {
             // Enter in terminals is what the TAP path provides — grant Accessibility.
             boundaryCommitInFlight = true
             let wasEdge = edgeTapWord
-            let rewrote = boundary(client)
+            let suffix = Self.markedCommitNewlineSuffix(
+                newlineKey: newlineKey, marked: markedNow, trusted: Accessibility.isTrusted)
+            let rewrote = boundary(client, allowShortcuts: Self.shortcutExpansionAllowed(afterDigit: wordGluedToDigit),
+                                   commitSuffix: suffix)
             boundaryCommitInFlight = false
+            wordGluedToDigit = false
             // Return/Tab/Esc do not put ONE character after the word the way a space
             // does — Enter sends the message in a chat app, Tab moves focus, Esc
             // inserts nothing — so a following ⌫ is not deleting a boundary character
@@ -671,8 +709,9 @@ final class TelexInputController: IMKInputController {
             // No Accessibility → no re-post. Returning false raced the async
             // MARKED commit and the terminal submitted the line missing its tail
             // ("cho tôi⏎" → "cho tô", tester log #6 2026-07-23, Warp untrusted).
-            // Swallow instead: first press commits the word, the second acts —
-            // the documented two-press UX for marked compositions, no text loss.
+            // Swallow the original key. For Return/Enter, `commitSuffix` already
+            // folded "\n" into the marked insertText (Chrome/Cocoa honor it;
+            // terminals strip it and keep the two-press UX).
             if rewrote, !Accessibility.isTrusted,
                usesMarkedNow(AppState.shared.currentBundleID) {
                 return true
@@ -696,8 +735,10 @@ final class TelexInputController: IMKInputController {
             // The composed word itself is committed unchanged.
             let boundaryChar = effectiveCharacters(event)?.utf8.first
             let wasEdge = edgeTapWord
-            let rewrote = boundary(client, suppressAutoRestore: boundaryChar.map(isBracket) ?? false)
+            let rewrote = boundary(client, suppressAutoRestore: boundaryChar.map(isBracket) ?? false,
+                                   allowShortcuts: Self.shortcutExpansionAllowed(afterDigit: wordGluedToDigit))
             shortcutPrefix.boundaryKey(effectiveCharacters(event)?.first)
+            wordGluedToDigit = Self.gluesShortcutToken(boundaryChar)   // #82 số, #87 / # @
             // Only a key that leaves exactly ONE character after the word may be
             // ⌫-ed back into it (issue #40). Arrow/function keys land here too — they
             // move the caret and insert nothing, so the word is no longer adjacent.
@@ -1168,6 +1209,7 @@ final class TelexInputController: IMKInputController {
     /// report issue #28 2026-07-27). Telex hides the same fault better (a stray "s"),
     /// so the causes were never worth naming before — now they are.
     private func dropComposition(cause: String) {
+        wordGluedToDigit = false
         if !engine.isEmpty {
             DebugLog.log("composition dropped mid-word (cause=\(cause)) len=\((engine.composed as NSString).length)")
         }
@@ -1541,6 +1583,7 @@ final class TelexInputController: IMKInputController {
         engine.reset()
         tracking = false
         onLen = 0
+        wordGluedToDigit = false   // #82: từ bị bỏ giữa đường, ngữ cảnh "dính số" hết hiệu lực
     }
 
     @discardableResult
@@ -1563,7 +1606,7 @@ final class TelexInputController: IMKInputController {
     }
 
     private func boundary(_ client: IMKTextInput, suppressAutoRestore: Bool = false,
-                          allowShortcuts: Bool = true) -> Bool {
+                          allowShortcuts: Bool = true, commitSuffix: String = "") -> Bool {
         let wasEdge = edgeTapWord
         let prefix = shortcutPrefix.current
         defer { tracking = false; onLen = 0; edgeTapWord = false; shortcutPrefix.startWord(nil) }
@@ -1584,12 +1627,16 @@ final class TelexInputController: IMKInputController {
         // A "/shop"-style key also erases its prefix character — except in MARKED mode,
         // where insertText only replaces the marked word and the "/" is already
         // committed text out of reach, so only bare keys expand there.
-        if allowShortcuts, !word.isEmpty,
+        // `allowShortcuts == false` = từ dính liền sau ký tự mở token (#82 chữ số, #87
+        // / # @). Nó chỉ cấm khoá TRẦN; khoá có tiền tố ("/shop") vẫn nở vì chính dấu đó
+        // là một phần của khoá người dùng đăng ký — xem ShortcutPrefix.lookup.
+        if !word.isEmpty,
            let hit = ShortcutPrefix.lookup(word: word, raw: rawWord, prefix: marked ? nil : prefix,
+                                           bareAllowed: allowShortcuts,
                                            in: AppState.shared.shortcuts) {
             engine.reset()
             let bs = onScreen + hit.extraBackspaces
-            if marked { client.insertText(hit.expansion, replacementRange: kNoRange) }
+            if marked { client.insertText(hit.expansion + commitSuffix, replacementRange: kNoRange) }
             else if wasEdge { noteEdgeBurst(SyntheticKeyboard.applyForEdge(backspaces: bs, insert: hit.expansion)) }
             else { applyInPlace(bs: bs, insert: hit.expansion, client) }
             return true
@@ -1600,8 +1647,9 @@ final class TelexInputController: IMKInputController {
         let autoRestore = AppState.shared.autoRestore && !suppressAutoRestore
         let restored = engine.commitText(autoRestore: autoRestore)
         if marked {
-            // Commit the marked text (replaces it with the final word).
-            client.insertText(restored, replacementRange: kNoRange)
+            // Commit the marked text (replaces it with the final word). Optional
+            // suffix is a newline folded in when Return cannot be re-posted.
+            client.insertText(restored + commitSuffix, replacementRange: kNoRange)
             return true
         } else if restored != word {
             if wasEdge { noteEdgeBurst(SyntheticKeyboard.applyForEdge(backspaces: onScreen, insert: restored)) }
@@ -1665,7 +1713,7 @@ final class TelexInputController: IMKInputController {
             // Spotlight took focus: stamp the visibility cache NOW — the overlay-raw
             // gate in the tap must not wait for a CGWindowList scan that only lands
             // after the first keys have already been mis-composed (2026-07-31).
-            if AppState.shared.currentBundleID == AppState.spotlightBundleID {
+            if AppState.isSpotlight(AppState.shared.currentBundleID) {
                 SpotlightDetector.noteFocused()
                 let now = DispatchTime.now().uptimeNanoseconds
                 // ASSIGN (not just set-true): an arm from a rapid cycle the user
@@ -1809,12 +1857,13 @@ final class TelexInputController: IMKInputController {
         // "click status → copy debug snapshot" KHÔNG mất: nó chuyển xuống dòng
         // version bên dưới (click được ở mọi trạng thái).
         let statusTitle: String?
-        if let holder = SecureInputMonitor.shared.activeHolder {
+        if SecureInputMonitor.shared.activeHolder != nil {
             // Hiếm khi tới được đây (secure input thường đá selection sang ABC nên
             // menu này không mở được), nhưng ca "secure input tạm thời trong ô
-            // password mà VietTelex vẫn selected" thì thấy. Không click-action:
-            // thủ phạm là app khác, mình không tắt hộ được.
-            statusTitle = VTLocalized("Status: Blocked by Secure Input") + " — \(holder.label)"
+            // password mà VietTelex vẫn selected" thì thấy. Headline user-facing
+            // (không PID / loginwindow); PID nằm ở icon Vᵀ⃠ tooltip + log.
+            statusTitle = SecureInputMonitor.shared.blockedStatusTitle()
+                ?? VTLocalized("Status: Blocked by Secure Input")
         } else if !Accessibility.isTrusted {
             statusTitle = VTLocalized("Status: Permission needed")
         } else if TerminalTapController.shared.trustLooksStale {
@@ -2253,7 +2302,35 @@ final class TelexInputController: IMKInputController {
     /// Việt hoá) lẫn snapshot (giữ nguyên tiếng Anh để grep bug report). tapRouting,
     /// không phải các getter per-mode: page content trong browser routes sang tap BY
     /// POLICY (06/08) mà app không hề nằm trong set tap-mode nào.
+    /// Issue #82: gõ tắt chỉ nở khi từ KHÔNG dính liền sau chữ số ("5h" giữ nguyên,
+    /// "5 h" → "5 giờ"). Pure — pinned by ShortcutAfterDigitTests.
+    static func shortcutExpansionAllowed(afterDigit: Bool) -> Bool { !afterDigit }
+    static func isAsciiDigit(_ c: UInt8?) -> Bool {
+        guard let c else { return false }
+        return c >= UInt8(ascii: "0") && c <= UInt8(ascii: "9")
+    }
+    /// Issue #87: "/h3" nở thành "/giờ3" — slash command (Lark, Slack, Notion, Discord)
+    /// là cùng lớp token với "5h": từ dính liền sau ký tự MỞ TOKEN thì không phải một
+    /// từ đứng riêng. Nhóm ký tự mở token = chữ số (#82) + `/` `#` `@` (`/cmd`,
+    /// `#tag`, `@mention`). Pure — pinned by ShortcutAfterDigitTests.
+    static func gluesShortcutToken(_ c: UInt8?) -> Bool {
+        guard let c else { return false }
+        return isAsciiDigit(c) || c == UInt8(ascii: "/") || c == UInt8(ascii: "#") || c == UInt8(ascii: "@")
+    }
+
     func strategyLabel(_ id: String?, localized: Bool) -> String {
+        // Remote-desktop canvas (native RDP / browser-hosted CRD): IME is off.
+        // Checked before tapRouting so a Chrome tab on remotedesktop.google.com is
+        // not labelled "tap · backspace" while we actually pass keys through.
+        let remoteCanvas = AppState.shared.manualMode(id) == nil
+            && (ClientPolicy.isRemoteDesktop(id)
+                // Upstream gọi AppState.isBuiltInPassthrough vì bên đó có rule wildcard
+                // (com.valvesoftware.*). Fork không lấy wildcard nên Set là đủ và đúng.
+                || id.map { AppState.builtInPassthroughApps.contains($0) } == true)
+            && !(Accessibility.isTrusted && FocusedFieldDetector.isTextInput)
+        if remoteCanvas || (AppState.shared.usesAxDetect(id) && FocusedFieldDetector.wantsPassthroughField) {
+            return localized ? VTLocalized("Passthrough") : "passthrough · remote desktop"
+        }
         let routing = AppState.shared.tapRouting(id)
         if routing.selection { return localized ? VTLocalized("Selection-replace") : "tap · selection-replace (Chromium)" }
         if routing.tap { return localized ? VTLocalized("Tap (backspace)") : "tap · backspace" }
@@ -2299,6 +2376,7 @@ final class TelexInputController: IMKInputController {
             "Unknown apps → safe channel: \(onOff(s.safeUnknownApps))",
             "Field verdict: selection=\(FocusedFieldDetector.wantsSelection ? "yes" : "no")"
                 + " marked=\(FocusedFieldDetector.wantsMarkedField ? "yes" : "no")"
+                + " passthrough=\(FocusedFieldDetector.wantsPassthroughField ? "yes" : "no")"
                 + " forcedMarked=\(fieldForcedMarked ? "yes" : "no")",
             "Web host: \(FocusedFieldDetector.debugLastHost ?? "—")",
             "AX role chain: [\(FocusedFieldDetector.debugRoleChain())]",

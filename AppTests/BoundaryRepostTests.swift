@@ -20,6 +20,13 @@ final class BoundaryRepostTests: XCTestCase {
         // preserve that distinction or a shortcut expansion turns it into a send.
         XCTAssertTrue(down.flags.contains(.maskShift))
         XCTAssertTrue(up.flags.contains(.maskShift))
+        // hidSystemState loses that bit: the unicode burst clears Chromium's shift
+        // latch, and a released physical Shift reconciles the flags to "up", so the
+        // re-post arrives as plain Enter and the chat SENDS. Private-source Return
+        // is the measured "insert newline, don't send" path. Plain Enter (no shift)
+        // must stay hardware-like — see testRepostCarriesNoMagicStamp.
+        XCTAssertTrue(SyntheticKeyboard.isSyntheticMagic(down))
+        XCTAssertTrue(SyntheticKeyboard.isSyntheticMagic(up))
     }
 
     /// NO magic: IMKit's handle() drops magic events without processing; this Enter
@@ -37,6 +44,26 @@ final class BoundaryRepostTests: XCTestCase {
     /// A keyUp must exist: the user's physical keyUp precedes our posted keyDown,
     /// so without our own up the key stays logically held (key-repeat / stuck-key
     /// semantics in apps that track key state).
+    // MARK: Field 19/08/2026 — "thử xem"+Enter trên TikTok post ra mỗi "thử"
+
+    func testUntrustedMarkedReturnFoldsANewlineIntoTheCommit() {
+        XCTAssertEqual(
+            TelexInputController.markedCommitNewlineSuffix(newlineKey: true, marked: true, trusted: false),
+            "\n")
+        // Trusted marked still re-posts the real Return (chat "send"); don't also
+        // inject a newline or the field gets two breaks.
+        XCTAssertEqual(
+            TelexInputController.markedCommitNewlineSuffix(newlineKey: true, marked: true, trusted: true),
+            "")
+        XCTAssertEqual(
+            TelexInputController.markedCommitNewlineSuffix(newlineKey: true, marked: false, trusted: false),
+            "")
+        // Tab/Esc must not become a line break.
+        XCTAssertEqual(
+            TelexInputController.markedCommitNewlineSuffix(newlineKey: false, marked: true, trusted: false),
+            "")
+    }
+
     func testRepostIsABalancedPair() {
         guard let (down, up) = SyntheticKeyboard.makeBoundaryRepost(key: 48, flags: []) else {
             return XCTFail("pair must be constructible")

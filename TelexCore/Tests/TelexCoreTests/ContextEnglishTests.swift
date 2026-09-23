@@ -267,4 +267,43 @@ final class ContextEnglishFieldReportTests: XCTestCase {
         XCTAssertEqual(sentence("he thoi is", context: true), "he thoi í")
         XCTAssertEqual(sentence("he thois is", context: true), "he thói í")
     }
+
+    /// Issue #89 (21/09/2026): "macos as em" → "macos as em". The structural rule
+    /// (unknown non-VN word opens an English run — the 2026-08-14 "position is" fix)
+    /// swallowed brand/tech names Vietnamese sentences use constantly. They are
+    /// NEUTRAL loanwords like "email": preserve context, never open a run.
+    func testBrandNamesDoNotOpenEnglishRun() {
+        XCTAssertEqual(sentence("macos as em", context: true), "macos á em")
+        XCTAssertEqual(sentence("Macos as em", context: true), "Macos á em")
+        XCTAssertEqual(sentence("zalo as em", context: true), "zalo á em")
+        XCTAssertEqual(sentence("iphone is", context: true), "iphone í")
+        // …but inside an English run they keep it open ("the macos is").
+        XCTAssertEqual(sentence("the macos is", context: true), "the macos is")
+        // The 08-14 case must not regress.
+        XCTAssertEqual(sentence("position is not okay", context: true), "position is not okay")
+    }
+
+    /// Issue #91 (22/09/2026, Lark): "done rồi as" → "done rồi as". The tap dropped
+    /// "rồi" mid-word (reset without a commit — screen still showed it), so the
+    /// context stayed on "done" and the ambiguous "as" was restored to English.
+    /// A mid-word drop must clear the context: the previous word is now unknown.
+    func testMidWordDropClearsEnglishContext() {
+        var e = TelexEngine(); e.liveSpellCheck = true; e.contextualEnglish = true
+        for ch in "done" { _ = e.feed(ch) }
+        _ = e.commitBoundary(autoRestore: true)
+        XCTAssertTrue(e.previousWordEnglish)
+        for ch in "rooif" { _ = e.feed(ch) }
+        e.reset()                                    // dropped, never committed
+        XCTAssertFalse(e.previousWordEnglish)
+        for ch in "as" { _ = e.feed(ch) }
+        XCTAssertEqual(e.commitText(autoRestore: true), "á")
+        // An EMPTY reset (the routine per-word/boundary call) must still preserve it.
+        var f = TelexEngine(); f.liveSpellCheck = true; f.contextualEnglish = true
+        for ch in "he" { _ = f.feed(ch) }
+        _ = f.commitBoundary(autoRestore: true)
+        f.reset()
+        XCTAssertTrue(f.previousWordEnglish)
+        for ch in "is" { _ = f.feed(ch) }
+        XCTAssertEqual(f.commitText(autoRestore: true), "is")
+    }
 }
