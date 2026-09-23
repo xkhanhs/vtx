@@ -140,6 +140,12 @@ Quy tắc ổn định đã rút ra khi implement (chi tiết trong `MACOS_IME_N
   đầu của từ, tra `/shop` trước `shop`, khớp thì xoá lùi thêm 1 ký tự. Bất kỳ phím hay
   click nào xen giữa dấu câu và chữ đầu đều bỏ tiền tố. App marked text chỉ bung khoá
   không tiền tố (dấu `/` đã là text đã commit, insertText không với tới).
+- Từ dính liền sau một **ký tự mở token** — chữ số (`5h`), hoặc `/` `#` `@` của slash
+  command / hashtag / mention — không phải từ đứng riêng, nên khoá **trần** không được
+  nở: `/h3` giữ nguyên dù bảng có `h`. Khoá **có tiền tố** thì vẫn nở, vì chính dấu đó
+  là một phần khoá người dùng đăng ký: `/shop` vẫn ra nội dung. Hệ quả: muốn một
+  khoá nở sau `/` thì phải đăng ký hẳn `/<khoá>`. Tham số `bareAllowed` của
+  `ShortcutPrefix.lookup` là chỗ cầm cân hai ngả này.
 
 ## Performance budgets (phải đo, không ước)
 
