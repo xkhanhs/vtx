@@ -649,7 +649,11 @@ chỉ được dùng khi có giá trị ghi thật.
 Đổi `x` (ngã) từ góc phải trên vào ô Y và trả `;` về phím P: chạy lại script (nó
 `rmtree` rồi ghi bundle mới cùng tên, cùng id), rồi `UCKeyTranslate` trên dữ liệu đọc từ
 TIS trong CÙNG phiên, không bật/tắt gì, trả về `x` cho keycode 16 và `;` cho 35 — tức
-bản mới đã được nạp; cơ chế cache bên trong thì chưa đo. Lý do đổi và số đo: keybear
+bản mới đã được nạp; cơ chế cache bên trong thì chưa đo. **Nhưng VTX thì vẫn gõ `;`**:
+`KeyboardLayoutOverride.apply` dựng bảng dịch một lần cho mỗi cặp (pinned, live) và
+giữ trong `resolvedFor`, nên tiến trình VTX đang chạy không bao giờ đọc lại `uchr` mới.
+Phải `pkill -x VTX` (macOS tự khởi động lại khi gõ) — user báo "vẫn thế" đúng như vậy.
+Lý do đổi và số đo: keybear
 `plans/reports/research-260923-1406-layout-comparison-vi-telex.md`.
 
 ## Menu badge metrics — match the system, measured — 2026-08-13
