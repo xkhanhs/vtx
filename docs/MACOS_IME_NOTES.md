@@ -609,7 +609,7 @@ Colemak vẫn gõ bố cục cũ *và* mode Telex bị đổi oan, không mode n
 `InputMode.pinnedLayoutID` để biết mode nào đọc khoá nào trước khi `defaults write`.
 
 Bố cục DH-Việt — Colemak-DH-angle chỉnh lại cho luồng phím Telex — sinh ra bằng
-`Scripts/make-dh-viet-layout.py`, hoán vị 12 keycode trên bản Colemak DH ANSI của
+`Scripts/make-dh-viet-layout.py`, hoán vị 11 keycode trên bản Colemak DH ANSI của
 colemakmods. Số đo, corpus kiểm định và lý do từng cú đổi nằm ở repo `keybear`
 (`docs/dh_viet_layout.md`). Ba điều đo được ở đây:
 
@@ -644,6 +644,13 @@ ra từ TIS — đúng đường VTX đi — chứ không phải đọc lại t�
 Lưu ý ngược lại: `defaultAltLayoutID()` dò theo TÊN (`"colemak dh"` + `"ansi"`), nên khi
 `altKeyboardLayoutID` trống nó vẫn rơi về **DH ANSI**, không phải DH-Việt. Bố cục này
 chỉ được dùng khi có giá trị ghi thật.
+
+**Sửa một bố cục đã bật thì ghi đè bundle là xong, không cần gỡ ra bật lại — 2026-09-23.**
+Đổi `x` (ngã) từ góc phải trên vào ô Y và trả `;` về phím P: chạy lại script (nó
+`rmtree` rồi ghi bundle mới cùng tên, cùng id), rồi `UCKeyTranslate` trên dữ liệu đọc từ
+TIS trong CÙNG phiên, không bật/tắt gì, trả về `x` cho keycode 16 và `;` cho 35 — tức
+bản mới đã được nạp; cơ chế cache bên trong thì chưa đo. Lý do đổi và số đo: keybear
+`plans/reports/research-260923-1406-layout-comparison-vi-telex.md`.
 
 ## Menu badge metrics — match the system, measured — 2026-08-13
 
