@@ -68,22 +68,25 @@ ANSI_MAP_SET = "16c"
 #    37  o      41    right pinky o   o 131‰ is the heaviest Vietnamese letter
 #    41  i      37
 #     6  j      16    the old Y slot  frees `nj`/`mj`/`hj`
-#    35  x       6    left bottom x   ngã is the rarest tone (5.5% of words)
-#    16  ;      35    top row ;       see below
+#    16  x       6    left bottom x   ngã is the rarest tone (5.5% of words)
+#    35  ;      35    unchanged       see below
 PERMUTATION = {
     1: 46, 8: 1, 46: 8,
     7: 9, 9: 7,
     5: 15, 15: 5,
     37: 41, 41: 37,
-    6: 16, 35: 6, 16: 35,
+    6: 16, 16: 6,
 }
 
-# The one slot DH-Việt leaves empty is the old Y — right index, reaching up and
-# in, the most expensive key on the board — and the optimiser preferred it bare
-# over housing a letter there. `;` is what lands in it, because `;` is the only
-# character the nine swaps orphan: its old key now types `i`, and the key that
-# would have taken it now types `x`. Vietnamese barely uses `;`, code needs it,
-# and this is the right price for a character that rare.
+# `x` (ngã) sits in the old Y slot — right index, reaching up and in. From
+# 2026-08-20 to 2026-09-23 that slot held `;` and `x` sat on the top-right
+# corner, on the right pinky under `i`. The user's hand ranked the right pinky
+# the second-worst place on the board, and `x` was the lightest letter on it
+# (14‰, against `i` 59‰); moving it also removes the `ix` same-finger pair
+# (2‰). On the 50k-word corpus this scores 1.5% better than the bare slot —
+# keybear plans/reports/research-260923-1406-layout-comparison-vi-telex.md. `;`
+# stays on its stock key, which is the only character the swaps otherwise
+# orphan: Vietnamese barely uses it, code needs it.
 
 
 def permute(layout: str) -> str:
