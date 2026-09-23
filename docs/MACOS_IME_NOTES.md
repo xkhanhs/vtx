@@ -1178,3 +1178,25 @@ never got exercised there until the tap was off.
 Changing the name requires a logout/login (it is input-source registration
 metadata). Diagnosis trail: missing menu section per-app → zero activateServer in
 DebugLog → sandbox entitlement check → naming convention (vChewing dev guidelines).
+
+## A *new* keyboard-layout bundle needs a logout; a replaced one does not — 2026-09-23
+
+`Scripts/make-dh-viet-layout.py` says a user-level bundle "is registered
+immediately — no logout". That is true only for the case it was measured in:
+overwriting a bundle whose id TIS already knows. Installing a bundle with a
+**new** id does not register until logout.
+
+Measured while publishing the layout as its own repo (`xkhanhs/colemak-viet`).
+A fresh bundle — new `CFBundleIdentifier`, new `TISInputSourceID`, new layout id
+— written to `~/Library/Keyboard Layouts/` did not appear in
+`TISCreateInputSourceList(nil, true)` at all, while every previously installed
+layout did. The control experiment is the part worth keeping: copying the
+**known-good, currently-serving** `Colemak DH-Viet.bundle` to a new name and id
+produced exactly the same silence. So an absent input source is evidence about
+registration timing, not about the .keylayout being malformed — do not go
+debugging the XML, as this session started to.
+
+The file itself can still be checked without logging out: DTD-validate it
+against `/System/Library/DTDs/KeyboardLayout.dtd` (probe copy with the XML 1.1
+control references neutralised, since xmllint has no 1.1 parser), then diff its
+key maps against the bundle macOS is serving right now.
