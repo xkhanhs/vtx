@@ -2324,9 +2324,9 @@ final class TelexInputController: IMKInputController {
         // not labelled "tap · backspace" while we actually pass keys through.
         let remoteCanvas = AppState.shared.manualMode(id) == nil
             && (ClientPolicy.isRemoteDesktop(id)
-                // isBuiltInPassthrough, không phải Set: rule wildcard
-                // (com.valvesoftware.*: passthrough) cũng phải hiện nhãn đúng.
-                || id.map { AppState.isBuiltInPassthrough($0) } == true)
+                // Upstream gọi AppState.isBuiltInPassthrough vì bên đó có rule wildcard
+                // (com.valvesoftware.*). Fork không lấy wildcard nên Set là đủ và đúng.
+                || id.map { AppState.builtInPassthroughApps.contains($0) } == true)
             && !(Accessibility.isTrusted && FocusedFieldDetector.isTextInput)
         if remoteCanvas || (AppState.shared.usesAxDetect(id) && FocusedFieldDetector.wantsPassthroughField) {
             return localized ? VTLocalized("Passthrough") : "passthrough · remote desktop"
