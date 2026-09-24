@@ -9,7 +9,6 @@ pairs with a rough confidence band, and what more rounds would buy.
 
     pbpaste | ./Scripts/analyze-transition-book.py
     ./Scripts/analyze-transition-book.py export.json
-    ./Scripts/analyze-transition-book.py export.json --angle   # see --help
 
 The board model is beartype's `transition-kinds.ts` (itself keybear's). Keep
 ROWS in step with Scripts/make-dh-viet-layout.py and with beartype.
@@ -27,12 +26,10 @@ ROWS = {
     "dh-viet-vt": ["qwfgv.luyx", "ahstpmneoi", "jbrczkd..."],
 }
 ROW_OFFSETS = [0, 0.25, 0.75]
-# 0 left pinky .. 7 right pinky, by column, as beartype and keybear assume.
+# 0 left pinky .. 7 right pinky, one finger per column on every row, as
+# beartype and keybear assume. Confirmed by the typist 2026-09-24: the physical
+# C key (`r` on DH-Việt) is the middle finger, so `tr` is a scissor.
 COLUMN_FINGERS = [0, 1, 2, 3, 3, 4, 4, 5, 6, 7]
-# Angle-mod fingering of the bottom-left keys: Z by ring, X by middle, C and V
-# by index. Beartype does NOT model this; --angle shows what changes if the
-# hands really type that way (`tr` becomes a same-finger pair).
-ANGLE_BOTTOM = [1, 2, 3, 3, 3]
 
 DECAY = 0.98
 MIN_TIMED = 6  # beartype ranks a move only once it is timed this often
@@ -41,16 +38,13 @@ MIN_TIMED = 6  # beartype ranks a move only once it is timed this often
 CV = 0.5
 
 
-def places(layout, angle):
+def places(layout):
     out = {}
     for row, chars in enumerate(ROWS[layout]):
         for col, ch in enumerate(chars):
             if ch == ".":
                 continue
-            finger = COLUMN_FINGERS[col]
-            if angle and row == 2 and col < len(ANGLE_BOTTOM):
-                finger = ANGLE_BOTTOM[col]
-            out[ch] = (row, col + ROW_OFFSETS[row], finger)
+            out[ch] = (row, col + ROW_OFFSETS[row], COLUMN_FINGERS[col])
     return out
 
 
@@ -152,23 +146,16 @@ def report(grams, kind_of, title, baseline_gram, top):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("file", nargs="?", help="JSON export; stdin if omitted")
-    parser.add_argument(
-        "--angle",
-        action="store_true",
-        help="finger the bottom-left keys angle-mod style (C key by index)",
-    )
     parser.add_argument("--top", type=int, default=12)
     args = parser.parse_args()
     page = json.load(open(args.file) if args.file else sys.stdin)
     layout = page.get("variant", "dh-viet")
-    pl = places(layout, args.angle)
+    pl = places(layout)
     rounds = page["rounds"]
     now = effective(rounds)
     moves = sum(v[0] for v in page["bigrams"].values())
     print(f"bố cục {layout}, {rounds} bài, sổ đang nặng bằng {now:.1f} bài")
     print(f"~{moves / now:.0f} cặp phím mỗi bài; sổ giữ tối đa ~50 bài")
-    if args.angle:
-        print("ngón: angle mod (phím Z áp út, X giữa, C và V trỏ)")
 
     report(
         page["bigrams"],
