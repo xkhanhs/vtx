@@ -19,7 +19,6 @@ mỗi bài tiếng Việt, beartype ghi "sổ cú chuyển phím" riêng cho t�
 pbpaste | ./Scripts/analyze-transition-book.py
 ```
 
-Thêm `--angle` để chấm lại theo kiểu bấm angle mod (xem mục "Ngón nào bấm phím C").
 Thêm `--top 20` nếu muốn xem danh sách dài hơn.
 
 ## Sổ ghi gì
@@ -54,12 +53,11 @@ Mỗi cặp (và bộ ba) phím Telex gõ liền nhau **trong cùng một từ**
   layout. Sổ chưa tách được yếu tố này.
 - **Cặp nhanh bất thường (< 40 ms)** là do bấm gối hai phím gần như cùng lúc,
   không phải một cú chuyển tay thật. Ví dụ `nw` 28 ms.
-- **Ngón nào bấm phím C.** Mô hình của beartype và keybear gán mỗi cột cố định
-  một ngón, nên phím C vật lý (chữ `r`) là ngón giữa và `tr` được xếp loại
-  scissor. Nếu tay bấm angle mod kiểu chuẩn (phím Z áp út, X giữa, C và V trỏ)
-  thì `tr` là **cặp cùng ngón**. Khi đó tỉ lệ cặp cùng ngón của DH-Việt lên
-  **2,6%** thay vì 0,7%. Cần chốt câu hỏi này trước khi dùng `tr` làm lý do
-  đổi chỗ `r`.
+- **Ngón bấm hàng dưới đã chốt (24/09/2026).** Mỗi cột một ngón trên mọi
+  hàng, giống mô hình của beartype và keybear. Phím C vật lý (chữ `r` trên
+  DH-Việt) bấm bằng ngón giữa, nên `tr` là cặp **chéo** (scissor), không phải
+  cặp cùng ngón. Đừng chấm lại theo kiểu angle mod "phím C bấm ngón trỏ",
+  vì tay người gõ không bấm như vậy.
 - Danh sách "hay gõ sai" xếp theo **số lần** sai, không theo tỉ lệ: một lần
   trượt trên cặp hiếm gặp đã là 100%.
 
@@ -77,7 +75,7 @@ dùng mô hình ngón của beartype):
 | cùng ngón, phím kề | 0,7% | 255 | ×1,78 |
 
 - Tỉ lệ cặp cùng ngón đo được là 0,7%, sát con số mô hình dự đoán (0,47%;
-  DH-angle là 5,9%). Nếu tính theo angle mod thì là 2,6%.
+  DH-angle là 5,9%).
 - Các cặp chậm đã chắc: `ie` (n=46, ×1,47), `tr` (n=30, ×1,40), `oi` (n=39,
   ×1,35), `ha` (n=47, ×1,24).
 - Các cặp chậm nhưng chưa đủ mẫu: `lu` ×2,00, `ye` ×1,82, `no` ×1,67. Mỗi cặp
