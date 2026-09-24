@@ -61,6 +61,35 @@ Mỗi cặp (và bộ ba) phím Telex gõ liền nhau **trong cùng một từ**
 - Danh sách "hay gõ sai" xếp theo **số lần** sai, không theo tỉ lệ: một lần
   trượt trên cặp hiếm gặp đã là 100%.
 
+## Quyết định đang chờ: có đổi `v↔z` không
+
+Từ 24/09/2026, người gõ tập DH-Việt hiện hành vài tuần rồi mới dựa vào số đo để
+quyết có chuyển sang biến thể `v↔z` hay không. Biến thể này (beartype gọi là
+"DH-Việt · v ở B") đưa `v` từ phím X vật lý (áp út trái) sang phím B (trỏ trái),
+và `z` về phím X. Ngón bấm: đặt tay chuẩn QWERTY, `v` hiện gõ bằng áp út trái.
+Ngoại lệ duy nhất là phím B vật lý, trên QWERTY người gõ hay bấm bằng tay phải;
+cần hỏi lại tay nào nếu `v` về đó.
+
+Đổi `v↔z` chỉ tác động tới hai loại cú chuyển; các cặp `v` + nguyên âm khác
+(`vo`, `vi`, `vu`, `ve`) vẫn là đổi tay:
+
+- `va`: đang là chéo (áp út dưới, út trên), sẽ thành cuộn ra;
+- `vow` (`với`, `vợ`, `vở`): đang là sfs, vì `v` và `w` cùng áp út trái; sẽ
+  thành đổi tay.
+
+Để quyết, xem ba điểm khi sổ đã có 40–50 bài:
+
+1. `va` và bộ ba `vow` đã có n ≥ 20 chưa, và có chậm hơn nhịp thường một cách
+   chắc chắn không (script ghi "chắc", tức ×(1 − dải) > 1,1).
+2. Các cặp `v` có nằm trong danh sách hay gõ sai không.
+3. **Trần lợi ích nhỏ.** Ở mốc 15 bài, mọi cặp chứa `v` chỉ chiếm 2,3% số cú
+   chuyển (×1,25). Kể cả khi đổi xong chúng nhanh bằng nhịp thường, mỗi bài chỉ
+   lợi khoảng 90 ms trên khoảng 17 giây gõ, tức dưới 1%. Nếu (1) và (2) không
+   nổi bật thì giữ bố cục hiện tại, không đáng tập lại tay.
+
+Sổ chỉ đo bố cục đang gõ. Muốn so trực tiếp thì phải gõ biến thể thật (chế độ
+giả lập của keybear, hoặc sinh bundle mới) trên một trang sổ riêng.
+
 ## Mốc đã đo
 
 **24/09/2026: 15 bài** (sổ nặng 13,1 bài, ~116 cặp/bài, nhịp thường 144 ms,
