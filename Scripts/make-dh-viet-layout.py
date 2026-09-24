@@ -68,29 +68,24 @@ ANSI_MAP_SET = "16c"
 #    37  o      41    right pinky o   o 131‰ is the heaviest Vietnamese letter
 #    41  i      37
 #     6  j      16    the old Y slot  frees `nj`/`mj`/`hj`
-#    11  x       6    left bottom x   ngã is the rarest tone (5.5% of words)
-#    16  z      11    the B key       z is ~0‰ in Vietnamese; parks in the reach
-#    35  ;      35    unchanged       see below
+#    35  x       6    left bottom x   ngã is the rarest tone (5.5% of words)
+#    16  ;      35    top row ;       see below
 PERMUTATION = {
     1: 46, 8: 1, 46: 8,
     7: 9, 9: 7,
     5: 15, 15: 5,
     37: 41, 41: 37,
-    6: 16, 11: 6, 16: 11,
+    6: 16, 35: 6, 16: 35,
 }
 
-# `x` (ngã) sits on the B key and `z` in the old Y slot. History: 2026-08-20 to
-# 2026-09-23 the Y slot held `;` and `x` sat on the top-right corner, on the
-# right pinky under `i`. The user's hand ranked the right pinky the second-worst
-# place on the board, and `x` was the lightest letter on it (14‰, against `i`
-# 59‰); moving it also removes the `ix` same-finger pair (2‰). It went to the Y
-# slot first (scores 1.5% better than the bare slot), then the same day to the
-# B key for a hand trial: the model rates the two within 0.1% of each other,
-# and the user presses B with the RIGHT index, so the `gx` pair the model
-# charges the B placement with (những, cũng) is really a hand alternation —
+# `x` (ngã) sits on the top-right corner (the P key), `z` stays on the B key and
+# `;` fills the old Y slot — right index, reaching up and in, the most expensive
+# key on the board, which the optimiser preferred bare over housing a letter.
+# `;` is the only character the swaps orphan: Vietnamese barely uses it, code
+# needs it. History: on 2026-09-23 `x` went to the Y slot and then to the B key
+# for a hand trial (`z` up to the Y slot, `;` back on P); on 2026-09-24 the user
+# moved it back here after typing on it —
 # keybear plans/reports/research-260923-1406-layout-comparison-vi-telex.md.
-# `;` stays on its stock key, which is the only character the swaps otherwise
-# orphan: Vietnamese barely uses it, code needs it.
 
 
 def permute(layout: str) -> str:

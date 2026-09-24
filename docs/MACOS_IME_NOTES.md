@@ -669,6 +669,11 @@ Phải `pkill -x VTX` (macOS tự khởi động lại khi gõ) — user báo "v
 Lý do đổi và số đo: keybear
 `plans/reports/research-260923-1406-layout-comparison-vi-telex.md`.
 
+Nạp lại KHÔNG tức thì — 2026-09-24: đưa `x` về phím P, `;` về ô Y, `z` về phím B. Chạy
+`UCKeyTranslate` ngay sau khi script ghi xong vẫn ra bản CŨ (`x` ở kc 11) trong khi tệp
+`.keylayout` trên đĩa đã đúng; chờ ~3 giây rồi chạy lại thì ra bản mới. Đọc sai bản cũ
+ngay sau khi ghi thì chờ rồi đo lại, đừng kết luận là script hỏng.
+
 ## Menu badge metrics — match the system, measured — 2026-08-13
 
 The badge looked small next to the system's own and no amount of margin tuning fixed
