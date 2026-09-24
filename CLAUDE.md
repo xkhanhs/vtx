@@ -123,5 +123,8 @@ Changing bundle id or input-mode metadata in `Info.plist` needs a logout/login o
   upstream artifact can never install over VTX. Keep it that way.
 - Settings live in the `com.viettelex.settings` defaults suite, deliberately: it carries
   the user's existing shortcuts and preferences over from upstream.
+- Judging the DH-Việt layout from real typing (beartype's "chép sổ" export):
+  `docs/LAYOUT-TYPING-DATA.md` and `Scripts/analyze-transition-book.py`. Append each
+  new reading to that doc's "Mốc đã đo".
 - When something OS-level is learned the hard way — especially a dead end — append it to
   `docs/MACOS_IME_NOTES.md` with the measurement, not just the conclusion.
