@@ -264,8 +264,9 @@ Nó đưa `e` sang tay trái để `ie ye ne le de` thành đổi tay, kéo `t` 
 nhà út, `b` sang phải, `p` lên phím T.
 
 **`p` ở T, ô Y trống** (chốt 25/09/2026). Bộ ủ đặt `p` ở Y vì `e` giờ ở phím
-V, cùng ngón trỏ trái, nên `p` ở T biến `ep` (`đẹp tiếp sếp kịp`) và `ap`
-thành cú nhảy cùng ngón hai hàng; mô hình chấm `p` ở T kém hơn (hồi quy +7,3%
+V, cùng ngón trỏ trái, nên `p` ở T biến `ep` (`đẹp tiếp sếp kịp`) thành cú
+nhảy cùng ngón hai hàng (T→V, 2,02u) và `ap` thành cùng ngón một hàng chéo
+(F→T, 1,25u); mô hình chấm `p` ở T kém hơn (hồi quy +7,3%
 so với +7,9%, keybear −5,1% so với −0,5%). Nhưng cả hai mô hình đều không
 biết hàng trên lệch trái 0,25u: F→T ngón trỏ trái với ngang 0,75u, J→Y ngón
 trỏ phải với 1,25u, Y là ô tệ nhất bàn phím. `p` chỉ 8‰, hai vế đều nhỏ, tay
@@ -315,10 +316,22 @@ Anh); thứ hạng giữ nguyên.
 
 Corpus OpenSubtitles cho cùng hình: effort 1,62 → 1,59, cùng ngón 0,85% →
 1,27% (`p` ở T; 0,91% nếu `p` ở Y), út phải 7,3% → 2,4%, đổi tay 24,9% →
-27,1%. Cặp nhảy xa cùng ngón mới
-là `ej` (`mẹ kệ lệ để`): `e` ở V và `j` ở G cùng ngón trỏ trái, hai hàng.
-DH-Việt hiện hành không có cặp nhảy xa nào; đây là cái giá rõ nhất của bản
-8 phím trên mô hình corpus.
+27,1%.
+
+"Nhảy xa" là cặp cùng ngón cách nhau từ 1,3u, đo trên toạ độ ANSI lệch hàng
+thật (hàng trên lệch trái 0,25u, hàng dưới lệch phải 0,5u so với hàng nhà),
+nên phím kề chéo như `eu` hay `ej` (1,03–1,12u) không tính. Hai cặp nhảy xa
+mới của bản 8 phím đều ở ngón trỏ trái:
+
+- `gj` 1,5‰ (`động trọng rộng lượng dạng`, vần `-ng` dấu nặng): `g` ở R, `j`
+  ở G, với chéo sang phải một hàng, 1,60u. Có ở cả hai cách đặt `p`.
+- `ep` 1,0‰ (`đẹp tiếp sếp kịp`): `p` ở T, `e` ở V, thẳng dọc hai hàng,
+  2,02u. Chỉ có khi `p` ở T.
+
+`ej` (`mẹ kệ để`) cũng cùng ngón, nhưng V→G chỉ lệch 0,5u một hàng, gần như
+phím kề. Lượt ghi trước gọi nhầm nó là cặp nhảy xa. DH-Việt hiện hành không
+có cặp nhảy xa nào; `gj` và `ep` là cái giá rõ nhất của bản 8 phím trên mô
+hình corpus.
 
 ### Ba cách xếp `b p x`, và lưới theo tay (25/09/2026)
 
