@@ -21,6 +21,19 @@ pbpaste | ./Scripts/analyze-transition-book.py
 
 Thêm `--top 20` nếu muốn xem danh sách dài hơn.
 
+Sổ đo tay nhanh chậm ra sao. Còn **tải dồn lên phím nào, ngón nào** thì
+không cần gõ, lấy thẳng từ corpus:
+
+```bash
+./Scripts/telex-heatmap.py --html heatmap.html
+```
+
+Script đếm theo chuỗi phím Telex (`được` = `dduowcj`), dùng bảng n-gram mà
+keybear đã đếm sẵn (`scripts/vi-telex-ngrams.mjs`). Nó in bảng tải theo hàng,
+tay và ngón cho mọi bản DH-Việt. Kèm `--html` thì ghi thêm trang heatmap có
+thể chuyển giữa hai nguồn OpenSubtitles và danh sách từ của app. Muốn thêm bố
+cục mới thì sửa `LAYOUTS` cho khớp `keyboard-layouts.ts` bên keybear.
+
 ## Sổ ghi gì
 
 Mỗi cặp (và bộ ba) phím Telex gõ liền nhau **trong cùng một từ** được lưu dạng
