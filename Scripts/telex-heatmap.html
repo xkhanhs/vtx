@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heatmap phím Telex</title>
+<!-- Template for Scripts/telex-heatmap.py, which fills in the data below. -->
+<style>
+:root {
+  color-scheme: light;
+  --surface: #fcfcfb;
+  --card: #ffffff;
+  --border: #e4e3de;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-3: #85847e;
+  --empty: #f0efec;
+  --bar: #2a78d6;
+  --accent: #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface: #1a1a19; --card: #222220; --border: #383835;
+    --ink: #ffffff; --ink-2: #c3c2b7; --ink-3: #8f8e86;
+    --empty: #2c2c2a; --bar: #5598e7; --accent: #6da7ec;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #1a1a19; --card: #222220; --border: #383835;
+  --ink: #ffffff; --ink-2: #c3c2b7; --ink-3: #8f8e86;
+  --empty: #2c2c2a; --bar: #5598e7; --accent: #6da7ec;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--surface); color: var(--ink);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+main { max-width: 1180px; margin: 0 auto; padding: 28px 16px 48px; }
+h1 { font-size: 1.5rem; margin: 0 0 4px; }
+.lead { color: var(--ink-2); margin: 0 0 20px; max-width: 70ch; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 20px; }
+.controls span { color: var(--ink-2); font-size: .9rem; margin-right: 4px; }
+.controls button {
+  font: inherit; font-size: .9rem; padding: 5px 12px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+}
+.controls button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 14px 10px; }
+.card h2 { font-size: 1rem; margin: 0 0 2px; }
+.card .sub { color: var(--ink-3); font-size: .8rem; margin: 0 0 10px; }
+svg { display: block; width: 100%; height: auto; }
+svg text { font-family: inherit; }
+.legend { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: .8rem; margin: 0 0 16px; }
+.legend .ramp { width: 180px; height: 10px; border-radius: 3px; }
+.table-wrap { overflow-x: auto; margin-top: 28px; }
+table { border-collapse: collapse; font-size: .85rem; font-variant-numeric: tabular-nums; width: 100%; }
+th, td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--ink-2); font-weight: 600; }
+.note { color: var(--ink-3); font-size: .8rem; margin-top: 10px; }
+#tip {
+  position: fixed; pointer-events: none; opacity: 0; background: var(--card); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 9px; font-size: .8rem;
+  box-shadow: 0 4px 14px rgba(0,0,0,.15); transition: opacity .1s;
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>Heatmap phím Telex</h1>
+  <p class="lead">Mỗi ô là tỉ lệ số lần phím đó được bấm trên tổng số phím Telex, tính trên chuỗi
+    phím tay bấm thật (<code>được</code> = <code>dduowcj</code>), không phải chữ hiện ra. Số đếm
+    lấy từ bảng n-gram Telex của keybear.</p>
+  <div class="controls" id="sources"><span>Nguồn:</span></div>
+  <div class="legend"><span>ít</span><div class="ramp" id="ramp"></div><span id="rampMax">nhiều</span></div>
+  <div class="grid" id="grid"></div>
+  <div class="table-wrap"><table id="table"></table></div>
+  <p class="note">Mô hình bàn phím: ANSI lệch hàng, mỗi cột một ngón (phím C vật lý là ngón giữa),
+    giống beartype và keybear. Cột giữa là hai cột T/G/B và Y/H/N của QWERTY.
+    colemak-dh và qwerty chỉ để so.</p>
+</main>
+<div id="tip"></div>
+<script>
+const DATA = /*DATA*/null;
+const LABELS = {
+  "dh-viet": "DH-Việt", "dh-viet-vb": "DH-Việt · v↔b", "dh-viet-vt": "DH-Việt · v↔t",
+  "dh-viet-8": "DH-Việt · 8 phím", "colemak-dh": "Colemak DH (so)", "qwerty": "QWERTY (so)",
+};
+const SOURCE_LABELS = { corpus: "OpenSubtitles", zipf: "Danh sách từ app" };
+// Near-white for the rarest key, dark blue for the busiest, in both themes.
+const RAMP = ["#f7faff", "#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", "#3987e5",
+              "#2a78d6", "#256abf", "#1c5cab", "#184f95", "#104281", "#0d366b"];
+
+function hexToRgb(h) { return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); }
+function colorAt(t) {
+  const x = Math.max(0, Math.min(1, t)) * (RAMP.length - 1);
+  const i = Math.min(RAMP.length - 2, Math.floor(x)), f = x - i;
+  const a = hexToRgb(RAMP[i]), b = hexToRgb(RAMP[i + 1]);
+  return `rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * f)).join(",")})`;
+}
+function inkOn(t) { return t > 0.45 ? "#ffffff" : "#0b0b0b"; }
+const pct = (x, d = 1) => (x * 100).toFixed(d) + "%";
+
+const tip = document.getElementById("tip");
+function showTip(e, html) {
+  tip.innerHTML = html; tip.style.opacity = 1;
+  const x = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8);
+  tip.style.left = x + "px"; tip.style.top = (e.clientY + 14) + "px";
+}
+function hideTip() { tip.style.opacity = 0; }
+function bindTip(el, html) {
+  el.addEventListener("pointermove", e => showTip(e, html));
+  el.addEventListener("pointerleave", hideTip);
+}
+
+const U = 40, GAP = 3;
+function keyboard(name, m, max) {
+  const NS = "http://www.w3.org/2000/svg";
+  const W = 10.75 * U, H = 3 * U;
+  const barTop = H + 22, barH = 58, W8 = W / 8;
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${barTop + barH + 30}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", `Heatmap ${LABELS[name] || name}`);
+  const el = (tag, attrs, parent = svg) => {
+    const n = document.createElementNS(NS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    parent.appendChild(n); return n;
+  };
+  const byPos = {};
+  m.keys.forEach(k => byPos[k.row + "," + k.col] = k);
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 10; c++) {
+    const k = byPos[r + "," + c];
+    const x = (c + DATA.offsets[r]) * U, y = r * U;
+    const g = el("g", {});
+    const t = k ? k.share / max : 0;
+    el("rect", { x: x + GAP / 2, y: y + GAP / 2, width: U - GAP, height: U - GAP, rx: 4,
+      fill: k ? colorAt(t) : "var(--empty)" }, g);
+    if (!k) continue;
+    const ink = inkOn(t);
+    el("text", { x: x + U / 2, y: y + 19, "text-anchor": "middle", "font-size": 15,
+      "font-weight": 600, fill: ink }, g).textContent = k.key;
+    el("text", { x: x + U / 2, y: y + 32, "text-anchor": "middle", "font-size": 9.5,
+      fill: ink, opacity: .85 }, g).textContent = (k.share * 100).toFixed(1);
+    bindTip(g, `<b>${k.key}</b> · ${pct(k.share, 2)} số phím<br>ngón ${DATA.fingerNames[[0,1,2,3,3,4,4,5,6,7][k.col]]}, hàng ${DATA.rowNames[k.row]}`);
+  }
+  // Finger load bars, one hue: magnitude only, labelled in ink.
+  const fmax = 0.28;
+  el("line", { x1: 0, x2: W, y1: barTop + barH, y2: barTop + barH, stroke: "var(--border)" });
+  m.fingers.forEach((f, i) => {
+    const h = Math.max(1, f / fmax * barH), bx = i * W8 + 6, bw = W8 - 12;
+    const g = el("g", {});
+    el("rect", { x: i * W8, y: barTop - 4, width: W8, height: barH + 30, fill: "transparent" }, g);
+    el("path", { d: `M${bx},${barTop + barH} v${-(h - 4)} q0,-4 4,-4 h${bw - 8} q4,0 4,4 v${h - 4} z`,
+      fill: "var(--bar)" }, g);
+    el("text", { x: bx + bw / 2, y: barTop + barH - h - 4, "text-anchor": "middle", "font-size": 10,
+      fill: "var(--ink-2)" }, g).textContent = (f * 100).toFixed(1);
+    el("text", { x: bx + bw / 2, y: barTop + barH + 14, "text-anchor": "middle", "font-size": 9,
+      fill: "var(--ink-3)" }, g).textContent = DATA.fingerNames[i];
+    bindTip(g, `Ngón <b>${DATA.fingerNames[i]}</b>: ${pct(f)} số phím`);
+  });
+  el("line", { x1: W / 2, x2: W / 2, y1: barTop - 6, y2: barTop + barH + 20, stroke: "var(--border)",
+    "stroke-dasharray": "3 3" });
+  return svg;
+}
+
+let current = Object.keys(DATA.sources)[0];
+function render() {
+  const set = DATA.sources[current];
+  const max = Math.max(...Object.values(set).flatMap(m => m.keys.map(k => k.share)));
+  document.getElementById("ramp").style.background =
+    `linear-gradient(90deg, ${[0, .25, .5, .75, 1].map(colorAt).join(",")})`;
+  document.getElementById("rampMax").textContent = `${pct(max)} (nhiều nhất)`;
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  for (const [name, m] of Object.entries(set)) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `<h2>${LABELS[name] || name}</h2><p class="sub">hàng nhà ${pct(m.rows[1])} · tay trái ${pct(m.left)} · út ${pct(m.pinky)}</p>`;
+    card.appendChild(keyboard(name, m, max));
+    grid.appendChild(card);
+  }
+  const cols = [["Hàng nhà", m => m.rows[1]], ["Hàng trên", m => m.rows[0]], ["Hàng dưới", m => m.rows[2]],
+    ["Tay trái", m => m.left], ["Hai ngón út", m => m.pinky], ["Cột giữa", m => m.center],
+    ...DATA.fingerNames.map((f, i) => [f, m => m.fingers[i]])];
+  document.getElementById("table").innerHTML =
+    `<thead><tr><th>Bố cục</th>${cols.map(c => `<th>${c[0]}</th>`).join("")}</tr></thead><tbody>` +
+    Object.entries(set).map(([n, m]) =>
+      `<tr><td>${LABELS[n] || n}</td>${cols.map(c => `<td>${pct(c[1](m))}</td>`).join("")}</tr>`).join("") +
+    "</tbody>";
+}
+
+const sources = document.getElementById("sources");
+for (const src of Object.keys(DATA.sources)) {
+  const b = document.createElement("button");
+  b.textContent = SOURCE_LABELS[src] || src;
+  b.setAttribute("aria-pressed", src === current);
+  b.onclick = () => {
+    current = src;
+    sources.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    render();
+  };
+  sources.appendChild(b);
+}
+render();
+</script>
+</body>
+</html>
