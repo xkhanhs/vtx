@@ -298,6 +298,26 @@ nói *đặt phím ở đâu thì hết chậm*. Hai việc rẻ hơn, làm trư
    một trang sổ riêng, đủ 20 bài rồi chạy `fit-transition-book.py` lên cả
    hai sổ. Chỉ khi nhóm tay phải xuống dưới ~170 ms mới đáng sinh bundle.
 
+### Cùng bảng với lúc chốt DH-Việt
+
+Bốn bố cục, `scripts/layout-eval-vi.mjs` của keybear (lưới gốc, phạt d²), sổ
+Zipf trên bảng từ của app như bảng trong `dh_viet_layout.md`. Effort không so
+được với con số cũ (2,92 / 2,48 / 1,85: script cũ ngoài repo, trộn 1/11 tiếng
+Anh); thứ hạng giữ nguyên.
+
+| Bố cục | Effort | Cùng ngón | …nhảy xa | Hàng nhà | Út phải | Út trái | Đổi tay |
+|---|---|---|---|---|---|---|---|
+| QWERTY | 1,89 | 7,53% | 1,31% | 40% | 0,7% | 10,1% | 21,2% |
+| Colemak-DH góc | 1,71 | 6,19% | 1,00% | 63% | 14,8% | 11,5% | 19,6% |
+| DH-Việt | 1,60 | 0,67% | 0,00% | 64% | 8,3% | 12,6% | 23,3% |
+| DH-Việt · 8 phím | 1,57 | 0,78% | 0,16% | 62% | 2,2% | 10,3% | 26,1% |
+
+Corpus OpenSubtitles cho cùng hình: effort 1,62 → 1,59, cùng ngón 0,85% →
+0,91%, út phải 7,3% → 2,4%, đổi tay 24,9% → 27,8%. Cặp nhảy xa cùng ngón mới
+là `ej` (`mẹ kệ lệ để`): `e` ở V và `j` ở G cùng ngón trỏ trái, hai hàng.
+DH-Việt hiện hành không có cặp nhảy xa nào; đây là cái giá rõ nhất của bản
+8 phím trên mô hình corpus.
+
 ### Gõ thử bản 8 phím (25/09/2026)
 
 Bố cục có trong beartype dưới tên **DH-Việt · 8 phím** (`dh-viet-8`, nhánh
