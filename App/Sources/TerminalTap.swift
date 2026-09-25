@@ -1993,9 +1993,18 @@ final class TerminalTapController {
         trustPoll = nil
     }
 
-    private func startWatchdog() {
+    /// Watchdog cadence. Typing: 3s (probe + trust + tap health). Idle (no key for
+    /// `watchdogIdleNs`): 30s — the idle tick only re-checks trust / tap liveness /
+    /// the stale-grant hint, and the probe is already paused, so 10× fewer wakeups
+    /// cost nothing but battery (maintainer 25/09/2026). The first key after idle
+    /// restores 3s (see `watchdogSlow` in the key path). Pure — pinned by tests.
+    static func watchdogInterval(idle: Bool) -> TimeInterval { idle ? 30 : 3 }
+    /// Guarded by stateLock: the timer is currently on the idle cadence.
+    private var watchdogSlow = false
+
+    private func startWatchdog(interval: TimeInterval = TerminalTapController.watchdogInterval(idle: false)) {
         watchdog?.invalidate()
-        let t = Timer(timeInterval: 3, repeats: true) { [weak self] _ in
+        let t = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             guard let self else { return }
             if !AXIsProcessTrusted() {
                 Signposts.log.fault("watchdog: Accessibility revoked with a live tap — forcing teardown")
@@ -2046,6 +2055,16 @@ final class TerminalTapController {
                     self.trustLooksStale = true
                     DebugLog.log("watchdog: grant looks stale (trusted but canPost=false) → offer repair")
                 }
+                // Drop to the idle cadence once (re-armed from the key path on resume).
+                let slowNow: Bool = self.stateLock.withLock {
+                    defer { self.watchdogSlow = true }; return !self.watchdogSlow
+                }
+                if slowNow {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, self.watchdog != nil else { return }
+                        self.startWatchdog(interval: Self.watchdogInterval(idle: true))
+                    }
+                }
                 return
             }
             if sent != seen {
@@ -2090,7 +2109,7 @@ final class TerminalTapController {
                 DebugLog.log("watchdog: grant looks stale (trusted but canPost=false) → offer repair")
             }
         }
-        t.tolerance = 1
+        t.tolerance = interval / 3
         RunLoop.main.add(t, forMode: .common)
         watchdog = t
     }
@@ -2303,6 +2322,7 @@ final class TerminalTapController {
     private func teardown() {
         watchdog?.invalidate()
         watchdog = nil
+        stateLock.withLock { watchdogSlow = false }   // a rebuilt tap starts on the 3s cadence
         let (tap, source, runLoop) = stateLock.withLock {
             let t = (self.tap, self.source, self.tapRunLoop)
             self.tap = nil
@@ -2542,14 +2562,24 @@ final class TerminalTapController {
             return nil
         }
 
+        var wakeWatchdog = false
         let needsEngineReset: Bool = stateLock.withLock {
             if Self.stampsLiveness(imeActive: active) {
                 lastKeyDownNs = DispatchTime.now().uptimeNanoseconds
+                // First key after idle: back to the 3s cadence (one hop per idle
+                // stretch, not per key — the flag flips once).
+                if watchdogSlow { watchdogSlow = false; wakeWatchdog = true }
             }
             defer { pendingEngineReset = false }
             return pendingEngineReset
         }
         if needsEngineReset { engine.reset() }
+        if wakeWatchdog {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.watchdog != nil else { return }
+                self.startWatchdog()
+            }
+        }
 
         // Self-heal the latched imeActive against the authoritative selected source.
         // imeActive is a cache flipped by activate / deactivate / the TIS notification,
