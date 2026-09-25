@@ -263,6 +263,15 @@ c v r e z k d
 Nó đưa `e` sang tay trái để `ie ye ne le de` thành đổi tay, kéo `t` lên hàng
 nhà út, `p b` sang phải.
 
+**Vì sao `p` ở ô Y chứ không ở T** (hỏi 25/09/2026): về độ với thì T dễ hơn
+Y, hàng trên lệch trái 0,25u nên F→T ngón trỏ trái với ngang 0,75u còn J→Y
+ngón trỏ phải với 1,25u. Cả hai mô hình đều không biết chuyện lệch hàng (lưới
+keybear cho T và Y cùng giá 3,0; hồi quy cũng đối xứng). Bộ ủ chọn Y vì `e`
+giờ ở phím V, cùng ngón trỏ trái, nên `p` ở T biến `ep` (`đẹp tiếp sếp kịp`)
+và `ap` thành cú nhảy cùng ngón hai hàng. Chấm lại với `p` ở T: hồi quy +7,3%
+(so với +7,9%), keybear −5,1% thắng 0/12 (so với −0,5%). `p` chỉ 8‰ nên hai
+vế đều nhỏ; bản giả lập giữ `p` ở Y, gõ thấy với Y khó chịu hơn `ep` thì đổi.
+
 - **Tách tay không làm được** nếu giữ ràng buộc phím tắt: `s` và `r` phải ở
   nửa trái cho Cmd+S/Cmd+R, mà chúng là phím dấu thanh. Muốn tách phải bỏ
   ràng buộc ấy, và kể cả khi bỏ, tách tay dồn nguyên âm + dấu thanh lên tay
