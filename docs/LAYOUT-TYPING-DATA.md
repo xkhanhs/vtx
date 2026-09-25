@@ -205,3 +205,86 @@ Kết luận: không phép đổi nào vượt ~1%, cùng mức với `v↔z`. �
 như `r`, `i`, `o` phải tập lại tay vài tuần. **Giữ bố cục**, trừ khi lần chấm
 sau có cặp mới vượt ~2% (tính như dòng "tốn … ms/bài" ở trên). Trước khi đổi
 thật: chạy mô hình keybear, rồi gõ biến thể trên một trang sổ riêng.
+
+## Mốc 40 bài: thiết kế lại thì ra sao (25/09/2026)
+
+Câu hỏi: nếu không chỉ đổi hai phím mà thiết kế lại để gỡ nhóm ngón trỏ phải,
+bố cục sẽ trông thế nào và lợi bao nhiêu. Đã chạy thử, kết quả dưới đây.
+Hai script: `Scripts/fit-transition-book.py` (hồi quy sổ gõ thật theo đặc
+điểm cú chuyển) và bộ dò swap của keybear (`scripts/layout-eval-vi.mjs`).
+Bộ ủ (simulated annealing) trên hàm hồi quy là một lượt chạy tay, không đưa
+vào repo; các bố cục nó tìm ra ghi nguyên ở đây.
+
+### Điều sổ nói: tay phải chậm khi tự cuộn, không riêng ngón trỏ
+
+Gộp theo nhóm, 40 bài:
+
+| Cú chuyển | ms | n |
+|---|---|---|
+| tay phải, phụ âm → nguyên âm (`ne`, `lu`, `ki`…) | 212 | 193 |
+| tay phải, nguyên âm → nguyên âm (`ie`, `oi`, `uy`, `ye`…) | 204 | 293 |
+| tay phải, → `n m d k` (`on`, `en`, `in`…) | 121 | 217 |
+| tay trái, phụ âm → phụ âm (`th`, `ch`, `tr`…) | 160 | 414 |
+| tay trái, phụ âm → `a` (`ha`, `ta`, `ca`…) | 158 | 311 |
+| đổi tay, phụ âm → nguyên âm (`ma`, `ho`, `vi`…) | 137 | 757 |
+| đổi tay, nguyên âm → nguyên âm (`ua`, `ia`, `oa`) | 119 | 239 |
+
+- Nguyên âm đôi gõ đổi tay (`ua`, `ia`, `oa`) nhanh nhất sổ, nên nguyên âm đôi
+  cùng tay phải chậm **không** phải vì phải nghĩ Telex. Nó là tay.
+- Tay phải cuộn cùng tay chậm hơn tay trái ~50 ms (204–212 so với 160), trừ
+  khi cú chuyển đi **về phía ngón trỏ** (`on`, `in`: 121 ms).
+- Hồi quy (R² = 0,69 trên 132 cặp) tách được các khoản không đổi theo bố cục:
+  phím dấu thanh +41 ms, tới `e` +62 ms, sau `w` −45 ms (bấm gối). Phần bố
+  cục: cùng tay +18, cùng ngón +20 và +33 mỗi đơn vị khoảng cách, scissor +37,
+  tới út +21, tới áp út +18, cột giữa +12, và **tay phải phụ âm → nguyên âm
+  +50, nguyên âm → nguyên âm +40** trên nền cùng tay.
+
+### Ba cách thiết kế lại, và mô hình nói gì
+
+Chấm mỗi bố cục bằng hai mô hình độc lập: hồi quy trên (có thêm phí từng phím
+theo lưới keybear), và 12 mô hình của keybear (`layout-eval-vi.mjs`, thuần
+corpus). Số là lợi so với bố cục hiện hành; dương = tốt hơn.
+
+| Phương án | Phím dời | Hồi quy | keybear (trung vị, thắng/12) |
+|---|---|---|---|
+| Ủ tự do, phạt mỗi phím dời nặng | 8 | +8% | −0,5%, 3/12 |
+| Ủ tự do, phạt nhẹ | 16 | +10% | −30%, 0/12 |
+| Ủ tự do, không phạt | 26 | +11% | −25%, 0/12 |
+| Tách tay: phụ âm trái, nguyên âm phải | 23 | +8% | −8%, 0/12 |
+
+Bố cục 8 phím (chỉ để ghi lại, chưa gõ thử):
+
+```
+q w f g · p l u y x
+t h s a j m n i o b
+c v r e z k d
+```
+
+Nó đưa `e` sang tay trái để `ie ye ne le de` thành đổi tay, kéo `t` lên hàng
+nhà út, `p b` sang phải.
+
+- **Tách tay không làm được** nếu giữ ràng buộc phím tắt: `s` và `r` phải ở
+  nửa trái cho Cmd+S/Cmd+R, mà chúng là phím dấu thanh. Muốn tách phải bỏ
+  ràng buộc ấy, và kể cả khi bỏ, tách tay dồn nguyên âm + dấu thanh lên tay
+  phải, đẩy tỉ phần cùng tay phải từ 18,7% lên 24,2%: gỡ được nhóm ngón trỏ
+  thì lại tạo nhóm khác trên đúng bàn tay chậm.
+- **Hai mô hình cãi nhau ở mọi phương án dời trên 8 phím.** Hồi quy có số đo
+  thật nhưng chỉ 132 cặp, R² 0,69, không có bộ ba; keybear có bộ ba và phí
+  từng phím nhưng không biết tay phải chậm. Chỗ chúng bất đồng là chỗ mô hình
+  ngoại suy ra ngoài dữ liệu. Dời 8–26 phím trên cơ sở đó là đánh cược.
+- Phương án 8 phím là thứ duy nhất không bị keybear bác. Lợi hồi quy +8%
+  (~1,2 giây trên 17 giây một bài) đổi lấy học lại 8 phím, trong đó có `t`,
+  `e`, `a`, tức ba trong bảy phím nặng nhất.
+
+### Kết luận
+
+**Chưa thiết kế lại.** Số đo mới đủ để nói *tay phải cuộn chậm*, chưa đủ để
+nói *đặt phím ở đâu thì hết chậm*. Hai việc rẻ hơn, làm trước:
+
+1. Kiểm tra giả thuyết "là tay, không phải bố cục": gõ vài bài bằng bố cục
+   khác (DH-angle, đã có sổ riêng trong beartype) và so nhóm "tay phải
+   nguyên âm → nguyên âm" giữa hai sổ. Nếu vẫn ~200 ms thì bố cục nào cũng
+   thế, và việc đáng làm là luyện tay phải chứ không phải dời phím.
+2. Nếu vẫn muốn thử, gõ bố cục 8 phím trên chế độ giả lập của keybear với
+   một trang sổ riêng, đủ 20 bài rồi chạy `fit-transition-book.py` lên cả
+   hai sổ. Chỉ khi nhóm tay phải xuống dưới ~170 ms mới đáng sinh bundle.
