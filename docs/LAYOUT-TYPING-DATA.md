@@ -320,6 +320,34 @@ là `ej` (`mẹ kệ lệ để`): `e` ở V và `j` ở G cùng ngón trỏ tr�
 DH-Việt hiện hành không có cặp nhảy xa nào; đây là cái giá rõ nhất của bản
 8 phím trên mô hình corpus.
 
+### Ba cách xếp `b p x`, và lưới theo tay (25/09/2026)
+
+Tám chữ chính đã chốt (`e`→V, `a`↔`t`, `i`→K, `c`→Z, `j`→G, `b` rời trỏ
+trái). Ba chữ nhẹ `b p x` (11‰, 8‰, 14‰) xoay quanh ba ô T, `;`, phím P:
+
+| Bản | Hồi quy | keybear | Cùng ngón | Trả bằng |
+|---|---|---|---|---|
+| **T**: `p` ở T, `b` ở `;`, `x` ở P (chốt) | +7,3% | −5,1% | 1,18% | `ep ap` (7 lần/sổ), `b` ở út phải |
+| B: `b` ở T, `x` ở `;`, `p` ở P | +7,6% | −6,3% | 1,26% | `ba` (42 lần/sổ) cùng ngón, `be` nhảy xa |
+| A: `p` ở Y, `b` ở T, `x` ở `;` | +7,6% | −6,8% | 1,53% | như B, thêm `p` ở Y |
+| C: `x` ở T, `b` ở `;`, `p` ở P | +7,1% | −11,8% | 1,91% | `xa ax` cùng ngón, `xe ex` nhảy xa |
+| gốc: `p` ở Y, `b` ở `;`, `x` ở P | +7,9% | −0,5% | 0,78% | `p` ở Y |
+
+Tất cả lệch nhau dưới 1% trên hồi quy; chọn theo *cặp nào* phải trả chứ
+không theo tổng. T giữ `ba` đổi tay và chỉ trả bằng `ep ap` hiếm. Widget so
+ba bản: https://claude.ai/artifact/5XCdu7aQyBbvQr8sGZd1KV.
+
+**Lưới theo tay người gõ**, để mô hình sau dùng lại. Ô Y và ô B (QWERTY) là
+hai chỗ xấu nhất bàn phím với tay này, xấu hơn cả ngón út: út yếu nhưng chỉ
+đi lên xuống trong cột, còn Y/B là cú chéo, tay phải nhấc khỏi hàng nhà. Mục
+tiêu là cổ tay không di chuyển, các ngón gần như đứng một chỗ. Cùng lý do đó
+mà cùng ngón bị phạt nặng: một ngón gõ xong ở hàng dưới lại nhảy lên hàng
+trên là quãng đường xa mà không ngón nào gánh cùng lúc. Lưới đã thử (đơn vị
+như lưới gốc keybear): T 2,8, Y 3,8, B 3,6, còn lại giữ gốc. Chấm lại với
+lưới này: T +7,3%, B +7,6%, gốc +7,7%; bộ ủ chạy lại ra `qwfgb·luyx /
+thsajmniod / cvrezkp` +7,8%, tức hơn T 0,5% mà lại đặt `d` 49‰ lên út phải.
+Không đổi gì; T vẫn là bản gõ thử.
+
 ### Gõ thử bản 8 phím (25/09/2026)
 
 Bố cục có trong beartype dưới tên **DH-Việt · 8 phím** (`dh-viet-8`, nhánh
