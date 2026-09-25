@@ -145,3 +145,63 @@ dùng mô hình ngón của beartype):
 
 Lần chấm sau: sổ đã gần trần (~50 bài). Nếu còn muốn chỉnh thì nhìn vào vùng
 `u`/`y`/`e` và `tr`, không phải `v`.
+
+## Cặp chậm đang chờ đủ mẫu
+
+Lập 25/09/2026, lấy từ mốc 40 bài. Khi chấm lại, so từng dòng với con số mới.
+
+**Sổ có trần, nên có cặp không bao giờ tới n=20.** Ở 40 bài sổ nặng 27,7 bài.
+Trần là 50, vậy mỗi cặp chỉ tăng được tối đa ×1,8 so với bây giờ. Cặp nào
+đang dưới n≈11 thì gõ mãi cũng không chạm 20. Với những cặp đó, chấm theo
+**nhóm** (mục dưới), đừng đợi từng cặp.
+
+| Cặp | n lúc 40 bài | ms | So thường | Tới n=20 được? |
+|---|---|---|---|---|
+| `uy` | 16,3 | 215 | ×1,47 | được (~55 bài) |
+| `mo` | 16,1 | 192 | ×1,32 | được (~55 bài) |
+| `lo` | 14,4 | 229 | ×1,57 | được (~75 bài) |
+| `ki` | 14,2 | 236 | ×1,62 | được (~75 bài) |
+| `di` | 13,3 | 217 | ×1,49 | sát trần |
+| `so` | 12,0 | 195 | ×1,34 | sát trần |
+| `no` | 11,9 | 263 | ×1,80 | sát trần |
+| `lu` | 11,0 | 266 | ×1,82 | sát trần |
+| `eu` | 10,5 | 194 | ×1,33 | không |
+| `ke` | 9,3 | 220 | ×1,51 | không |
+| `be` | 9,2 | 237 | ×1,62 | không |
+| `io` | 8,4 | 226 | ×1,55 | không |
+| `te` | 7,5 | 240 | ×1,65 | không |
+| `mi` | 6,9 | 223 | ×1,53 | không |
+| `uj` | 6,7 | 218 | ×1,50 | không |
+| bộ ba `uye` | 14,4 | 501 | ×1,75 | được (~75 bài) |
+
+Đã chắc từ mốc 40 bài, chỉ cần xem có giữ không: `ye` ×1,87, `tr` ×1,53,
+`ie` ×1,49, `oi` ×1,32, `va` ×1,33 (n=20, chưa chắc).
+
+### Chấm theo nhóm: phụ âm ngón trỏ phải + nguyên âm tay phải
+
+`l`, `m`, `n`, `k`, `d` đều nằm ở ngón trỏ phải. Khi theo sau là nguyên âm cùng
+tay (`e u o i y`), 19 cặp gộp lại có n=174, 210 ms, **×1,44 ±8%**, tốn ~400 ms
+mỗi bài (~2,4%). Đây là chi phí lớn nhất trong sổ. Cùng những phụ âm đó mà theo
+sau là `a` (đổi tay: `ma` 97, `na` 102, `da` 106, `la` 116 ms) thì chỉ ×0,71.
+Cả hai loại đều là cặp mở đầu từ, nên khác biệt này **không** do thời gian đọc
+gây ra. Đó là giá của việc đặt năm phụ âm lên ngón trỏ phải, cạnh các nguyên âm.
+
+## Nếu số đo vẫn như vậy thì có đổi không
+
+Ước lượng thô, bằng cách phân loại lại các cặp trong sổ 40 bài với mô hình ngón
+của script:
+
+- **Nhóm ngón trỏ phải (~2,4%)**: không có phép đổi hai phím nào gỡ được. Muốn
+  gỡ phải đưa phụ âm sang tay trái, tức là thiết kế lại bố cục.
+- **`r↔v`** (`r` sang phím X vật lý, `v` sang phím C): `tr` và `va` từ scissor
+  thành cuộn ra, `vow` hết sfs; đổi lại `ra` thành scissor. Lợi ~100 ms mỗi bài
+  (~0,6%).
+- **`i↔o`**: `oi` từ cuộn ra thành cuộn vào, lợi ~100 ms mỗi bài (~0,6%). Mô
+  hình không phân biệt khoảng cách nên không biết `ie` có đỡ hơn không.
+- **`uy`/`ye`**: `u` và `e` cùng cột nên `uye` là sfs. Gỡ được thì phải dời `u`
+  hoặc `e`, hai phím quá nhiều việc. Không đáng.
+
+Kết luận: không phép đổi nào vượt ~1%, cùng mức với `v↔z`. Đổi một phím nóng
+như `r`, `i`, `o` phải tập lại tay vài tuần. **Giữ bố cục**, trừ khi lần chấm
+sau có cặp mới vượt ~2% (tính như dòng "tốn … ms/bài" ở trên). Trước khi đổi
+thật: chạy mô hình keybear, rồi gõ biến thể trên một trang sổ riêng.
