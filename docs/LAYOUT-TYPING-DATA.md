@@ -111,5 +111,37 @@ dùng mô hình ngón của beartype):
   mới có 6–8 lần đo.
 - Lượt đo này chưa có dữ liệu gõ sai kiểu mới.
 
-Lần chấm sau: nên đợi khoảng **40–50 bài**. Ghi thêm một mục vào đây, gồm ngày,
-số bài và các cặp đổi thứ hạng.
+**25/09/2026: 40 bài** (sổ nặng 27,7 bài, ~121 cặp/bài, nhịp thường 146 ms,
+~17 giây gõ mỗi bài, 3,8% cú chuyển gõ sai):
+
+| Loại cặp | Tỉ phần | ms | So thường | Mốc 15 bài |
+|---|---|---|---|---|
+| đổi tay | 51,4% | 127 | ×0,87 | ×0,86 |
+| cuộn vào | 13,2% | 152 | ×1,04 | ×1,04 |
+| cuộn ra | 26,9% | 169 | ×1,16 | ×1,18 |
+| scissor | 2,6% | 224 | ×1,54 | ×1,41 |
+| cùng ngón, phím kề | 0,8% | 256 | ×1,75 | ×1,78 |
+
+- Cơ cấu gần như không đổi so với mốc 15 bài; cặp cùng ngón vẫn 0,8%.
+- Chậm đã chắc, n ≥ 20: `ye` (n=20, ×1,87, lên từ ×1,82 lúc n=6–8), `tr`
+  (n=55, ×1,53, trước ×1,40), `ie` (n=78, ×1,49), `oi` (n=73, ×1,32). `ha` hạ
+  xuống ×1,19. Bộ ba: `uye` (n=14, ×1,75, sfs ngón giữa phải), `tra` (n=20, ×1,51).
+- `ye` và `uy` (×1,47) **không** phải cặp đầu từ, nên không đổ cho thời gian
+  đọc được. Cụm `uy`/`ye` chỉ chiếm 1,1% cú chuyển nhưng tốn ~135 ms mỗi bài so
+  với nhịp thường, gấp khoảng 4 lần mọi cặp chứa `v` cộng lại. `tr` là cặp đầu
+  từ, nhưng `th` cũng đầu từ mà chỉ 131 ms (×0,90), nên phần chậm của `tr` là do
+  cú chéo thật.
+- `lu` ×1,82, `no` ×1,80, `ki` ×1,62, `lo` ×1,57 vẫn đứng đầu nhưng n=11–14,
+  và đều là cặp mở đầu từ: chưa kết luận.
+- Gõ sai kiểu mới đã có: `in` 10% (n=47), `ti` 9% (n=42), `au` 13%, `cu` 14%,
+  `gh` 17%. Các cặp `ns` 78%, `cs` 84%, `acs`, `ans` là phụ âm cuối + dấu
+  thanh; nghi là do gõ dấu trước phụ âm cuối (Telex vẫn nhận) mà beartype tính
+  là sai. Chưa kiểm tra bên beartype.
+- **`v↔z`: đề xuất giữ bố cục hiện tại.** (1) `va` n=20, 194 ms ×1,33 ±22%:
+  chưa chắc; `vow` mới n=1,4 (`voi` n=6, 319 ms). (2) Không cặp `v` nào trong
+  danh sách hay gõ sai; lỗi có chữ `v` (`nv`, `vy`, `vl`, `ev`) là sổ kiểu cũ.
+  (3) Mọi cặp chứa `v` là 2,1% cú chuyển, ×1,10; kể cả `va` về bằng nhịp thường
+  thì mỗi bài lợi ~35 ms / 17 s, khoảng 0,2%.
+
+Lần chấm sau: sổ đã gần trần (~50 bài). Nếu còn muốn chỉnh thì nhìn vào vùng
+`u`/`y`/`e` và `tr`, không phải `v`.
