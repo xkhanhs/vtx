@@ -288,3 +288,34 @@ nói *đặt phím ở đâu thì hết chậm*. Hai việc rẻ hơn, làm trư
 2. Nếu vẫn muốn thử, gõ bố cục 8 phím trên chế độ giả lập của keybear với
    một trang sổ riêng, đủ 20 bài rồi chạy `fit-transition-book.py` lên cả
    hai sổ. Chỉ khi nhóm tay phải xuống dưới ~170 ms mới đáng sinh bundle.
+
+### Gõ thử bản 8 phím (25/09/2026)
+
+Bố cục có trong beartype dưới tên **DH-Việt · 8 phím** (`dh-viet-8`, nhánh
+`feat/dh-viet-8` bên keybear), gõ qua chế độ giả lập, sổ riêng
+`keybear_colemak_ngrams__dh-viet-8`. Tắt VTX khi gõ giả lập.
+
+Bốn mươi từ để va nhiều nhất vào chỗ đổi, dán vào ô "tự gõ từ" của màn tuỳ
+chỉnh (chọn bằng script tham: mỗi từ phủ càng nhiều cặp đổi loại càng tốt,
+cặp nặng `ha th ch ie oi` gặp 5–10 lần, cặp nhẹ 1–2 lần):
+
+```
+thách thạch chiến thiên trách thật triệu chuỗi phiền thằng
+giỏi truyền phổi cách tất thế phá liệu và trắng
+ném sách thuyết thôi các bà đẹp tác chiếc nếu
+tên lỗi sạch bắt bé kết vật cá tách mẹ
+```
+
+Ba nhóm cảm giác cần để ý, mỗi nhóm một câu hỏi:
+
+- `e` sang tay trái (`chiến`, `thiên`, `nếu`, `tên`, `kết`, `mẹ`): `ie` `ye`
+  `ne` `ke` thành đổi tay. Có nhanh lên như `ua` `ia` không, hay `e` ở hàng
+  dưới ngón trỏ trái lại thành cú với?
+- `a` vào trỏ trái, `t` ra út (`thách`, `cách`, `tất`, `và`, `bà`): `ha th ch
+  ta ca` đổi chiều cuộn; `th` bây giờ là út → áp út. Út trái có chịu nổi `t`
+  49‰ không?
+- `i` vào ngón giữa, `b` ra út (`giỏi`, `phổi`, `lỗi`, `thôi`, `bé`, `bắt`):
+  `oi` thành cuộn vào. `ix` (`lỗi`) giờ là giữa → út, hết cùng ngón.
+
+Ngưỡng đã ghi ở trên: nhóm "tay phải nguyên âm → nguyên âm" và "phụ âm →
+nguyên âm" phải xuống dưới ~170 ms sau 20 bài thì mới đáng sinh bundle.
