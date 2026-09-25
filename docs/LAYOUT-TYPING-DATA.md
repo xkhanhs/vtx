@@ -255,22 +255,22 @@ corpus). Số là lợi so với bố cục hiện hành; dương = tốt hơn.
 Bố cục 8 phím (chỉ để ghi lại, chưa gõ thử):
 
 ```
-q w f g · p l u y x
+q w f g p · l u y x
 t h s a j m n i o b
 c v r e z k d
 ```
 
 Nó đưa `e` sang tay trái để `ie ye ne le de` thành đổi tay, kéo `t` lên hàng
-nhà út, `p b` sang phải.
+nhà út, `b` sang phải, `p` lên phím T.
 
-**Vì sao `p` ở ô Y chứ không ở T** (hỏi 25/09/2026): về độ với thì T dễ hơn
-Y, hàng trên lệch trái 0,25u nên F→T ngón trỏ trái với ngang 0,75u còn J→Y
-ngón trỏ phải với 1,25u. Cả hai mô hình đều không biết chuyện lệch hàng (lưới
-keybear cho T và Y cùng giá 3,0; hồi quy cũng đối xứng). Bộ ủ chọn Y vì `e`
-giờ ở phím V, cùng ngón trỏ trái, nên `p` ở T biến `ep` (`đẹp tiếp sếp kịp`)
-và `ap` thành cú nhảy cùng ngón hai hàng. Chấm lại với `p` ở T: hồi quy +7,3%
-(so với +7,9%), keybear −5,1% thắng 0/12 (so với −0,5%). `p` chỉ 8‰ nên hai
-vế đều nhỏ; bản giả lập giữ `p` ở Y, gõ thấy với Y khó chịu hơn `ep` thì đổi.
+**`p` ở T, ô Y trống** (chốt 25/09/2026). Bộ ủ đặt `p` ở Y vì `e` giờ ở phím
+V, cùng ngón trỏ trái, nên `p` ở T biến `ep` (`đẹp tiếp sếp kịp`) và `ap`
+thành cú nhảy cùng ngón hai hàng; mô hình chấm `p` ở T kém hơn (hồi quy +7,3%
+so với +7,9%, keybear −5,1% so với −0,5%). Nhưng cả hai mô hình đều không
+biết hàng trên lệch trái 0,25u: F→T ngón trỏ trái với ngang 0,75u, J→Y ngón
+trỏ phải với 1,25u, Y là ô tệ nhất bàn phím. `p` chỉ 8‰, hai vế đều nhỏ, tay
+người gõ chọn T. Kéo theo: ô trống vẫn ở Y như DH-Việt, bài `top-reach` của
+giáo trình không đổi.
 
 - **Tách tay không làm được** nếu giữ ràng buộc phím tắt: `s` và `r` phải ở
   nửa trái cho Cmd+S/Cmd+R, mà chúng là phím dấu thanh. Muốn tách phải bỏ
@@ -310,10 +310,12 @@ Anh); thứ hạng giữ nguyên.
 | QWERTY | 1,89 | 7,53% | 1,31% | 40% | 0,7% | 10,1% | 21,2% |
 | Colemak-DH góc | 1,71 | 6,19% | 1,00% | 63% | 14,8% | 11,5% | 19,6% |
 | DH-Việt | 1,60 | 0,67% | 0,00% | 64% | 8,3% | 12,6% | 23,3% |
-| DH-Việt · 8 phím | 1,57 | 0,78% | 0,16% | 62% | 2,2% | 10,3% | 26,1% |
+| DH-Việt · 8 phím, `p` ở Y | 1,57 | 0,78% | 0,16% | 62% | 2,2% | 10,3% | 26,1% |
+| DH-Việt · 8 phím, `p` ở T (chốt) | 1,57 | 1,18% | 0,26% | 62% | 2,2% | 10,3% | 25,3% |
 
 Corpus OpenSubtitles cho cùng hình: effort 1,62 → 1,59, cùng ngón 0,85% →
-0,91%, út phải 7,3% → 2,4%, đổi tay 24,9% → 27,8%. Cặp nhảy xa cùng ngón mới
+1,27% (`p` ở T; 0,91% nếu `p` ở Y), út phải 7,3% → 2,4%, đổi tay 24,9% →
+27,1%. Cặp nhảy xa cùng ngón mới
 là `ej` (`mẹ kệ lệ để`): `e` ở V và `j` ở G cùng ngón trỏ trái, hai hàng.
 DH-Việt hiện hành không có cặp nhảy xa nào; đây là cái giá rõ nhất của bản
 8 phím trên mô hình corpus.
