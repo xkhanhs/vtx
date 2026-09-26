@@ -404,3 +404,38 @@ Ba nhóm cảm giác cần để ý, mỗi nhóm một câu hỏi:
 
 Ngưỡng đã ghi ở trên: nhóm "tay phải nguyên âm → nguyên âm" và "phụ âm →
 nguyên âm" phải xuống dưới ~170 ms sau 20 bài thì mới đáng sinh bundle.
+
+### Giả lập bản 8 phím bằng sổ DH-Việt (26/09/2026)
+
+Không cần thạo bản 8 phím mới so được: cùng một cú tay tốn cùng thời gian
+dù chữ in trên phím là gì. `Scripts/proxy-transition-book.py` lấy sổ DH-Việt
+(41 bài) và, với mỗi cặp bị đổi chỗ, tra thời gian tay đã gõ đúng cú đó: cặp
+đổi tay gộp theo phím đích, cặp cùng tay phải khớp đúng hai phím.
+
+```bash
+pbpaste | ./Scripts/proxy-transition-book.py --to dh-viet-8
+```
+
+Phủ 63% trọng số cặp đổi. Điều nó thấy:
+
+| Nhóm | Nay | Dự đoán | Proxy |
+|---|---|---|---|
+| mọi cặp `→e` (`ie ye ne le de`, 25‰) | 228 ms | **111 ms** | `uc oc ic`: tay phải → phím V, n=39, giữa từ |
+| cặp đổi tay khác (229‰) | 142 | 134 | hoà |
+| cặp cùng tay có proxy (51‰) | 146 | 152 | hoà |
+
+Vụ cược chính của bản 8 phím (`e` sang phím V) **đúng**: tay đã gõ cú "tay
+phải → phím V" ở 111 ms. Tổng lợi trên phần phủ ≈ 1,6 ms/phím, khoảng 1% nhịp
+thường; hồi quy hôm 25/09 nói +7%, keybear nói −5%. Hai chỗ cần đọc dè dặt:
+
+- Proxy "→ phím K" (`he te be`, 194 ms) chỉ gồm cặp mở đầu từ nên bị thổi
+  phồng; `ai hi gi` rơi vào đó. Thay bằng mức đổi tay giữa từ (~130 ms) thì
+  nhóm này cũng hoà.
+- **Mù với câu hỏi thứ hai**: `th ch ha ta ca` (a vào trỏ, t ra út) không có
+  cú tương đương trên DH-Việt. Chỉ tập mới biết.
+
+**Kết luận 26/09:** phần đã đo được của bản 8 phím lợi ~1–3%, phần chưa đo
+được có thể âm. Đổi 8 phím trong đó có `t e a` là tập lại từ đầu. Với mức
+lợi đó, **giữ DH-Việt**; bản 8 phím chỉ đáng quay lại nếu sổ `dh-viet-8` sau
+~10 bài cho nhóm `th ch ha ta` không chậm hơn DH-Việt khi đã trừ phần chưa
+quen (so với nhóm đối chứng không đổi cú tay: `nh ng on uy`).
