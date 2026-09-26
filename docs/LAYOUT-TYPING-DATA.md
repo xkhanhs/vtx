@@ -24,22 +24,13 @@ lịch sử để tham khảo, không phải việc còn treo.
 
 ## Lấy dữ liệu
 
-beartype là nơi tập gõ. Đo ở đó, còn quyết định layout thì ghi ở repo này. Sau
-mỗi bài tiếng Việt, beartype ghi "sổ cú chuyển phím" riêng cho từng bố cục:
+**Sổ đã gỡ (26/09/2026).** Sau quyết định ở trên, sổ cú chuyển phím và chế độ
+giả lập bố cục đã được gỡ khỏi beartype và keybear; người gõ tập thẳng trên
+beartype qua VTX. Ba script chấm sổ (`analyze-`, `fit-`,
+`proxy-transition-book.py`) cũng đã xoá; lấy lại từ lịch sử git nếu cần. Các
+mục về sổ bên dưới giữ làm lịch sử.
 
-1. Màn kết quả → mở **tay chậm ở đâu** → chọn đúng bố cục đang gõ (trình duyệt
-   không tự biết được).
-2. Bấm **chép sổ** để lấy JSON vào clipboard.
-3. Chạy lệnh:
-
-```bash
-pbpaste | ./Scripts/analyze-transition-book.py
-```
-
-Thêm `--top 20` nếu muốn xem danh sách dài hơn.
-
-Sổ đo tay nhanh chậm ra sao. Còn **tải dồn lên phím nào, ngón nào** thì
-không cần gõ, lấy thẳng từ corpus:
+**Tải dồn lên phím nào, ngón nào** thì không cần gõ, lấy thẳng từ corpus:
 
 ```bash
 ./Scripts/telex-heatmap.py --html heatmap.html
