@@ -5,6 +5,23 @@ corpus (keybear, `docs/dh_viet_layout.md`). Theo tài liệu đó, mọi tinh ch
 sau này phải chờ **dữ liệu gõ thật**. Tài liệu này ghi dữ liệu đó lấy từ đâu,
 chấm ra sao, và mốc nào thì đủ để kết luận.
 
+## Quyết định: chốt DH-Việt, không đổi bố cục nữa (26/09/2026)
+
+Người gõ chốt sau mốc 63 bài: **giữ DH-Việt như hiện tại, chỉ tập**. Không đổi
+`v↔z`, `r↔v`, `i↔o`, không chuyển sang bản 8 phím, không thiết kế lại.
+
+- Bố cục làm đúng việc của nó: cặp cùng ngón đo được 0,7% (QWERTY 7,53%,
+  Colemak-DH góc 6,19% theo mô hình), hàng nhà 64%.
+- Cái giá đã biết và chấp nhận: nhóm ngón trỏ phải + nguyên âm (~2,4%), `tr`
+  (~1%), `uye` (~0,6%). Mọi phép đổi đã tính lợi dưới ~1% mà phải tập lại vài
+  tuần; bản 8 phím lợi ~8% trên mô hình nhưng phải học lại 8 phím.
+- Lúc chốt: 52 wpm trung bình, tốt nhất 73, chính xác 93%, sau 8 giờ 48 phút
+  tập. Chậm lúc này chủ yếu là chưa đủ giờ tập.
+
+Chỉ mở lại khi có số đo gõ thật cho thấy một cặp **mới**, ngoài nhóm đã biết ở
+trên, tốn trên ~2% mỗi bài và giữ như vậy qua nhiều mốc. Các mục bên dưới là
+lịch sử để tham khảo, không phải việc còn treo.
+
 ## Lấy dữ liệu
 
 beartype là nơi tập gõ. Đo ở đó, còn quyết định layout thì ghi ở repo này. Sau
