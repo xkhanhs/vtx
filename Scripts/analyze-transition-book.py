@@ -24,6 +24,7 @@ ROWS = {
     "dh-viet": ["qwfgb.luyx", "ahstpmneoi", "jvrczkd..."],
     "dh-viet-vb": ["qwfgb.luyx", "ahstpmneoi", "jzrcvkd..."],
     "dh-viet-vt": ["qwfgv.luyx", "ahstpmneoi", "jbrczkd..."],
+    "dh-viet-8": ["qwfgp.luyx", "thsajmniob", "cvrezkd..."],
 }
 ROW_OFFSETS = [0, 0.25, 0.75]
 # 0 left pinky .. 7 right pinky, one finger per column on every row, as
