@@ -156,8 +156,40 @@ dùng mô hình ngón của beartype):
   (3) Mọi cặp chứa `v` là 2,1% cú chuyển, ×1,10; kể cả `va` về bằng nhịp thường
   thì mỗi bài lợi ~35 ms / 17 s, khoảng 0,2%.
 
-Lần chấm sau: sổ đã gần trần (~50 bài). Nếu còn muốn chỉnh thì nhìn vào vùng
-`u`/`y`/`e` và `tr`, không phải `v`.
+**26/09/2026: 63 bài** (sổ nặng 36,0 bài, ~120 cặp/bài, nhịp thường 147 ms,
+~17,7 giây gõ mỗi bài):
+
+| Loại cặp | Tỉ phần | ms | So thường | Mốc 40 bài |
+|---|---|---|---|---|
+| đổi tay | 51,0% | 130 | ×0,89 | ×0,87 |
+| cuộn vào | 13,8% | 152 | ×1,03 | ×1,04 |
+| cuộn ra | 26,5% | 167 | ×1,13 | ×1,16 |
+| scissor | 2,6% | 231 | ×1,57 | ×1,54 |
+| cùng ngón, phím kề | 0,7% | 231 | ×1,57 | ×1,75 |
+
+- Nhịp thường đứng ở 146–147 ms từ mốc 40 bài. Sổ giảm dần trọng số bài cũ
+  (nặng 36 bài), nên đây là nhịp của ~36 bài gần nhất, không phải trung bình
+  từ đầu.
+- Tỉ lệ chậm của từng cặp không co lại: nhóm ngón trỏ phải + nguyên âm phải
+  vẫn ×1,45 (n=225, trước ×1,44), tốn ~430 ms mỗi bài (2,4%). `tr` ×1,62
+  (n=68, trước ×1,53), ~180 ms/bài (1,0%). `ye` ×2,02 (n=20, trước ×1,87).
+  `ie` ×1,47 và `oi` ×1,35 giữ nguyên. Phần chậm vì chưa quen sẽ kéo nhịp
+  thường xuống; phần chậm vì cú chuyển thì giữ tỉ lệ. Ở đây tỉ lệ giữ.
+- Đỡ hơn: `uy` ×1,47 → ×1,20, `ha` ×1,19 → ×1,13, `va` ×1,33 → ×1,27, mọi cặp
+  chứa `v` gộp lại ×1,17 (~55 ms/bài, 0,3%).
+- Cặp mới lên đầu danh sách chậm: `hs` ×2,07, `ts` ×1,64, `ij` ×1,91. Cả ba là
+  phím dấu thanh gõ sau phụ âm cuối hoặc nguyên âm. Gộp cả nhóm phụ âm cuối +
+  dấu thanh: n=156, ×1,51, sai 12,6%, ~370 ms/bài (2,1%). Nhiều khả năng là lúc chọn dấu,
+  không phải cú chuyển khó: `hs` là cuộn vào hai phím kề hàng giữa, còn
+  nguyên âm + dấu thanh chỉ ×1,19. Không đổi phím nào gỡ được.
+- Gõ sai kiểu `ns`/`cs` giảm (78% → 55%, 84% → 35%). Các dòng sai 100% như
+  `wcj`, `imf` chỉ có ~2 lần đo.
+- `lu` ×1,99, `lo` ×1,74, `no` ×1,69, `ki` ×1,57 (n=14–20, đều trong nhóm ngón
+  trỏ phải) vẫn ở đầu, nay đã đủ chắc.
+
+Không có cặp nào ngoài nhóm đã biết vượt ~2%, nên theo mục "Nếu số đo vẫn như
+vậy" dưới đây thì **giữ bố cục**. Sổ đã sát trần; gõ thêm chỉ nhân mỗi cặp
+×1,1–1,3, không đổi được kết luận.
 
 ## Cặp chậm đang chờ đủ mẫu
 
