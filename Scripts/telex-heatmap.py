@@ -15,8 +15,7 @@ heatmap per layout.
     ./Scripts/telex-heatmap.py
     ./Scripts/telex-heatmap.py --source zipf --html heatmap.html
 
-The board model (one finger per column, ANSI stagger) matches
-analyze-transition-book.py and beartype; keep LAYOUTS in step with keybear's
+The board model is one finger per column on an ANSI stagger; keep LAYOUTS in step with keybear's
 packages/page-practice/lib/practice/keyboard-layouts.ts.
 """
 
