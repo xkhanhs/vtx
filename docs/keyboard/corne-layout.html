@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Corne ba tầng</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
+<style>
+:root{--bg:#fafaf8;--card:#fff;--text:#1f1f1d;--muted:#8a8984;--sec:#5f5e5a;--border:#d3d1c7;--mod-bg:#eeedfe;--mod-fg:#3c3489;--lay-bg:#e1f5ee;--lay-fg:#085041;--cmd-bg:#faece7;--cmd-fg:#712b13;--held-bg:#1f1f1d;--held-fg:#fff;--accent:#378add}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1a1a19;--card:#262624;--text:#eceae4;--muted:#888780;--sec:#b4b2a9;--border:#444441;--mod-bg:#3c3489;--mod-fg:#eeedfe;--lay-bg:#085041;--lay-fg:#e1f5ee;--cmd-bg:#712b13;--cmd-fg:#faece7;--held-bg:#eceae4;--held-fg:#1a1a19;--accent:#85b7eb}}
+:root[data-theme="dark"]{--bg:#1a1a19;--card:#262624;--text:#eceae4;--muted:#888780;--sec:#b4b2a9;--border:#444441;--mod-bg:#3c3489;--mod-fg:#eeedfe;--lay-bg:#085041;--lay-fg:#e1f5ee;--cmd-bg:#712b13;--cmd-fg:#faece7;--held-bg:#eceae4;--held-fg:#1a1a19;--accent:#85b7eb}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,system-ui,sans-serif;line-height:1.6}
+main{max-width:720px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:22px;font-weight:500;margin:0 0 4px}
+.wrap{overflow-x:auto}
+.kb{display:grid;grid-template-columns:repeat(6,44px) 22px repeat(6,44px);grid-auto-rows:40px;gap:5px;margin:6px 0 4px;width:max-content}
+.k{border:0.5px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;background:var(--card);text-align:center;line-height:1.1;transition:box-shadow .15s}
+.k i{font-size:17px}
+.k.s{font-size:11px}
+.k.m{background:var(--mod-bg);color:var(--mod-fg);border-color:transparent}
+.k.l{background:var(--lay-bg);color:var(--lay-fg);border-color:transparent}
+.k.c{background:var(--cmd-bg);color:var(--cmd-fg);border-color:transparent;font-size:11px}
+.k.h{background:var(--held-bg);color:var(--held-fg);border-color:transparent}
+.k.t{border-style:dashed;color:var(--muted);background:transparent;font-size:11px}
+.k.on{box-shadow:0 0 0 2px var(--accent)}
+.lt{font-size:15px;font-weight:500;margin:1.4rem 0 0}
+.ls{font-size:13px;color:var(--sec);margin:0}
+.lg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--sec);margin:12px 0 0}
+.lg span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:4px;display:inline-block}
+.sc{display:flex;flex-wrap:wrap;gap:6px;margin:1rem 0 .3rem}
+.sc button{font:inherit;font-size:13px;padding:4px 10px;border-radius:8px;border:0.5px solid var(--border);background:transparent;color:var(--text);cursor:pointer}
+.sc button.act{border-color:var(--accent);color:var(--accent)}
+#how{font-size:13px;color:var(--sec);min-height:20px;margin:0}
+</style>
+</head>
+<body>
+<main>
+<h1>Corne ba tầng, không trễ</h1>
+<p class="ls">Phác thảo 27/09/2026. Chữ theo DH-Việt. Mỗi phím chỉ một chức năng, không home row mods. Xem <a href="CORNE-LAYOUT.md" style="color:var(--accent)">CORNE-LAYOUT.md</a>.</p>
+<div class="lg"><span><i class="sw" style="background:var(--mod-bg)"></i>Modifier</span><span><i class="sw" style="background:var(--lay-bg)"></i>Phím layer, chỉ giữ</span><span><i class="sw" style="background:var(--cmd-bg)"></i>Phím tắt một chạm</span><span><i class="sw" style="background:var(--held-bg)"></i>Đang giữ</span><span><i class="sw" style="border:0.5px dashed var(--border)"></i>Như Base</span></div>
+<div class="sc" id="sc"></div>
+<p id="how">Bấm một phím tắt để xem cách bấm.</p>
+<div id="layers" class="wrap"></div>
+</main>
+<script>
+const I=n=>'<i class="ti ti-'+n+'" aria-hidden="true"></i>';
+const B={r:[["Tab","q","w","f","g","b",";","l","u","y","x","Esc"],["⌃","a","h","s","t","p","m","n","e","o","i","⌥"],["⇧","j","v","r","c","z","k","d",",",".","/","⇧"]],t:["⌘","NAV","Space","Bksp","Enter","SYM"]};
+const M=new Set(["⌘","⌥","⌃","⇧"]);
+const C=new Set(["Hoàn tác","Làm lại","Cắt","Chép","Dán","Đầu dòng","Cuối dòng","Xoá từ"]);
+const T=null;
+const L=[
+{n:"Tầng 0 · Base",s:"⌘ ở ngón cái trái, Space trái, Bksp và Enter phải",r:B.r,t:B.t},
+{n:"Tầng 1 · NAV",s:"Giữ NAV bằng ngón cái trái. Bksp thành xoá từ (⌥⌫)",r:[[T,"Esc","PgUp",I("arrow-up"),"PgDn","Làm lại",T,"Sáng −","Sáng +",T,T,T],[T,"Đầu dòng",I("arrow-left"),I("arrow-down"),I("arrow-right"),"Cuối dòng",T,"⌘","⌥","⌃","⇧",T],[T,"Del","Dán","Cắt","Chép","Hoàn tác",T,I("volume-3"),I("volume-2"),I("volume"),I("player-pause"),T]],t:["⌘","#",T,"Xoá từ",T,T]},
+{n:"Tầng 2 · SYM",s:"Giữ SYM bằng ngón cái phải. Số và ký hiệu tay trái, modifier tay phải",r:[["`","[","7","8","9","]","F1","F2","F3","F4","F5","F6"],["'","-","4","5","6","=",T,"⌘","⌥","⌃","⇧",T],["\\",".","1","2","3",",","F7","F8","F9","F10","F11","F12"]],t:[T,"0",T,T,T,"#"]}];
+const S=[
+["Xoá từ",1,["t1","t3"],"Cái trái giữ NAV, cái phải bấm Bksp. Giữ NAV và bấm liên tục để xoá nhiều từ."],
+["⌘C · một tay",0,["t0","2-4"],"Cái trái giữ ⌘, trỏ trái bấm c (phím V vật lý)."],
+["⌘V · một tay",0,["t0","2-2"],"Cái trái giữ ⌘, áp út trái bấm v (phím X vật lý)."],
+["⌘Z · một tay",0,["t0","2-5"],"Cái trái giữ ⌘, trỏ trái bấm z (phím B vật lý)."],
+["Cắt · một tay",1,["t1","2-3"],"Cái trái giữ NAV, ngón giữa trái bấm Cắt. Thay cho ⌘X, vì x của DH-Việt nằm tay phải."],
+["⌃Space",0,["1-0","t2"],"Út trái giữ ⌃, cái trái bấm Space."],
+["⌥←",1,["t1","1-8","1-2"],"Cái trái giữ NAV, ngón giữa phải giữ ⌥, áp út trái bấm ←."],
+["⌘N",0,["t0","1-7"],"Cái trái giữ ⌘, ngón trỏ phải bấm n."],
+["!",2,["t5","1-10","2-2"],"Cái phải giữ SYM, út phải giữ ⇧, tay trái bấm 1."],
+["⌘⇧4",2,["t5","1-7","1-10","1-2"],"Cái phải giữ SYM, trỏ và út phải giữ ⌘⇧, tay trái bấm 4."],
+["⌘1",2,["t5","t0","2-2"],"Cái phải giữ SYM, cái trái giữ ⌘, tay trái bấm 1."]];
+function cls(v,base){if(v===T)return["t",base];if(v==="#")return["h","giữ"];if(M.has(v))return["m",v];if(v==="NAV"||v==="SYM")return["l",v];if(C.has(v))return["c",v];if(typeof v==="string"&&v.length>4&&v.indexOf("<")<0)return["s",v];return["",v]}
+let h="";
+L.forEach((ly,li)=>{h+='<p class="lt">'+ly.n+'</p><p class="ls">'+ly.s+'</p><div class="kb">';
+for(let r=0;r<3;r++)for(let c=0;c<13;c++){if(c===6){h+='<div></div>';continue}const cc=c>6?c-1:c;const[k,v]=cls(ly.r[r][cc],B.r[r][cc]);h+='<div class="k '+k+'" id="k'+li+'_'+r+'-'+cc+'">'+v+'</div>'}
+const tp=[3,4,5,7,8,9];for(let c=0;c<13;c++){const i=tp.indexOf(c);if(i<0){h+='<div></div>';continue}const[k,v]=cls(ly.t[i],B.t[i]);h+='<div class="k '+k+'" id="k'+li+'_t'+i+'">'+v+'</div>'}
+h+='</div>'});
+document.getElementById("layers").innerHTML=h;
+const sc=document.getElementById("sc");
+S.forEach(s=>{const b=document.createElement("button");b.textContent=s[0];b.onclick=()=>{document.querySelectorAll(".k.on").forEach(e=>e.classList.remove("on"));document.querySelectorAll(".sc button").forEach(e=>e.classList.remove("act"));b.classList.add("act");s[2].forEach(id=>{const e=document.getElementById("k"+s[1]+"_"+id);if(e)e.classList.add("on")});document.getElementById("how").textContent=L[s[1]].n+": "+s[3]};sc.appendChild(b)});
+</script>
+</body>
+</html>
