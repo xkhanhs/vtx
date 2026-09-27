@@ -1,6 +1,7 @@
 # Phác thảo keymap Corne ba tầng, không trễ
 
-Phác thảo ngày 27/09/2026, chỉ để tham khảo. Bàn phím đã chọn mua vẫn là Sofle v2.
+Phác thảo ngày 27/09/2026. Cùng ngày đã đổi quyết định mua: Corne v4 bản Bluetooth của KiwiKey (ZMK, có ZMK Studio)
+thay cho Sofle v2 có dây, chấp nhận học tầng số. Đây là keymap sẽ nạp cho bàn phím đó.
 Bản này trả lời câu hỏi: nếu dùng Corne (3 phím ngón cái mỗi bên) thì xếp modifier thế
 nào để gõ không bị khựng như home row mods trên kanata.
 
@@ -55,6 +56,6 @@ Chữ trên phím là ký tự ra theo DH-Việt. `·` là phím giữ nguyên n
   tổ hợp `command` chọn keyMap 0, tức bảng chữ thường của DH-Việt. Vì vậy ⌘C nằm ở
   phím V vật lý, ⌘V ở X, ⌘Z ở B, còn ⌘X nằm ở P, bên tay phải.
 - Firmware gửi mã phím QWERTY và để macOS dịch sang DH-Việt. Vì vậy muốn ra dấu `;`
-  phải gửi `KC_Y`, vì DH-Việt đã chuyển `;` sang đó. Các ký hiệu khác vẫn ở chỗ cũ.
+  phải gửi phím Y (`&kp Y` trong ZMK), vì DH-Việt đã chuyển `;` sang đó. Các ký hiệu khác vẫn ở chỗ cũ.
 - Corne không có hàng số, và macOS không tự đổi F1–F12 của bàn phím rời thành phím
   media. Vì vậy độ sáng, âm lượng và play phải là keycode riêng ở tầng NAV.
