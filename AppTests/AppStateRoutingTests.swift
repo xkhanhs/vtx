@@ -217,17 +217,4 @@ final class AppStateRoutingTests: XCTestCase {
         XCTAssertFalse(s.wantsAccessibility(unknownApp))
         XCTAssertEqual(AppState.spotlightBundleID, "com.apple.Spotlight")
     }
-
-    // MARK: Shortcuts CRUD (locked cache + persistence round trip)
-
-    func testShortcutsCRUD() {
-        let saved = s.shortcuts
-        defer { s.setShortcuts(saved) }
-        s.upsertShortcut(key: "tvtest", value: "VietTelex test")
-        XCTAssertEqual(s.shortcuts["tvtest"], "VietTelex test")
-        s.upsertShortcut(key: "", value: "ignored")            // empty key rejected
-        XCTAssertNil(s.shortcuts[""])
-        s.removeShortcut(key: "tvtest")
-        XCTAssertNil(s.shortcuts["tvtest"])
-    }
 }

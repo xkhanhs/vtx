@@ -3,7 +3,6 @@
 
 /* Tabs */
 "Settings" = "Tùy chỉnh";
-"Shortcuts" = "Gõ tắt";
 "About" = "Giới thiệu";
 
 /* General tab */
@@ -48,24 +47,9 @@
 "Full changelog" = "Xem đầy đủ thay đổi";
 "Couldn’t check — %@." = "Không kiểm tra được — %@.";
 
-/* Shortcuts tab */
-"Type" = "Gõ";
-"Becomes" = "Thành";
-"type" = "gõ";
-"becomes" = "thành";
-"Update" = "Cập nhật";
+/* Mode table: add / import */
 "Add" = "Thêm";
-"Click a row to edit." = "Bấm một dòng để sửa.";
-"Import from plist…" = "Nhập từ plist…";
-"Export to plist…" = "Xuất ra plist…";
-"Shortcut “%@” already exists" = "Gõ tắt “%@” đã tồn tại";
-"Overwrite the existing value?" = "Ghi đè giá trị hiện có?";
-"Overwrite" = "Ghi đè";
-"Cancel" = "Huỷ";
 "Couldn’t read the file" = "Không đọc được file";
-"The file must be a String → String dictionary plist (like the one Export to plist… creates)." = "File phải là plist dạng dictionary String → String (như file Xuất ra plist… tạo).";
-"Imported %lld shortcuts" = "Đã nhập %lld gõ tắt";
-"Merged into the existing table (duplicates take the new value)." = "Gộp vào bảng hiện có (mục trùng lấy giá trị mới).";
 
 /* Window title */
 "VietTelex — Settings" = "VTX — Cài đặt";
@@ -216,7 +200,6 @@ Bấm “Sửa tự động”: VTX tự xoá mục bị kẹt của chính nó 
 "Manual check: the newest release on GitHub. Weekly check: the stable channel." = "Kiểm tra thủ công: bản mới nhất trên GitHub; kiểm tra hằng tuần: kênh ổn định.";
 "No app matches “%@”" = "Không có app nào khớp “%@”";
 "Clear filter" = "Xoá bộ lọc";
-"Delete this shortcut" = "Xoá gõ tắt này";
 "Open Settings → About to install it." = "Mở Cài đặt → Giới thiệu để cài bản mới.";
 
 /* Keyboard layout (bố cục bàn phím Telex đọc) */

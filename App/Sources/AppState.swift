@@ -31,7 +31,7 @@ final class AppState: @unchecked Sendable {
 
     /// Guards every mutable cache + flag below. Needed since the event tap moved to
     /// its own thread: Settings/controller write on MAIN while the tap callback reads
-    /// on the TAP thread (usesTapMode/usesSelectionReplace/shortcuts/flags are on its
+    /// on the TAP thread (usesTapMode/usesSelectionReplace/flags are on its
     /// per-key path). NSLock (non-recursive!) — public methods lock ONCE and call only
     /// unlocked `_helpers` inside; never call another locked member while holding it.
     /// Uncontended cost is tens of ns, invisible next to the ~ms XPC/event round trips.
@@ -48,7 +48,6 @@ final class AppState: @unchecked Sendable {
         static let contextualEnglish = "contextualEnglish"
         static let collisionPrefersVietnamese = "collisionPrefersVietnamese"
         static let reEditWord = "reEditWord"
-        static let shortcuts = "shortcuts"
         static let fallbackApps = "fallbackApps"      // learned: ignore replacementRange
         static let probedApps = "probedApps"          // learned: verified good
         static let manualModes = "manualAppModes"     // user override: bundleID -> AppMode
@@ -71,7 +70,6 @@ final class AppState: @unchecked Sendable {
     }
 
     // In-memory caches (loaded once). All guarded by `lock` (see above).
-    private var shortcutsCache: [String: String]
     private var fallbackAppsCache: Set<String>
     private var probedAppsCache: Set<String>
     private var manualModesCache: [String: String]
@@ -121,7 +119,6 @@ final class AppState: @unchecked Sendable {
         _altKeyboardLayoutID = (defaults.object(forKey: Key.altKeyboardLayout) as? String) ?? ""
         _bracketVowels = (defaults.object(forKey: Key.bracketVowels) as? Bool) ?? false
         _switchHotkey = (defaults.object(forKey: "switchHotkey") as? String) ?? "off"
-        shortcutsCache = (defaults.dictionary(forKey: Key.shortcuts) as? [String: String]) ?? [:]
         fallbackAppsCache = Set(defaults.stringArray(forKey: Key.fallbackApps) ?? [])
         probedAppsCache = Set(defaults.stringArray(forKey: Key.probedApps) ?? [])
         manualModesCache = (defaults.dictionary(forKey: Key.manualModes) as? [String: String]) ?? [:]
@@ -485,27 +482,6 @@ final class AppState: @unchecked Sendable {
         get { lock.withLock { _altKeyboardLayoutID } }
         set { lock.withLock { _altKeyboardLayoutID = newValue }
               defaults.set(newValue, forKey: Key.altKeyboardLayout) }
-    }
-
-    // MARK: - Shortcuts (bảng gõ tắt)
-
-    /// Read-only snapshot used at word boundaries (no disk hit).
-    var shortcuts: [String: String] { lock.withLock { shortcutsCache } }
-
-    func setShortcuts(_ dict: [String: String]) {
-        lock.withLock { shortcutsCache = dict }
-        defaults.set(dict, forKey: Key.shortcuts)
-    }
-
-    func upsertShortcut(key: String, value: String) {
-        guard !key.isEmpty else { return }
-        let snapshot = lock.withLock { shortcutsCache[key] = value; return shortcutsCache }
-        defaults.set(snapshot, forKey: Key.shortcuts)
-    }
-
-    func removeShortcut(key: String) {
-        let snapshot = lock.withLock { shortcutsCache.removeValue(forKey: key); return shortcutsCache }
-        defaults.set(snapshot, forKey: Key.shortcuts)
     }
 
     // MARK: - Learned typing strategy (in-place replacementRange vs marked text)
@@ -1095,18 +1071,18 @@ func VTLocalized(_ key: String) -> String {
 }
 
 
-/// Universal shortcut-table parser: accepts every format users bring from other
-/// IMEs (field request 2026-07-22) — plist/XML, JSON, flat YAML ("key: value"),
-/// and plain text ("key:value", ";" or "#" comments). Returns
-/// nil when nothing parseable is found.
+/// Universal flat key→value parser for typing-modes.yml and manual-pin import:
+/// JSON, flat YAML ("key: value"), and plain text ("key:value", ";" or "#"
+/// comments). Returns nil when nothing parseable is found. (The name predates the
+/// removal of the gõ tắt table, which moved to PasteMe; kept to avoid churn.)
 enum ShortcutImporter {
     /// Flat-YAML export — human-readable, round-trips through parse(), and
     /// other IMEs' users can eyeball-edit it. Values with YAML-special leading
     /// chars or wrapping spaces get double quotes.
-    static func exportYAML(_ shortcuts: [String: String]) -> String {
-        var out = "# VTX — bảng gõ tắt\n"
-        for key in shortcuts.keys.sorted() {
-            let value = shortcuts[key]!
+    static func exportYAML(_ entries: [String: String]) -> String {
+        var out = "# VTX\n"
+        for key in entries.keys.sorted() {
+            let value = entries[key]!
             let needsQuotes = value.hasPrefix(" ") || value.hasSuffix(" ")
                 || value.hasPrefix("'") || value.hasPrefix("\"") || value.hasPrefix("#")
             out += needsQuotes ? "\(key): \"\(value)\"\n" : "\(key): \(value)\n"
@@ -1135,8 +1111,7 @@ enum ShortcutImporter {
                (value.hasPrefix("\"") && value.hasSuffix("\"")) || (value.hasPrefix("'") && value.hasSuffix("'")) {
                 value = String(value.dropFirst().dropLast())
             }
-            // Key filter serves three masters: SHORTCUT keys (typed abbreviations —
-            // never contain whitespace), typing-modes BUNDLE IDS (no whitespace,
+            // Key filter serves two masters: typing-modes BUNDLE IDS (no whitespace,
             // but legitimately >32 chars: the old 32 cap silently killed the shipped
             // rules for com.apple.SafariTechnologyPreview/org.mozilla.
             // firefoxdeveloperedition/com.citrix.receiver.icaviewer.mac — found

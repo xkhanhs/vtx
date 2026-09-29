@@ -54,7 +54,9 @@ https://github.com/user-attachments/assets/b07b7321-912f-4d81-a741-bcaa9a43f07d
 `s f r x j` = sắc huyền hỏi ngã nặng · `aa ee oo` = â ê ô · `aw ow uw` = ă ơ ư · `dd` = đ · `z` xóa dấu.
 Ví dụ: `vieejt` → việt · `truowngf` → trường · `hoas` → hóa.
 
-Tùy chọn (Simple Telex, bỏ dấu tự do, kiểu cũ/mới, kiểm tra chính tả, ưu tiên Anh/Việt khi từ trùng, gõ tắt) ở menu bộ gõ → **Cài đặt…**
+Tùy chọn (Simple Telex, bỏ dấu tự do, kiểu cũ/mới, kiểm tra chính tả, ưu tiên Anh/Việt khi từ trùng) ở menu bộ gõ → **Cài đặt…**
+
+VTX không còn gõ tắt: bảng gõ tắt đã chuyển sang app riêng PasteMe (29/09/2026).
 
 ## Khắc phục sự cố
 

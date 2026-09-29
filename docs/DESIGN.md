@@ -20,7 +20,8 @@ Bộ gõ tiếng Việt cho macOS. Ưu tiên tuyệt đối: **performance** (la
   EnglishCollisions được sinh lại.
 - Bảng mã: **Unicode dựng sẵn (NFC precomposed)** duy nhất.
 - Tùy chọn: Simple Telex, bỏ dấu tự do, kiểu bỏ dấu cũ/mới (hòa/hoà), kiểm tra chính tả
-  khi gõ, tự khôi phục từ không hợp lệ, bảng gõ tắt.
+  khi gõ, tự khôi phục từ không hợp lệ. Không có gõ tắt: đã chuyển sang app PasteMe
+  (29/09/2026).
 - **Không có bật/tắt VI/EN nội bộ, không hotkey riêng**: Vietnamese bật khi VietTelex là
   input source đang chọn; chuyển input source để gõ tiếng Anh (macOS nhớ theo app).
 - KHÔNG làm: nhớ theo browser tab (IME không thấy được tab), từ điển file
@@ -38,7 +39,7 @@ VietTelex.app  (một bundle duy nhất, LSUIElement)
 ├── SyllableValidator  (rule-based, không từ điển)
 ├── AppState           (UserDefaults, cache in-memory, học chiến lược per-app;
 │     rule mặc định load từ typing-modes.yml bundle — sửa rule = sửa data, không sửa Swift)
-└── SettingsWindow     (SwiftUI: Chung, Gõ tắt + khi bật "tính năng nâng cao":
+└── SettingsWindow     (SwiftUI: Chung, Giới thiệu + khi bật "tính năng nâng cao":
       Bảng cơ chế gõ, Thử Nghiệm; chỉ tạo khi mở, đóng là giải phóng)
 ```
 
@@ -92,8 +93,8 @@ xem [`BENCHMARKS.md`](BENCHMARKS.md)):
 2. Map keycode/char → feed vào `TelexEngine`.
 3. Engine trả về `.passthrough` / `.none` / `.replace(backspaces, insert)` — diff tối
    thiểu giữa render mới và text đang trên màn hình.
-4. Word boundary (space/enter/punct/click/focus đổi): commit, chạy validator + bảng
-   gõ tắt, reset buffer.
+4. Word boundary (space/enter/punct/click/focus đổi): commit, chạy validator
+   (auto-restore), reset buffer.
 
 Yêu cầu engine:
 - `struct TelexEngine`, buffer cố định capacity 32, **không** String
@@ -104,7 +105,7 @@ Yêu cầu engine:
 - Backspace xóa nguyên ký tự hiển thị cuối (không chỉ pop một phím raw), re-render.
 - Backspace ngay sau ranh giới **mở lại từ vừa chốt** (issue #40): boundary nhớ đúng
   chuỗi phím nó vừa commit (chỉ khi màn hình đang hiển thị `composed` — không
-  auto-restore, không overflow, không gõ tắt), ⌫ xóa ký tự ranh giới thì replay lại
+  auto-restore, không overflow), ⌫ xóa ký tự ranh giới thì replay lại
   chuỗi đó nên `tháy` ␣ ⌫ `a` → `thấy` thay vì `tháya`. Snapshot chết ngay khi có
   bất kỳ input nào khác, và chỉ được dùng sau khi **đọc lại text trên màn hình**
   (IMKit: `attributedSubstring`; tap: AX) đúng bằng từ đó.
@@ -132,20 +133,11 @@ Quy tắc ổn định đã rút ra khi implement (chi tiết trong `MACOS_IME_N
 ## State & Settings
 
 - `UserDefaults` (suite riêng): autoRestore, freeMarking, modernOrthography,
-  liveSpellCheck, simpleTelex, shortcuts `[String: String]`, fallbackApps, probedApps.
+  liveSpellCheck, simpleTelex, fallbackApps, probedApps. Khoá `shortcuts` cũ (bảng gõ
+  tắt) còn nằm trong suite của máy đã dùng bản trước, nhưng VTX không đọc nữa.
 - Cache in-memory load một lần; hot path chỉ đọc cache, không đọc disk.
-- Bảng gõ tắt chỉ tra ở word boundary.
-- Khoá gõ tắt được mở đầu bằng MỘT dấu câu (`/shop`, `;sig`). Dấu câu là ranh giới
-  nên engine chỉ thấy `shop`; `ShortcutPrefix` (TelexCore) nhớ ký tự gõ ngay trước chữ
-  đầu của từ, tra `/shop` trước `shop`, khớp thì xoá lùi thêm 1 ký tự. Bất kỳ phím hay
-  click nào xen giữa dấu câu và chữ đầu đều bỏ tiền tố. App marked text chỉ bung khoá
-  không tiền tố (dấu `/` đã là text đã commit, insertText không với tới).
-- Từ dính liền sau một **ký tự mở token** — chữ số (`5h`), hoặc `/` `#` `@` của slash
-  command / hashtag / mention — không phải từ đứng riêng, nên khoá **trần** không được
-  nở: `/h3` giữ nguyên dù bảng có `h`. Khoá **có tiền tố** thì vẫn nở, vì chính dấu đó
-  là một phần khoá người dùng đăng ký: `/shop` vẫn ra nội dung. Hệ quả: muốn một
-  khoá nở sau `/` thì phải đăng ký hẳn `/<khoá>`. Tham số `bareAllowed` của
-  `ShortcutPrefix.lookup` là chỗ cầm cân hai ngả này.
+- Gõ tắt (snippet) đã bỏ khỏi VTX ngày 29/09/2026 và chuyển sang app riêng PasteMe:
+  VTX không tra bảng gõ tắt ở boundary nữa, cả đường IMKit lẫn TerminalTap.
 
 ## Performance budgets (phải đo, không ước)
 

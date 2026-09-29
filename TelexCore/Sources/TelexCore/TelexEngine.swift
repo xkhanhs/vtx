@@ -568,8 +568,8 @@ public struct TelexEngine {
     }
 
     /// Discard the re-open snapshot: the boundary character the caller inserted after
-    /// a commit is no longer the thing a ⌫ would delete (shortcut expansion, a
-    /// caller-side rewrite, a dropped composition). Cheaper and clearer at the call
+    /// a commit is no longer the thing a ⌫ would delete (a caller-side rewrite, a
+    /// dropped composition). Cheaper and clearer at the call
     /// site than a full `reset()`, which also throws away the live word.
     public mutating func forgetLastCommit() {
         reopenRawCount = 0

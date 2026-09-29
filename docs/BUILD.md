@@ -91,7 +91,6 @@ tình trạng quyền Accessibility và **Cài đặt…**
 - Đường gõ chính: `insertText(replacementRange:)` in-place; app không tôn trọng
   replacementRange được **probe read-back** tự phát hiện rồi chuyển marked-text hoặc
   tap-mode. Chi tiết 5 chiến lược per-app: DESIGN.md.
-- Gõ tắt chỉ tra ở word boundary.
 
 ## Compatibility hardening
 

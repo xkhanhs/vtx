@@ -1,5 +1,5 @@
 // SettingsWindow.swift
-// SwiftUI settings (3 tabs: Tùy chỉnh, Gõ tắt, Giới thiệu). The window is created
+// SwiftUI settings (tabs: Tùy chỉnh, Bảng chế độ gõ, Thử nghiệm, Giới thiệu). The window is created
 // only when opened from the IMK menu and released when closed (windowWillClose
 // drops the reference).
 //
@@ -11,7 +11,7 @@ import AppKit
 import SwiftUI
 import TelexCore
 
-enum SettingsTab: Hashable { case general, shortcuts, modeTable, experimental, about }
+enum SettingsTab: Hashable { case general, modeTable, experimental, about }
 
 // MARK: - Window controller
 
@@ -169,7 +169,6 @@ final class SettingsModel: ObservableObject {
     /// UI language: "system" / "en" / "vi". Changing it re-renders every view that
     /// observes this model (they call `loc(_:)`), so the switch is live — no relaunch.
     @Published var uiLanguage: String { didSet { AppState.shared.uiLanguage = uiLanguage } }
-    @Published var shortcuts: [ShortcutRow] = []
     @Published var modeRows: [AppModeRow] = []            // Bảng chế độ gõ
     @Published var modeFilter: String = ""                // live filter over the table
     /// Header-click sort for the mode table (default: App name A-Z).
@@ -231,7 +230,6 @@ final class SettingsModel: ObservableObject {
         autoUpdateCheck = AppState.shared.autoUpdateCheck
         hideAdvanced = !AppState.shared.advancedFeatures
         uiLanguage = AppState.shared.uiLanguage
-        reloadShortcuts()
         reloadModeTable()
     }
 
@@ -504,24 +502,6 @@ final class SettingsModel: ObservableObject {
         reloadModeTable()
         return applied
     }
-
-    func reloadShortcuts() {
-        shortcuts = AppState.shared.shortcuts
-            .sorted { $0.key < $1.key }
-            .map { ShortcutRow(key: $0.key, value: $0.value) }
-    }
-
-    func addShortcut(key: String, value: String) {
-        let k = key.trimmingCharacters(in: .whitespaces)
-        guard !k.isEmpty else { return }
-        AppState.shared.upsertShortcut(key: k, value: value)
-        reloadShortcuts()
-    }
-
-    func removeShortcut(_ key: String) {
-        AppState.shared.removeShortcut(key: key)
-        reloadShortcuts()
-    }
 }
 
 extension View {
@@ -535,8 +515,6 @@ extension View {
     }
 }
 
-// id = key: selection survives reloads, and a row can be looked up by its key.
-struct ShortcutRow: Identifiable { var id: String { key }; let key: String; let value: String }
 
 /// One row of the mode table. `id` = bundle id (stable across reloads). The label
 /// columns are precomputed at reload so the Table can sort by them (KeyPathComparator
@@ -563,7 +541,6 @@ struct SettingsView: View {
     private var tabBar: some View {
         HStack(spacing: 2) {
             tabButton(.general, "Settings", "slider.horizontal.3")
-            tabButton(.shortcuts, "Shortcuts", "keyboard")
             if !model.hideAdvanced {
                 tabButton(.modeTable, "Typing modes", "list.bullet.rectangle")
                 tabButton(.experimental, "Experimental", "flask")
@@ -597,7 +574,6 @@ struct SettingsView: View {
         // SettingsModel tự đưa về .general (xem didSet của hideAdvanced).
         switch model.selectedTab {
         case .general:      GeneralTab()
-        case .shortcuts:    ShortcutsTab()
         case .modeTable:    ModeTableTab()
         case .experimental: ExperimentalTab()
         case .about:        AboutTab()
@@ -888,8 +864,8 @@ struct ModeTableTab: View {
         }
     }
 
-    /// Import manual pins (bundleID → mode) from a YAML/JSON/txt file — the same
-    /// container format the Shortcuts tab uses, so the flow is familiar. Merge, not
+    /// Import manual pins (bundleID → mode) from a YAML/JSON/txt file (the format
+    /// typing-modes.yml and the export below use). Merge, not
     /// replace: imported entries win, everything else is kept.
     private func importModes() {
         let panel = NSOpenPanel()
@@ -1078,12 +1054,6 @@ enum DebugHeader {
             // evidence ("chỉ mỗi em bị" — 2026-08-05).
             "flags: modifyInPlace=\(s.tapModifyEventInPlace) skipKeyUp=\(s.tapSkipSyntheticKeyUp) axReplace=\(s.axSelectionReplace) breaker=\(s.tapCascadeBreaker) nativeFastPath=\(s.tapNativeFastPath)",
             "settings: simpleTelex=\(s.simpleTelex) freeMarking=\(s.freeMarking) modern=\(s.modernOrthography) liveSpell=\(s.liveSpellCheck) autoRestore=\(s.autoRestore) vni=\(s.vniMode) quick=\(s.quickTelex) ctxEnglish=\(s.contextualEnglish) collisionVN=\(s.collisionPrefersVietnamese) reEdit=\(s.reEditWord) bracket=\(s.bracketVowels) safeUnknown=\(s.safeUnknownApps)",
-            // Count only — the trigger/expansion pairs are USER-TYPED content the log
-            // must never carry (same rule as everywhere else here), but a nonzero count
-            // is itself diagnostic: a custom gõ tắt entry colliding with a Vietnamese
-            // prefix is exactly the kind of "settings khác" one tester could have that
-            // reproduces nothing on a clean install (2026-08-05 field discussion).
-            "custom shortcuts: \(s.shortcuts.count)",
         ]
     }
 }
@@ -1286,132 +1256,5 @@ struct AboutTab: View {
                 }
             }
         }
-    }
-}
-
-// MARK: - Tab: Gõ tắt
-
-struct ShortcutsTab: View {
-    @EnvironmentObject var model: SettingsModel
-    @State private var newKey = ""
-    @State private var newValue = ""
-    @State private var selection: ShortcutRow.ID?
-    /// The key the fields were LOADED from (row click). Kept separately from `selection`
-    /// so editing the key field is a RENAME of that entry, not a silent Add of a second
-    /// one — the old bug: click "vn", change the key to "vnn", press the button and you
-    /// had both.
-    @State private var editingKey: String?
-
-    /// True when saving updates/renames an existing entry rather than adding a new one.
-    private var isEditing: Bool {
-        editingKey != nil
-            || AppState.shared.shortcuts[newKey.trimmingCharacters(in: .whitespaces)] != nil
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Table(model.shortcuts, selection: $selection) {
-                TableColumn(model.loc("Type"), value: \.key)
-                TableColumn(model.loc("Becomes"), value: \.value)
-                TableColumn("") { row in
-                    Button(role: .destructive) { model.removeShortcut(row.key) } label: {
-                        Image(systemName: "trash")
-                    }.buttonStyle(.borderless)
-                        .accessibilityLabel(model.loc("Delete this shortcut"))
-                }.width(40)
-            }
-            .frame(minHeight: 220)
-            .onChange(of: selection) { selected in
-                // Click a row -> load it into the fields for editing in place.
-                guard let key = selected,
-                      let value = AppState.shared.shortcuts[key] else {
-                    editingKey = nil
-                    return
-                }
-                newKey = key
-                newValue = value
-                editingKey = key
-            }
-
-            HStack {
-                TextField(model.loc("type"), text: $newKey).frame(width: 120)
-                TextField(model.loc("becomes"), text: $newValue)
-                Button { save() } label: {
-                    Label(model.loc(isEditing ? "Update" : "Add"),
-                          systemImage: isEditing ? "checkmark.circle" : "plus.circle")
-                }
-                    .disabled(newKey.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-            Text(model.loc("Click a row to edit."))
-                .font(.caption).foregroundStyle(.secondary)
-
-            HStack {
-                Button { importPlist() } label: { Label(model.loc("Import…"), systemImage: "square.and.arrow.up.on.square") }
-                Button { exportPlist() } label: { Label(model.loc("Export to YAML…"), systemImage: "square.and.arrow.up") }
-                Spacer()
-            }
-        }
-    }
-
-    private func save() {
-        let key = newKey.trimmingCharacters(in: .whitespaces)
-        guard !key.isEmpty else { return }
-        // Overwriting a DIFFERENT entry than the one being edited needs a confirm —
-        // otherwise a typo in the key field silently clobbers an existing shortcut.
-        if AppState.shared.shortcuts[key] != nil, editingKey != key {
-            let alert = NSAlert()
-            alert.messageText = String(format: VTLocalized("Shortcut “%@” already exists"), key)
-            alert.informativeText = VTLocalized("Overwrite the existing value?")
-            alert.addButton(withTitle: VTLocalized("Overwrite"))
-            alert.addButton(withTitle: VTLocalized("Cancel"))
-            guard alert.runModal() == .alertFirstButtonReturn else { return }
-        }
-        // RENAME: the row was loaded from `editingKey` and the key field was changed, so
-        // the user edited an entry — drop the old key instead of leaving a duplicate.
-        if let old = editingKey, old != key {
-            model.removeShortcut(old)
-        }
-        model.addShortcut(key: key, value: newValue)
-        newKey = ""; newValue = ""; selection = nil; editingKey = nil
-    }
-
-    private func importPlist() {
-        let panel = NSOpenPanel()
-        // Any text-ish file: YAML, JSON, or "key:value" txt
-        // (exports from other IMEs) — ShortcutImporter sniffs the format. Same set the
-        // export panel writes, so an image/binary can't be handed to the parser.
-        panel.allowedContentTypes = [.yaml, .json, .plainText]
-        panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        guard let data = try? Data(contentsOf: url),
-              let dict = ShortcutImporter.parse(data)
-        else {
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            alert.messageText = VTLocalized("Couldn’t read the file")
-            alert.informativeText = VTLocalized("Supported formats: YAML, JSON, or one key:value per line.")
-            alert.runModal()
-            return
-        }
-        // Merge (imported entries win) rather than replace, so importing a shared
-        // list never silently wipes the user's existing shortcuts.
-        let merged = AppState.shared.shortcuts.merging(dict) { _, imported in imported }
-        AppState.shared.setShortcuts(merged)
-        model.reloadShortcuts()
-        let alert = NSAlert()
-        alert.messageText = String(format: VTLocalized("Imported %lld shortcuts"), dict.count)
-        alert.informativeText = VTLocalized("Merged into the existing table (duplicates take the new value).")
-        alert.runModal()
-    }
-
-    private func exportPlist() {
-        // Flat YAML (user decision 2026-07-22): readable, editable, and the
-        // universal importer round-trips it.
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.yaml, .plainText]
-        panel.nameFieldStringValue = "viettelex-shortcuts.yaml"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        let yaml = ShortcutImporter.exportYAML(AppState.shared.shortcuts)
-        try? Data(yaml.utf8).write(to: url)
     }
 }
