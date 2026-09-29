@@ -1254,7 +1254,16 @@ PasteMe pin `…keylayout.ColemakDH-Viet`. To show "DH-Việt" instead of
 this took effect without a logout: after `touch` on the bundle and
 `killall TextInputMenuAgent TextInputSwitcher`, `kTISPropertyLocalizedName` read
 back `DH-Việt` within 3 s. The icon was swapped the same way (a template `.icns`
-plus `TISIconIsTemplate = true` in `KLInfo_<name>`).
+plus `TISIconIsTemplate = true` in `KLInfo_<name>`), with two traps seen in the
+menu: (1) right after the swap it showed a SOLID square — the old, fully opaque
+CO/DH icon still cached but already drawn as a template (alpha only); touching
+the `.icns` and bouncing `TextInputMenuAgent` again loaded the new one. (2) Any
+SQUARE icon — with margins or full-bleed — rendered shorter and narrower than
+VX: the menu sizes icons by row height and keeps their aspect, and an .icns is
+square by format. What worked: the 20x16 pt badge from `Scripts/make_icon.swift`
+rasterized to a 1x+2x TIFF and saved under the `<layout>.icns` name — macOS
+read it by content and drew it exactly as tall and wide as VX
+(`Scripts/layout-resources/make-en-badge.swift`).
 
 ## A disabled layout comes back at login if it is the "current keyboard layout" — 2026-09-29
 

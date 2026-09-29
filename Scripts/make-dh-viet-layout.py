@@ -35,8 +35,9 @@ from pathlib import Path
 
 SOURCE = Path("/Library/Keyboard Layouts/Colemak DH.bundle/Contents/Resources")
 SOURCE_LAYOUT = SOURCE / "Colemak DH ANSI.keylayout"
-# "EN" badge, same style as VTX Telex's "VX" — see layout-resources/make-en-badge.swift.
-ICON = Path(__file__).resolve().parent / "layout-resources" / "DH-Viet.icns"
+# "EN" badge drawn by the same code as VTX Telex's "VX": a 20x16 TIFF, installed
+# under the .icns name macOS looks for — see layout-resources/make-en-badge.swift.
+ICON = Path(__file__).resolve().parent / "layout-resources" / "DH-Viet.tiff"
 
 NAME = "Colemak DH-Viet"
 # What the input menu shows. Only the DISPLAY name changes: NAME feeds SOURCE_ID

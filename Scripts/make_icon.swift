@@ -17,6 +17,8 @@
 // letterboxed golden box, which stays undistorted but renders shorter than "US".)
 //
 // Usage: swift make_icon.swift <resourcesDir>     → writes MenuIcon.pdf
+//        swift make_icon.swift <dir> EN <file.pdf> → same badge, other letters
+//        (the DH-Việt keyboard layout's "EN" — Scripts/layout-resources/)
 // (The APP icon comes from assets/VietTelex-logo.png via Scripts/make_appicon.py.)
 
 import AppKit
@@ -42,8 +44,11 @@ func glyphPath(_ ch: Character, weight: NSFont.Weight, size: CGFloat,
 }
 
 let args = CommandLine.arguments
-guard args.count >= 2 else { fputs("usage: make_icon.swift <resourcesDir>\n", stderr); exit(1) }
-let outURL = URL(fileURLWithPath: args[1]).appendingPathComponent("MenuIcon.pdf")
+guard args.count >= 2 else { fputs("usage: make_icon.swift <resourcesDir> [LETTERS] [file.pdf]\n", stderr); exit(1) }
+let letters = Array(args.count >= 3 ? args[2] : "VX")
+guard letters.count == 2 else { fputs("LETTERS must be two characters\n", stderr); exit(1) }
+let (first, second) = (letters[0], letters[1])
+let outURL = URL(fileURLWithPath: args[1]).appendingPathComponent(args.count >= 4 ? args[3] : "MenuIcon.pdf")
 
 // WIDE media box, 1.25:1 — NOT square.
 //
@@ -91,11 +96,13 @@ let radius = box.height * 0.28                        // like the system "A" bad
 // and clamp on cap height too, in case a future glyph pair is unusually narrow.
 let probeSize: CGFloat = 20
 let weight: NSFont.Weight = .bold
-guard let vProbe = glyphPath("V", weight: weight, size: probeSize, baselineY: 0, leftX: 0),
-      let xProbe = glyphPath("X", weight: weight, size: probeSize, baselineY: 0, leftX: 0)
+guard let vProbe = glyphPath(first, weight: weight, size: probeSize, baselineY: 0, leftX: 0),
+      let xProbe = glyphPath(second, weight: weight, size: probeSize, baselineY: 0, leftX: 0)
 else { fputs("glyph path failed\n", stderr); exit(1) }
 
-let gapRatio: CGFloat = -0.06                                      // slight negative tracking: V's open top tucks under X
+// Slight negative tracking only for VX, whose V's open top tucks under the X;
+// square-shouldered letters (E, N) would touch.
+let gapRatio: CGFloat = letters == ["V", "X"] ? -0.06 : 0.08
 let pairWidthPerPt = (vProbe.width + xProbe.width + probeSize * gapRatio) / probeSize
 let capPerPt = vProbe.path.boundingBox.height / probeSize          // cap height per point
 // Padding is deliberate, not leftover space. The system's own badges keep a wide
@@ -110,16 +117,16 @@ let size = min(byWidth, byHeight)
 let gap = size * gapRatio
 
 // Final glyph widths, to center the VX pair horizontally.
-guard let vW = glyphPath("V", weight: weight, size: size, baselineY: 0, leftX: 0),
-      let xW = glyphPath("X", weight: weight, size: size, baselineY: 0, leftX: 0)
+guard let vW = glyphPath(first, weight: weight, size: size, baselineY: 0, leftX: 0),
+      let xW = glyphPath(second, weight: weight, size: size, baselineY: 0, leftX: 0)
 else { fputs("glyph path failed\n", stderr); exit(1) }
 let totalW = vW.width + gap + xW.width
 let capV = vW.path.boundingBox.height
 let baselineY = box.minY + (box.height - capV) / 2
 let leftX = box.minX + (box.width - totalW) / 2
 
-guard let v = glyphPath("V", weight: weight, size: size, baselineY: baselineY, leftX: leftX),
-      let x = glyphPath("X", weight: weight, size: size, baselineY: baselineY,
+guard let v = glyphPath(first, weight: weight, size: size, baselineY: baselineY, leftX: leftX),
+      let x = glyphPath(second, weight: weight, size: size, baselineY: baselineY,
                         leftX: leftX + v.width + gap)
 else { fputs("glyph path failed\n", stderr); exit(1) }
 
@@ -147,4 +154,4 @@ ctx.fillPath(using: .evenOdd)
 
 ctx.endPDFPage()
 ctx.closePDF()
-print("MenuIcon.pdf written (16x16 pt vector)")
+print("\(outURL.lastPathComponent) written (\(Int(SW))x\(Int(SH)) pt vector)")
