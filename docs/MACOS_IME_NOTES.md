@@ -1243,3 +1243,28 @@ The file itself can still be checked without logging out: DTD-validate it
 against `/System/Library/DTDs/KeyboardLayout.dtd` (probe copy with the XML 1.1
 control references neutralised, since xmllint has no 1.1 parser), then diff its
 key maps against the bundle macOS is serving right now.
+
+## Renaming a layout in the input menu: localize, never touch the name — 2026-09-29
+
+The input-source id of a layout is built from `<keyboard name=>` (see
+`Scripts/make-dh-viet-layout.py`), and VTX Colemak (`altKeyboardLayoutID`) plus
+PasteMe pin `…keylayout.ColemakDH-Viet`. To show "DH-Việt" instead of
+"Colemak DH-Viet" the bundle got `en.lproj`/`vi.lproj/InfoPlist.strings` with
+`"Colemak DH-Viet" = "DH-Việt";` — id unchanged. On an ALREADY-registered bundle
+this took effect without a logout: after `touch` on the bundle and
+`killall TextInputMenuAgent TextInputSwitcher`, `kTISPropertyLocalizedName` read
+back `DH-Việt` within 3 s. The icon was swapped the same way (a template `.icns`
+plus `TISIconIsTemplate = true` in `KLInfo_<name>`).
+
+## A disabled layout comes back at login if it is the "current keyboard layout" — 2026-09-29
+
+Colemak DH ANSI reappeared in the input menu after every restart although the
+user kept removing it. `com.apple.HIToolbox` held
+`AppleCurrentKeyboardLayoutInputSourceID = …ColemakDHANSI`: the layout an input
+method is entered WITH is remembered and re-enabled. VTX was not the cause (no
+`TISEnableInputSource` outside the pkg installer). Fix: select the wanted layout
+(DH-Việt) once so it becomes the remembered one, then remove the other bundle
+(`brew uninstall --cask colemak-dh`). Also measured: `TISEnableInputSource` on a
+third-party layout returned `noErr` and left it disabled (read back
+`IsEnabled = 0`), so enabling a layout has to be done by the user in System
+Settings. `TISDisableInputSource` on the unwanted one did work.

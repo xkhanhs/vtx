@@ -35,9 +35,15 @@ from pathlib import Path
 
 SOURCE = Path("/Library/Keyboard Layouts/Colemak DH.bundle/Contents/Resources")
 SOURCE_LAYOUT = SOURCE / "Colemak DH ANSI.keylayout"
-SOURCE_ICON = SOURCE / "Colemak DH ANSI.icns"
+# "EN" badge, same style as VTX Telex's "VX" — see layout-resources/make-en-badge.swift.
+ICON = Path(__file__).resolve().parent / "layout-resources" / "DH-Viet.icns"
 
 NAME = "Colemak DH-Viet"
+# What the input menu shows. Only the DISPLAY name changes: NAME feeds SOURCE_ID
+# below, and VTX Colemak (altKeyboardLayoutID) plus PasteMe pin that id — renaming
+# NAME would silently orphan both. A layout bundle localizes its name through
+# <lang>.lproj/InfoPlist.strings keyed by the layout name.
+DISPLAY_NAME = "DH-Việt"
 BUNDLE_ID = "com.vtx.keyboardlayout.colemakdhviet"
 
 # macOS builds the input-source id from the <keyboard name=> with spaces stripped,
@@ -132,8 +138,11 @@ def write_bundle(out: Path) -> Path:
     resources.mkdir(parents=True)
 
     (resources / f"{NAME}.keylayout").write_text(layout, encoding="utf-8")
-    if SOURCE_ICON.exists():
-        shutil.copy2(SOURCE_ICON, resources / f"{NAME}.icns")
+    shutil.copy2(ICON, resources / f"{NAME}.icns")
+    for lang in ("en", "vi"):
+        lproj = resources / f"{lang}.lproj"
+        lproj.mkdir()
+        (lproj / "InfoPlist.strings").write_text(f'"{NAME}" = "{DISPLAY_NAME}";\n', encoding="utf-8")
 
     info = {
         "CFBundleIdentifier": BUNDLE_ID,
@@ -144,6 +153,8 @@ def write_bundle(out: Path) -> Path:
             "TISInputSourceID": SOURCE_ID,
             "TISIntendedLanguage": "en",
             "TICapsLockLanguageSwitchCapable": False,
+            # Alpha-only badge: macOS tints it for light/dark menu bars.
+            "TISIconIsTemplate": True,
         },
     }
     with (bundle / "Contents" / "Info.plist").open("wb") as handle:
