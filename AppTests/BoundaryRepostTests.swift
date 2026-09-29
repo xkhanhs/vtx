@@ -17,7 +17,7 @@ final class BoundaryRepostTests: XCTestCase {
         XCTAssertEqual(down.getIntegerValueField(.keyboardEventKeycode), 36)
         XCTAssertEqual(up.getIntegerValueField(.keyboardEventKeycode), 36)
         // Shift+Enter in chat apps means "newline, don't send" — the repost must
-        // preserve that distinction or a shortcut expansion turns it into a send.
+        // preserve that distinction or a boundary rewrite turns it into a send.
         XCTAssertTrue(down.flags.contains(.maskShift))
         XCTAssertTrue(up.flags.contains(.maskShift))
         // hidSystemState loses that bit: the unicode burst clears Chromium's shift

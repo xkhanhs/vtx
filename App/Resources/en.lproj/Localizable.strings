@@ -62,7 +62,6 @@ Press “Repair automatically”: VTX removes its own stuck entry and asks for t
 "Manual check: the newest release on GitHub. Weekly check: the stable channel." = "Manual check: the newest release on GitHub. Weekly check: the stable channel.";
 "No app matches “%@”" = "No app matches “%@”";
 "Clear filter" = "Clear filter";
-"Delete this shortcut" = "Delete this shortcut";
 "Open Settings → About to install it." = "Open Settings → About to install it.";
 
 /* Fork branding: these keys are upstream's English source strings and would

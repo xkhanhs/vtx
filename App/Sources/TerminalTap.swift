@@ -1611,7 +1611,7 @@ enum SyntheticKeyboard {
     /// - `event.copy()` of the real HID event was the replacement — but macOS 26
     ///   silently DROPS a re-posted copy of a hardware key before app delivery
     ///   (repro 2026-08-06: copy posted → passes our tap → never reaches IMKit;
-    ///   WhatsApp beeped once, message not sent, shortcut "ko"→"không" needed a
+    ///   WhatsApp beeped once, message not sent, the rewritten word needed a
     ///   second Enter).
     /// So: build a NEW event, same keycode + flags as the original. Plain
     /// Return uses .hidSystemState and no magic — when it re-enters IMKit it is
@@ -2078,13 +2078,8 @@ final class TerminalTapController {
     /// end of an existing word then pressing a tone key is re-edit's main use.
     /// TAP-thread confined (mouse/key branches of the same serial callback).
     private var lastTapKeyWasBoundary = false
-    /// Dấu câu gõ ngay trước từ đang gõ — gõ tắt kiểu "/shop" (xem ShortcutPrefix).
-    /// TAP-thread confined, như lastTapKeyWasBoundary.
-    private var shortcutPrefix = ShortcutPrefix()
     // Thời điểm ⌫ vật lý gần nhất — gate của re-edit(tap), xem reEditGateOpen.
     private var lastDeleteNs: UInt64 = 0
-    // Phím trước từ hiện tại là chữ số → không nở gõ tắt cho từ đó (issue #82, "5h").
-    private var lastTapKeyWasDigit = false
 
     /// TRUE → the Spotlight overlay owns the keys and no one may compose: the
     /// routing verdict (from the app BEHIND the overlay) says tap-family, but a
@@ -2463,9 +2458,7 @@ final class TerminalTapController {
 
         if type == .leftMouseDown || type == .rightMouseDown {
             engine.reset()
-            shortcutPrefix.reset()
             lastTapKeyWasBoundary = false   // click at a word's end re-arms re-edit
-            lastTapKeyWasDigit = false
             chordRecognizer.disarm()        // click giữa lúc giữ chord = không phải toggle
             // Sticky-source: click trong dải menu bar = user có thể đang tự đổi input
             // source bằng menu — dấu vết để KHÔNG giành lại (StickyInputSource).
@@ -2678,13 +2671,8 @@ final class TerminalTapController {
         }
 
         let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
-        // Every key spends the pending shortcut prefix: only the word key that
-        // IMMEDIATELY follows the "/" may claim it.
-        let prefixForThisKey = shortcutPrefix.takePending()
-
         if keyCode == kDelete {
             lastTapKeyWasBoundary = false   // ⌫ is word-adjacent editing, not a boundary
-            lastTapKeyWasDigit = false
             lastDeleteNs = DispatchTime.now().uptimeNanoseconds
             if engine.isEmpty {
                 // ⌫ on the boundary character the last word ended with re-opens that
@@ -2732,11 +2720,7 @@ final class TerminalTapController {
             // not re-open the word — see tryReopenLastCommitTap.
             defer { engine.forgetLastCommit() }
             if engine.isEmpty, SyntheticKeyboard.queueDrained() { return pass }
-            let gluedToDigit = lastTapKeyWasDigit
-            lastTapKeyWasDigit = false
-            if emitBoundary(suppressAutoRestore: false,
-                            allowShortcuts: TelexInputController.shortcutExpansionAllowed(afterDigit: gluedToDigit))
-                || !SyntheticKeyboard.queueDrained() {
+            if emitBoundary(suppressAutoRestore: false) || !SyntheticKeyboard.queueDrained() {
                 reemit(keyCode: keyCode, string: nil, original: event)
                 return nil
             }
@@ -2758,9 +2742,8 @@ final class TerminalTapController {
         }
         guard let unit = first, let scalar = Unicode.Scalar(unit) else {
             // Dead/function key: flush the word, let the odd key through.
-            // (no shortcut expansion — not an explicit text boundary)
             lastTapKeyWasBoundary = true
-            emitBoundary(suppressAutoRestore: false, allowShortcuts: false)
+            emitBoundary(suppressAutoRestore: false)
             engine.forgetLastCommit()      // nothing predictable landed after the word
             return pass
         }
@@ -2773,7 +2756,7 @@ final class TerminalTapController {
         // (re-emitting arrows as 0x1C killed arrow-key navigation).
         if unit < 0x20 || (unit >= 0xF700 && unit <= 0xF8FF) {
             lastTapKeyWasBoundary = true
-            emitBoundary(suppressAutoRestore: false, allowShortcuts: false)
+            emitBoundary(suppressAutoRestore: false)
             engine.forgetLastCommit()      // navigation: the caret left the word behind
             return pass
         }
@@ -2805,10 +2788,7 @@ final class TerminalTapController {
             // tapNativeFastPath like the letter fast-path below. (modifyInPlace adds
             // nothing here: with no rewrite pending the untouched event is already
             // exactly what should land, in every emit mode.)
-            let rewrote = emitBoundary(suppressAutoRestore: isBracketUnichar(ch.utf16.first ?? unit),
-                                       allowShortcuts: TelexInputController.shortcutExpansionAllowed(afterDigit: lastTapKeyWasDigit))
-            shortcutPrefix.boundaryKey(ch)
-            lastTapKeyWasDigit = TelexInputController.gluesShortcutToken(ch.asciiValue)   // #82 số, #87 / # @
+            let rewrote = emitBoundary(suppressAutoRestore: isBracketUnichar(ch.utf16.first ?? unit))
             // A plain ascii boundary (space, punctuation, digit) leaves exactly ONE
             // character after the word, which is what makes the next ⌫ re-openable
             // (issue #40). Anything else — an option-key symbol, a multi-scalar
@@ -2834,7 +2814,6 @@ final class TerminalTapController {
             tryReEditWordTap(id: id)
         }
         lastTapKeyWasBoundary = false   // this key is a word key
-        if engine.isEmpty { shortcutPrefix.startWord(prefixForThisKey) }
 
         // Ordering rule: a native letter must never race ahead of a still-queued
         // synthetic edit ("nuwax" showed as "nuẵ" because native 'a' landed before
@@ -3003,34 +2982,11 @@ final class TerminalTapController {
         return true
     }
 
-    /// Emit a shortcut expansion / auto-restore rewrite for the composed word. Returns
+    /// Emit an auto-restore rewrite for the composed word. Returns
     /// true if anything was rewritten (caller then re-emits the boundary key after it).
     @discardableResult
-    private func emitBoundary(suppressAutoRestore: Bool, allowShortcuts: Bool = true) -> Bool {
-        let prefix = shortcutPrefix.current
-        shortcutPrefix.startWord(nil)
+    private func emitBoundary(suppressAutoRestore: Bool) -> Bool {
         guard !engine.isEmpty else { engine.reset(); return false }
-        // Capture BOTH forms before reset() wipes them. The composed word is what's on
-        // screen (drives the backspace count); the raw keystrokes are what the user
-        // actually typed.
-        let word = engine.composed
-        let rawWord = engine.rawKeystrokes
-        let onScreen = word.unicodeScalars.count
-        // Shortcut expansion: try the COMPOSED form first, then fall back to the RAW
-        // keystrokes. A shortcut key containing Telex triggers (s f r x j w, doubled
-        // vowels) is transformed by composition and so can NEVER match on `composed`
-        // ("ddc" composes to "đc"); the raw form recovers it. Backspaces are always the
-        // on-screen composed scalar count regardless of which form matched — plus one
-        // for a "/shop"-style key, whose "/" is erased along with the word.
-        // allowShortcuts chỉ cấm khoá TRẦN sau ký tự mở token (#82 / #87) — giống IMK.
-        if let hit = ShortcutPrefix.lookup(word: word, raw: rawWord, prefix: prefix,
-                                           bareAllowed: allowShortcuts,
-                                           in: AppState.shared.shortcuts) {
-            engine.reset()
-            SyntheticKeyboard.apply(backspaces: onScreen + hit.extraBackspaces,
-                                    insert: hit.expansion, mode: emitMode)
-            return true
-        }
         let restore = AppState.shared.autoRestore && !suppressAutoRestore
         if case let .replace(bs, insert) = engine.commitBoundary(autoRestore: restore) {
             SyntheticKeyboard.apply(backspaces: bs, insert: insert, mode: emitMode)
