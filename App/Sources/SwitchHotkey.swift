@@ -99,9 +99,9 @@ enum SwitchHotkey {
     /// đúng phím dù đang ở layout nào.
     static let directSources: [Int64: String] = [
         Int64(kVK_ANSI_1): "com.apple.keylayout.ABC",
-        Int64(kVK_ANSI_2): "com.vtx.inputmethod.telex.vi",
-        Int64(kVK_ANSI_3): "com.vtx.inputmethod.telex.vi-colemak",
-        Int64(kVK_ANSI_4): "com.vtx.keyboardlayout.colemakdhviet.keylayout.ColemakDH-Viet",
+        Int64(kVK_ANSI_2): "com.vtx.keyboardlayout.colemakdhviet.keylayout.ColemakDH-Viet",
+        Int64(kVK_ANSI_3): "com.vtx.inputmethod.telex.vi",
+        Int64(kVK_ANSI_4): "com.vtx.inputmethod.telex.vi-colemak",
     ]
 
     /// TAP THREAD, thuần: keyDown này có phải ⌃+số của bảng trên không. Chỉ ĐÚNG ⌃ —

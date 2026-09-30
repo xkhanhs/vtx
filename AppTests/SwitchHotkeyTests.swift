@@ -81,11 +81,11 @@ final class SwitchHotkeyTests: XCTestCase {
         XCTAssertEqual(SwitchHotkey.directSourceID(keycode: Int64(kVK_ANSI_1), flags: ctrl),
                        "com.apple.keylayout.ABC")
         XCTAssertEqual(SwitchHotkey.directSourceID(keycode: Int64(kVK_ANSI_2), flags: ctrl),
-                       "com.vtx.inputmethod.telex.vi")
-        XCTAssertEqual(SwitchHotkey.directSourceID(keycode: Int64(kVK_ANSI_3), flags: ctrl),
-                       "com.vtx.inputmethod.telex.vi-colemak")
-        XCTAssertEqual(SwitchHotkey.directSourceID(keycode: Int64(kVK_ANSI_4), flags: ctrl),
                        "com.vtx.keyboardlayout.colemakdhviet.keylayout.ColemakDH-Viet")
+        XCTAssertEqual(SwitchHotkey.directSourceID(keycode: Int64(kVK_ANSI_3), flags: ctrl),
+                       "com.vtx.inputmethod.telex.vi")
+        XCTAssertEqual(SwitchHotkey.directSourceID(keycode: Int64(kVK_ANSI_4), flags: ctrl),
+                       "com.vtx.inputmethod.telex.vi-colemak")
         // Caps Lock bật không phá so khớp.
         XCTAssertNotNil(SwitchHotkey.directSourceID(keycode: Int64(kVK_ANSI_2),
                                                     flags: [.maskControl, .maskAlphaShift]))
