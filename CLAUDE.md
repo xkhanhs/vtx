@@ -40,6 +40,10 @@ lock-guarded — see `AppState`'s hot-path caches and `KeyboardLayoutOverride.tr
 
 ```bash
 cd TelexCore && swift test          # engine only — no install, no logout
+xcodebuild -project VietTelex.xcodeproj -scheme VietTelex -destination 'platform=macOS' \
+  -derivedDataPath "$TMPDIR/vtx-test-dd" test [-only-testing:VietTelexTests/<Class>]
+                                    # AppTests/ — target is VietTelexTests, not AppTests;
+                                    # then lsregister -u the VTX.app it built (see below)
 xcodegen generate                   # after adding/removing any source file
 ./Scripts/dev-install.sh            # fast loop: build → sign → install (NOT notarized)
 ./Scripts/notarize-install.sh       # release: → notarize → staple → install (~3 min)
