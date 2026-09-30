@@ -1,34 +1,40 @@
 // make-en-badge.swift — the DH-Việt layout's "EN" badge, drawn by the SAME code as
-// VTX Telex's "VX" (Scripts/make_icon.swift, letters swapped) and rasterized to a
-// 20x16 pt TIFF (1x + 2x, alpha only — a template image).
+// VTX Telex's "VX" (Scripts/make_icon.swift, letters swapped), written as an iconset
+// (alpha only — a template image) for `iconutil` to pack into a REAL .icns.
 //
-// Why a TIFF and not an .icns: an .icns is square, and the input menu sizes an
-// icon by ROW HEIGHT keeping its aspect, so a square badge renders narrower and
-// shorter than the 20x16 "VX" beside it. The layout bundle must still NAME the
-// file "<layout>.icns" (Scripts/make-dh-viet-layout.py copies it that way); macOS
-// reads it by content and honours the 20x16 size. Verified in the menu 2026-09-29.
+// The 20x16 badge fills the square's width, centred vertically. A keyboard layout's
+// icon reaches the menu through IconServices, which decodes by format: the 20x16
+// TIFF saved under the .icns name (2026-09-29) drew for a day, then came back fully
+// transparent (measured 2026-09-30: IconRef with 0 opaque pixels, blank in the
+// menu). A square icon draws a little smaller than VX, but it draws.
 //
 //   swift Scripts/make_icon.swift "$TMPDIR" EN EN.pdf
-//   swift Scripts/layout-resources/make-en-badge.swift "$TMPDIR/EN.pdf" Scripts/layout-resources/DH-Viet.tiff
+//   swift Scripts/layout-resources/make-en-badge.swift "$TMPDIR/EN.pdf" "$TMPDIR/EN.iconset"
+//   iconutil -c icns "$TMPDIR/EN.iconset" -o Scripts/layout-resources/DH-Viet.icns
 
 import AppKit
 
 let args = CommandLine.arguments
 guard args.count == 3, let pdf = NSImage(contentsOfFile: args[1]) else {
-    fputs("usage: make-en-badge.swift <EN.pdf> <out.tiff>\n", stderr); exit(1)
+    fputs("usage: make-en-badge.swift <EN.pdf> <out.iconset>\n", stderr); exit(1)
 }
-let reps: [NSBitmapImageRep] = [1, 2].map { scale in
-    let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 20 * scale, pixelsHigh: 16 * scale,
-                               bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-                               colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
-    rep.size = NSSize(width: 20, height: 16)
-    NSGraphicsContext.saveGraphicsState()
-    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-    pdf.draw(in: NSRect(x: 0, y: 0, width: 20, height: 16))
-    NSGraphicsContext.restoreGraphicsState()
-    return rep
+try FileManager.default.createDirectory(atPath: args[2], withIntermediateDirectories: true)
+for pt in [16, 32, 128, 256, 512] {
+    for scale in [1, 2] {
+        let px = pt * scale
+        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: px, pixelsHigh: px,
+                                   bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                                   isPlanar: false, colorSpaceName: .deviceRGB,
+                                   bytesPerRow: 0, bitsPerPixel: 0)!
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        let side = CGFloat(px), height = side * 16 / 20
+        pdf.draw(in: NSRect(x: 0, y: (side - height) / 2, width: side, height: height))
+        NSGraphicsContext.restoreGraphicsState()
+        let name = scale == 1 ? "icon_\(pt)x\(pt).png" : "icon_\(pt)x\(pt)@2x.png"
+        guard let png = rep.representation(using: .png, properties: [:]) else {
+            fputs("PNG encoding failed\n", stderr); exit(1)
+        }
+        try png.write(to: URL(fileURLWithPath: "\(args[2])/\(name)"))
+    }
 }
-guard let tiff = NSBitmapImageRep.tiffRepresentationOfImageReps(in: reps, using: .lzw, factor: 0) else {
-    fputs("TIFF encoding failed\n", stderr); exit(1)
-}
-try tiff.write(to: URL(fileURLWithPath: args[2]))
