@@ -119,6 +119,16 @@ enum SwitchHotkey {
         // StickyInputSource không giành ngược lại ngay sau khi mình chuyển.
         StickyInputSource.shared.noteUserModifierChord()
         let ok = selectInputSource(id: id)
+        // Chọn MODE của chính mình qua TIS thì IMKit không phải lần nào cũng gửi
+        // setValue(kTextServiceInputModePropertyTag) — đo 30/09/2026: Colemak → Telex
+        // qua ⌃3 không có callback nào, InputModeState kẹt ở Colemak và mọi lần sau
+        // lệch theo (menu ghi Colemak, gõ ra Telex hoặc ngược lại). Mình biết chắc vừa
+        // chọn mode nào, nên ghi nhận luôn; callback tới sau (nếu có) là no-op.
+        if ok, let mode = InputMode(rawValue: id), mode != InputModeState.current {
+            // Như setValue: âm dở dựng trên bố cục kia không được commit sang mode mới.
+            NotificationCenter.default.post(name: .telexResetComposition, object: nil)
+            InputModeState.select(mode)
+        }
         DebugLog.log("switch-hotkey: direct → \(id) \(ok ? "ok" : "FAILED")")
         if !ok {
             Signposts.log.notice("switch-hotkey direct FAILED \(id, privacy: .public)")
