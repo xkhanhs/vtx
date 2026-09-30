@@ -22,8 +22,12 @@ Bộ gõ tiếng Việt cho macOS. Ưu tiên tuyệt đối: **performance** (la
 - Tùy chọn: Simple Telex, bỏ dấu tự do, kiểu bỏ dấu cũ/mới (hòa/hoà), kiểm tra chính tả
   khi gõ, tự khôi phục từ không hợp lệ. Không có gõ tắt: đã chuyển sang app PasteMe
   (29/09/2026).
-- **Không có bật/tắt VI/EN nội bộ, không hotkey riêng**: Vietnamese bật khi VietTelex là
-  input source đang chọn; chuyển input source để gõ tiếng Anh (macOS nhớ theo app).
+- **Không có bật/tắt VI/EN nội bộ**: Vietnamese bật khi VietTelex là input source đang
+  chọn; chuyển input source để gõ tiếng Anh (macOS nhớ theo app). Hotkey của VTX chỉ
+  CHỌN input source, không bật/tắt gì bên trong: ⌃1 ABC · ⌃2 VTX Telex · ⌃3 VTX Colemak ·
+  ⌃4 DH-Việt (cố định, `SwitchHotkey.directSources`; 30/09/2026 — ⌃Space qua HUD thỉnh
+  thoảng không chuyển), cùng hotkey chỉ-gồm-modifier tuỳ chọn để toggle. Cần quyền
+  Trợ năng (đi qua event tap).
 - KHÔNG làm: nhớ theo browser tab (IME không thấy được tab), từ điển file
   (dùng phonotactic validator).
 
