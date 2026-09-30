@@ -1942,6 +1942,10 @@ final class TerminalTapController {
     /// đều từ callback), không cần lock. Xem SwitchHotkey.swift.
     private var chordRecognizer = ModifierChordRecognizer()
 
+    /// TAP-thread confined: keycode của ⌃+số vừa bị nuốt (SwitchHotkey.directSources),
+    /// để keyUp cùng cặp cũng bị nuốt — app không bao giờ thấy nửa nào của phím đó.
+    private var swallowedDirectKeys: Set<Int64> = []
+
     private var trustPoll: Timer?
 
     private func startTrustPollIfNeeded() {
@@ -2434,6 +2438,10 @@ final class TerminalTapController {
         // this callback applies, so return immediately — a plain keyUp costs one type
         // compare, one flags read and a return.
         if type == .keyUp {
+            if !swallowedDirectKeys.isEmpty,
+               swallowedDirectKeys.remove(event.getIntegerValueField(.keyboardEventKeycode)) != nil {
+                return nil
+            }
             // Remap is decided by the PAIR (was this key's keyDown remapped?), never by
             // the current flags: ⌘ is routinely released before the letter, so the
             // letter's keyUp often carries no modifier at all.
@@ -2494,6 +2502,20 @@ final class TerminalTapController {
         // Phím thường (đã lọc synthetic ở trên) giữa lúc giữ chord = một shortcut
         // thật, không phải toggle bộ gõ — disarm. Tap-thread confined, plain store.
         chordRecognizer.disarm()
+
+        // ⌃1…⌃4 chọn thẳng input source (SwitchHotkey.directSources). Chạy với MỌI
+        // source đang chọn — trước gate imeActive — vì chiều ABC → VTX cần nó nhất.
+        // Nuốt cả keyDown (kể cả autorepeat khi giữ phím) lẫn keyUp; chỉ lần nhấn đầu
+        // mới chuyển. TIS chạy trên main.
+        let keycode = event.getIntegerValueField(.keyboardEventKeycode)
+        if let id = SwitchHotkey.directSourceID(keycode: keycode, flags: event.flags) {
+            swallowedDirectKeys.insert(keycode)
+            if event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
+                if !engine.isEmpty || engine.canReopenLastCommit { engine.reset() }
+                DispatchQueue.main.async { SwitchHotkey.selectDirect(id: id) }
+            }
+            return nil
+        }
 
         let needsEngineReset: Bool = stateLock.withLock {
             if Self.stampsLiveness(imeActive: active) {

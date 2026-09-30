@@ -90,6 +90,41 @@ enum SwitchHotkey {
         }
     }
 
+    // MARK: - ⌃1…⌃4: chọn THẲNG một input source
+
+    /// ⌃+số → input source cố định (30/09/2026). ⌃Space đi qua HUD của
+    /// TextInputSwitcher: giữ lâu một chút là HUD hiện và lựa chọn chỉ chốt khi nhả ⌃,
+    /// nên thỉnh thoảng không chuyển. Chọn thẳng thì không có vòng xoay, không HUD,
+    /// không phụ thuộc source nào đang đứng trước. Keycode VẬT LÝ hàng số (ANSI), nên
+    /// đúng phím dù đang ở layout nào.
+    static let directSources: [Int64: String] = [
+        Int64(kVK_ANSI_1): "com.apple.keylayout.ABC",
+        Int64(kVK_ANSI_2): "com.vtx.inputmethod.telex.vi",
+        Int64(kVK_ANSI_3): "com.vtx.inputmethod.telex.vi-colemak",
+        Int64(kVK_ANSI_4): "com.vtx.keyboardlayout.colemakdhviet.keylayout.ColemakDH-Viet",
+    ]
+
+    /// TAP THREAD, thuần: keyDown này có phải ⌃+số của bảng trên không. Chỉ ĐÚNG ⌃ —
+    /// ⌃⇧2, ⌃⌥2, ⌘⌃2 là shortcut khác, để app nhận.
+    static func directSourceID(keycode: Int64, flags: CGEventFlags) -> String? {
+        guard flags.intersection(ModifierChordRecognizer.relevant) == .maskControl
+        else { return nil }
+        return directSources[keycode]
+    }
+
+    /// MAIN thread only. Source không enabled (user đã gỡ) → FAILED trong log, không
+    /// tự bật lại.
+    static func selectDirect(id: String) {
+        // keyDown ⌃+số đã bị tap nuốt trước chỗ stamp chord thường — stamp ở đây để
+        // StickyInputSource không giành ngược lại ngay sau khi mình chuyển.
+        StickyInputSource.shared.noteUserModifierChord()
+        let ok = selectInputSource(id: id)
+        DebugLog.log("switch-hotkey: direct → \(id) \(ok ? "ok" : "FAILED")")
+        if !ok {
+            Signposts.log.notice("switch-hotkey direct FAILED \(id, privacy: .public)")
+        }
+    }
+
     /// Chọn input source theo đúng kTISPropertyInputSourceID. Chỉ nguồn đang enabled
     /// (danh sách mặc định của TISCreateInputSourceList) — không tự bật nguồn user đã gỡ.
     static func selectInputSource(id: String) -> Bool {
