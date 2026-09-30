@@ -605,6 +605,14 @@ Những chỗ dễ sai:
 - `inputSourceIsOurs` khớp theo PREFIX bundle id nên mode mới tự động được nhận —
   sticky, tap reconcile, secure-input monitor không cần sửa.
 
+- **Chọn mode của CHÍNH MÌNH bằng `TISSelectInputSource` thì `setValue` không đáng
+  tin** (đo 30/09/2026, hotkey ⌃3/⌃4, debug log bật): Colemak → Telex báo `ok`, TIS đọc
+  lại đúng `…telex.vi`, nhưng IMKit không gửi `Set value for tag` nào — không cả
+  Deactivate/Activate vì vẫn là cùng một IME. `InputModeState` kẹt ở Colemak; lần
+  chuyển kế về Colemak có callback nhưng thành no-op, nên menu và bố cục lệch nhau từ
+  đó. ⌃Space không dính vì đi qua TextInputSwitcher. Code nào tự chọn mode qua TIS
+  phải tự gọi `InputModeState.select` (xem `SwitchHotkey.selectDirect`).
+
 Đổi metadata input mode ⇒ **notarize + logout/login một lần**. Đây đúng loại thay đổi
 làm `AppleEnabledInputSources` bị dựng lại (xem mục ⌘R ở dưới) — export
 `com.apple.HIToolbox` ra file trước khi cài.
