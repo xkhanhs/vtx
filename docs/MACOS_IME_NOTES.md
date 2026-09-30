@@ -1260,10 +1260,16 @@ CO/DH icon still cached but already drawn as a template (alpha only); touching
 the `.icns` and bouncing `TextInputMenuAgent` again loaded the new one. (2) Any
 SQUARE icon — with margins or full-bleed — rendered shorter and narrower than
 VX: the menu sizes icons by row height and keeps their aspect, and an .icns is
-square by format. What worked: the 20x16 pt badge from `Scripts/make_icon.swift`
-rasterized to a 1x+2x TIFF and saved under the `<layout>.icns` name — macOS
-read it by content and drew it exactly as tall and wide as VX
-(`Scripts/layout-resources/make-en-badge.swift`).
+square by format. The 20x16 pt badge rasterized to a 1x+2x TIFF and saved under
+the `<layout>.icns` name drew exactly as tall and wide as VX — **for one day**.
+On 2026-09-30 the DH-Việt row in the menu had no icon at all: the layout's
+`kTISPropertyIconRef` (no `kTISPropertyIconImageURL` exists for a keylayout)
+rendered to 0 opaque pixels out of 1,048,576, and `touch` + bouncing both agents
+did not change that. IconServices decodes `.icns` by format, not by content; the
+TIFF had only been drawn while something still held an earlier decode. A real
+`.icns` (iconutil, badge filling the square's width) read back 634,144 opaque
+pixels at once. Accept the slightly smaller square badge: it is the one form that
+survives a cache rebuild. Don't use a disguised non-icns file again.
 
 ## A disabled layout comes back at login if it is the "current keyboard layout" — 2026-09-29
 

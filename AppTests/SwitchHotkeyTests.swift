@@ -1,4 +1,5 @@
 import XCTest
+import Carbon.HIToolbox
 @testable import VietTelex
 
 // Hotkey chuyển bộ gõ chỉ-gồm-modifier (17/08/2026, tiếp nối issue #54). Máy nhận
@@ -72,5 +73,32 @@ final class SwitchHotkeyTests: XCTestCase {
         // nil id (TIS trả lỗi thoáng qua) không xoá mất đích cũ.
         SwitchHotkey.noteSelection(isVietTelex: false, currentID: nil)
         XCTAssertEqual(SwitchHotkey.lastOtherSourceID, "com.apple.keylayout.ABC")
+    }
+
+    // ⌃1…⌃4 chọn thẳng source. Chỉ đúng ⌃ — thêm modifier nào là shortcut của app.
+    func testDirectSourceMapping() {
+        let ctrl: CGEventFlags = [.maskControl]
+        XCTAssertEqual(SwitchHotkey.directSourceID(keycode: Int64(kVK_ANSI_1), flags: ctrl),
+                       "com.apple.keylayout.ABC")
+        XCTAssertEqual(SwitchHotkey.directSourceID(keycode: Int64(kVK_ANSI_2), flags: ctrl),
+                       "com.vtx.keyboardlayout.colemakdhviet.keylayout.ColemakDH-Viet")
+        XCTAssertEqual(SwitchHotkey.directSourceID(keycode: Int64(kVK_ANSI_3), flags: ctrl),
+                       "com.vtx.inputmethod.telex.vi")
+        XCTAssertEqual(SwitchHotkey.directSourceID(keycode: Int64(kVK_ANSI_4), flags: ctrl),
+                       "com.vtx.inputmethod.telex.vi-colemak")
+        // Caps Lock bật không phá so khớp.
+        XCTAssertNotNil(SwitchHotkey.directSourceID(keycode: Int64(kVK_ANSI_2),
+                                                    flags: [.maskControl, .maskAlphaShift]))
+    }
+
+    func testDirectSourceIgnoresOtherChordsAndKeys() {
+        let two = Int64(kVK_ANSI_2)
+        XCTAssertNil(SwitchHotkey.directSourceID(keycode: two, flags: []))
+        XCTAssertNil(SwitchHotkey.directSourceID(keycode: two, flags: [.maskCommand]))
+        XCTAssertNil(SwitchHotkey.directSourceID(keycode: two, flags: [.maskControl, .maskShift]))
+        XCTAssertNil(SwitchHotkey.directSourceID(keycode: two, flags: [.maskControl, .maskAlternate]))
+        XCTAssertNil(SwitchHotkey.directSourceID(keycode: two, flags: [.maskControl, .maskCommand]))
+        XCTAssertNil(SwitchHotkey.directSourceID(keycode: Int64(kVK_ANSI_5), flags: [.maskControl]))
+        XCTAssertNil(SwitchHotkey.directSourceID(keycode: Int64(kVK_Space), flags: [.maskControl]))
     }
 }
