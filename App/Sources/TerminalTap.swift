@@ -364,6 +364,51 @@ enum DetectorBackoff {
     }
 }
 
+/// What IMKit last activated, as seen from the TAP thread. Written on MAIN (every
+/// activateServer), read on the TAP thread per key — hence the lock (one uncontended
+/// lock trip per key, no AX, no XPC).
+/// - `epoch`: đếm mọi lần activateServer. Re-edit(tap) chỉ seed khi KHÔNG có lần đổi
+///   focus nào kể từ phím/click gần nhất (issue #111, xem FocusAnchor).
+/// - `overlayLauncher`: id của overlay launcher (AppState.isOverlayLauncher) khi IMK
+///   đang phục vụ nó, nil với mọi client khác (issue #110). Một client KHÁC được
+///   activate là bằng chứng panel đã mất bàn phím — cùng lập luận với
+///   SpotlightDetector.noteUnfocused.
+enum ClientFocus {
+    private static let lock = NSLock()
+    private static var _epoch: UInt64 = 0
+    private static var _overlayLauncher: String?
+
+    static func noteActivated(client: String?) {
+        lock.withLock {
+            _epoch &+= 1
+            _overlayLauncher = AppState.isOverlayLauncher(client) ? client : nil
+        }
+    }
+
+    static var epoch: UInt64 { lock.withLock { _epoch } }
+    static var overlayLauncher: String? { lock.withLock { _overlayLauncher } }
+}
+
+/// Issue #111 (Zalo, 02/10/2026): đang ở ô chat A, bấm sang hội thoại B rồi gõ "w" →
+/// re-edit(tap) seed "dà" (chữ của ô CŨ — AX của Electron chưa cập nhật) → "ằ", và
+/// "word␣" ra "dafword" (tap-emit trong log khớp 1:1 với engine seed "dà").
+/// Click xoá cờ ranh giới (click ở cuối từ rồi gõ dấu là ca chính của re-edit), nên
+/// gate cũ để lọt. Luật: chỉ tin chữ AX trước con trỏ khi focus ĐỨNG YÊN kể từ phím/
+/// click gần nhất. Click chuyển hội thoại tới tap TRƯỚC activateServer mà nó gây ra,
+/// nên phím đầu tiên trong ô mới luôn thấy epoch lệch → không seed; phím đó neo lại,
+/// từ phím sau mọi thứ như cũ. Giá: click sang ô KHÁC rồi gõ dấu ngay thì phím đó
+/// không re-edit (click thêm lần nữa trong ô là được) — fail-closed, chấp nhận.
+/// Pure để test (epoch là tham số).
+struct FocusAnchor {
+    private(set) var epoch: UInt64?
+    /// Neo tại một phím/click vật lý; trả về true nếu không có activateServer nào
+    /// kể từ lần neo trước.
+    mutating func observe(_ current: UInt64) -> Bool {
+        defer { epoch = current }
+        return epoch == current
+    }
+}
+
 /// Spotlight is a system overlay, not the frontmost APP — its bundle id never shows
 /// up in NSWorkspace.frontmostApplication. Detect it by scanning the
 /// on-screen window list for a window owned by the "Spotlight" process.
@@ -2128,6 +2173,11 @@ final class TerminalTapController {
     private var lastTapKeyWasBoundary = false
     // Thời điểm ⌫ vật lý gần nhất — gate của re-edit(tap), xem reEditGateOpen.
     private var lastDeleteNs: UInt64 = 0
+    /// Neo focus cho re-edit(tap) — issue #111, xem FocusAnchor. `reEditFocusStable`:
+    /// phím ĐANG xử lý tới khi chưa có activateServer nào kể từ phím/click trước.
+    /// TAP-thread confined.
+    private var reEditFocus = FocusAnchor()
+    private var reEditFocusStable = true
 
     /// TRUE → the Spotlight overlay owns the keys and no one may compose: the
     /// routing verdict (from the app BEHIND the overlay) says tap-family, but a
@@ -2137,6 +2187,19 @@ final class TerminalTapController {
     /// polarity is pinned by tests.
     static func spotlightOverlayForcesRaw(visible: Bool, manualPin: AppState.AppMode?) -> Bool {
         visible && !(manualPin == .selection || manualPin == .tap || manualPin == .emptyReset)
+    }
+
+    /// Issue #110: IMK đang phục vụ một overlay launcher (Raycast) mà FrontmostApp là
+    /// app PHÍA SAU → phím rơi vào ô của panel, routing của tap lại là của app phía
+    /// sau (Edge → nội dung trang → ⌫+gõ-lại). Panel gõ IMK in-place theo rule của
+    /// nó (AppState.tapRouting không gộp front cho id này) nên tap phải NHƯỜNG phím
+    /// nguyên vẹn. Chỉ ép tay họ tap trên chính launcher mới giữ đường tap cũ.
+    /// `manualPin` lười: chỉ tra khi có launcher đang được latch.
+    static func overlayLauncherOwnsKeys(latchedLauncher: String?, front: String?,
+                                        manualPin: (String) -> AppState.AppMode?) -> Bool {
+        guard let l = latchedLauncher, l != front else { return false }
+        let pin = manualPin(l)
+        return !(pin == .selection || pin == .tap || pin == .emptyReset)
     }
 
     /// Emit mode cho một phím mà routing đã quyết là của TAP; nil = tap không giữ
@@ -2512,6 +2575,7 @@ final class TerminalTapController {
         if type == .leftMouseDown || type == .rightMouseDown {
             engine.reset()
             lastTapKeyWasBoundary = false   // click at a word's end re-arms re-edit
+            _ = reEditFocus.observe(ClientFocus.epoch)   // click = neo focus mới (#111)
             chordRecognizer.disarm()        // click giữa lúc giữ chord = không phải toggle
             // Sticky-source: click trong dải menu bar = user có thể đang tự đổi input
             // source bằng menu — dấu vết để KHÔNG giành lại (StickyInputSource).
@@ -2528,6 +2592,9 @@ final class TerminalTapController {
             SyntheticKeyboard.noteObservedSynthetic()
             return pass
         }
+
+        // Mọi phím vật lý (cả chord ⌘K đổi hội thoại) neo focus cho re-edit (#111).
+        reEditFocusStable = reEditFocus.observe(ClientFocus.epoch)
 
         // One read of the activation latch for the whole key (it is a locked computed
         // property; the stamp below and the self-heal further down both need it).
@@ -2726,6 +2793,12 @@ final class TerminalTapController {
                                           manualPin: spotlightManual) {
             engine.reset(); return pass
         }
+        // Overlay launcher (Raycast, #110): cùng lớp với Spotlight ở trên, nhưng panel
+        // gõ IMK in-place (không phải raw) — tap chỉ cần nhường phím.
+        if Self.overlayLauncherOwnsKeys(latchedLauncher: ClientFocus.overlayLauncher, front: id,
+                                        manualPin: { AppState.shared.manualMode($0) }) {
+            engine.reset(); return pass
+        }
         // Secure input (native password prompts) OR an AX-reported password field (web
         // login forms, which do NOT switch secure input on): never compose, never emit —
         // pass the raw key through untouched. See SecureFieldDetector.
@@ -2888,7 +2961,11 @@ final class TerminalTapController {
                                lastKeyWasBoundary: lastTapKeyWasBoundary,
                                queueDrained: SyntheticKeyboard.queueDrained(),
                                msSinceDelete: (DispatchTime.now().uptimeNanoseconds &- lastDeleteNs) / 1_000_000) {
-            tryReEditWordTap(id: id)
+            if reEditFocusStable {
+                tryReEditWordTap(id: id)
+            } else {
+                DebugLog.log("re-edit(tap) \(id ?? "?"): skipped (focus changed since last key/click)")
+            }
         }
         lastTapKeyWasBoundary = false   // this key is a word key
 
