@@ -196,6 +196,13 @@ final class ProbeChordGateTests: XCTestCase {
                                                      chordHeld: false, spaceHeld: false))
     }
 
+    // A remote-desktop client in front swallows every key in its own tap, the marker
+    // included; counting that as a miss tore down a healthy tap (RustDesk, 2026-10-05).
+    func testRemoteDesktopFrontmostBlocksTheProbe() {
+        XCTAssertFalse(SyntheticKeyboard.probeMayPost(secureInput: false, secureField: false,
+                                                      chordHeld: false, remoteDesktop: true))
+    }
+
     func testQuietHandsAllowTheProbe() {
         XCTAssertTrue(SyntheticKeyboard.probeMayPost(secureInput: false, secureField: false, chordHeld: false))
     }

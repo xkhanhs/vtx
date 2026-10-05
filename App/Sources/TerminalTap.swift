@@ -268,10 +268,15 @@ enum Accessibility {
     /// every properly signed release afterwards is refused while the checkbox still shows
     /// allowed — the permanently-stuck state, created by us. `project.yml` builds ad-hoc
     /// (`CODE_SIGN_IDENTITY: "-"`) so a plain `xcodebuild` run of the app can reach here.
+    ///
+    /// `afterReset`: the caller just deleted our row with `resetOwnGrant()`. The running
+    /// process keeps answering trusted=true (and both CGPreflight calls true) after that
+    /// delete — measured 2026-10-05, while WindowServer refused every tap — so the
+    /// early return would swallow the one prompt that puts us back in the list.
     @discardableResult
-    static func requestIfNeeded() -> Bool {
+    static func requestIfNeeded(afterReset: Bool = false) -> Bool {
         invalidateCache()
-        if AXIsProcessTrusted() { return true }
+        if !afterReset, AXIsProcessTrusted() { return true }
         guard isOurSignedBuild else {
             DebugLog.log("skip AX prompt: this build is not Developer ID-signed by our team "
                 + "(would poison the TCC row for every signed release)")
@@ -290,7 +295,9 @@ enum Accessibility {
               let info = infoRef as? [String: Any] else { return nil }
         return info["teamid"] as? String
     }
-    static var isOurSignedBuild: Bool { ownTeamIdentifier == "84T567KMYD" }
+    /// The FORK's team, not upstream's 84T567KMYD: with upstream's id here every VTX
+    /// build failed the guard, so the repair deleted the row and then never prompted.
+    static var isOurSignedBuild: Bool { ownTeamIdentifier == "CT94G6J3TH" }
 }
 
 /// Cached frontmost-app bundle id. `NSWorkspace.shared.frontmostApplication` is an
@@ -1310,8 +1317,18 @@ enum SyntheticKeyboard {
     /// miss-accounting so the two can never disagree (a probe "sent" by the watchdog
     /// but silently skipped here would read as a miss and tear down a healthy tap).
     static func probeMayPost(secureInput: Bool, secureField: Bool, chordHeld: Bool,
-                             spaceHeld: Bool = false) -> Bool {
-        !(secureInput || secureField || chordHeld || spaceHeld)
+                             spaceHeld: Bool = false, remoteDesktop: Bool = false) -> Bool {
+        !(secureInput || secureField || chordHeld || spaceHeld || remoteDesktop)
+    }
+
+    /// TRUE while a remote-desktop client is frontmost. Those apps install their own
+    /// head tap and swallow every key while their window has focus, so our marker never
+    /// comes back and two ticks later a healthy tap is torn down (2026-10-05: RustDesk
+    /// frontmost 10:58:33 → 10:59:17, probe "unanswered ×2" at 10:59:16). We are
+    /// passthrough there anyway — nothing to protect — and the marker would otherwise
+    /// be forwarded to the remote machine as a stray F20.
+    static var remoteDesktopFrontmost: Bool {
+        ClientPolicy.isRemoteDesktop(FrontmostApp.shared.bundleID)
     }
 
     /// TRUE while the user physically holds SPACE. Adobe apps (After Effects,
@@ -1335,7 +1352,8 @@ enum SyntheticKeyboard {
         if !probeMayPost(secureInput: IsSecureEventInputEnabled(),
                          secureField: SecureFieldDetector.isSecure,
                          chordHeld: chordModifierHeld,
-                         spaceHeld: spacebarHeld) { return }
+                         spaceHeld: spacebarHeld,
+                         remoteDesktop: remoteDesktopFrontmost) { return }
         guard let down = CGEvent(keyboardEventSource: src, virtualKey: CGKeyCode(probeKeycode), keyDown: true),
               let up = CGEvent(keyboardEventSource: src, virtualKey: CGKeyCode(probeKeycode), keyDown: false)
         else { return }
@@ -2036,7 +2054,12 @@ final class TerminalTapController {
                     Signposts.log.fault("health probe unanswered ×\(self.probeMisses) — posts dropped or tap wedged; tearing down (quarantine 60s)")
                     DebugLog.log("health probe missed ×\(self.probeMisses) → teardown + quarantine 60s")
                     self.probeMisses = 0
-                    self.trustLooksStale = true          // menu shows the repair line
+                    // NOT trustLooksStale: a missed probe does not name the cause.
+                    // Another tap ahead of ours can eat the marker (2026-10-05: RustDesk
+                    // installed a head tap 43s before this fired on a grant that had
+                    // worked for two days), and calling that "stale" invited the user to
+                    // delete a good grant. The menu shows "Tap paused — click to retry";
+                    // only tapCreate returning NULL in start() proves the grant is gone.
                     self.quarantine(60)
                     self.trustMayHaveChanged()
                     return
@@ -2047,8 +2070,10 @@ final class TerminalTapController {
             if !SyntheticKeyboard.probeMayPost(secureInput: IsSecureEventInputEnabled(),
                                                secureField: SecureFieldDetector.isSecure,
                                                chordHeld: SyntheticKeyboard.chordModifierHeld,
-                                               spaceHeld: SyntheticKeyboard.spacebarHeld) {
-                // Password field in focus, or a ⌘/⌃/⌥ chord held: we do not post the
+                                               spaceHeld: SyntheticKeyboard.spacebarHeld,
+                                               remoteDesktop: SyntheticKeyboard.remoteDesktopFrontmost) {
+                // Password field in focus, a ⌘/⌃/⌥ chord held, or a remote-desktop
+                // client in front (it eats the marker): we do not post the
                 // probe there (see postProbe), so there is nothing to ack — counting
                 // that as a miss would raise a false "stale grant" and tear down a
                 // perfectly healthy tap.

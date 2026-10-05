@@ -2184,7 +2184,7 @@ final class TelexInputController: IMKInputController {
             + "→ trusted=\(AXIsProcessTrusted()) canPost=\(Accessibility.canPostEvents)")
         // Ask again. When the row is gone this shows the system TCC dialog; when macOS
         // kept it (MDM-managed), nothing appears — hence the manual fallback below.
-        Accessibility.requestIfNeeded()
+        Accessibility.requestIfNeeded(afterReset: true)
         TerminalTapController.shared.retryNow()
         let done = NSAlert()
         done.messageText = VTLocalized(didReset ? "Repair started title" : "Repair failed title")
