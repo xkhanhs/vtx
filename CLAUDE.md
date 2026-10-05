@@ -125,6 +125,10 @@ Changing bundle id or input-mode metadata in `Info.plist` needs a logout/login o
   changed resource in the repo.
 - The updater's designated requirement pins this fork's identifier and team, so an
   upstream artifact can never install over VTX. Keep it that way.
+- Upstream code also ships upstream's TEAM ID. After a sync, grep `App/Sources` for
+  `84T567KMYD`: a cherry-picked guard compared the running team against it, so on VTX
+  (`CT94G6J3TH`) the "Sửa tự động" button deleted the Accessibility grant and never
+  re-prompted (2026-10-05, `docs/MACOS_IME_NOTES.md`).
 - Settings live in the `com.viettelex.settings` defaults suite, deliberately: it carries
   the user's existing shortcuts and preferences over from upstream.
 - The DH-Việt layout is settled (26/09/2026, `docs/LAYOUT-TYPING-DATA.md`): no more

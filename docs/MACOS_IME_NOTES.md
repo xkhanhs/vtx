@@ -166,7 +166,7 @@ trạng thái kẹt: `AXIsProcessTrusted() == true && CGPreflightPostEventAccess
 1. Dòng TCC được tạo bởi một build **không phải** Developer ID của mình (ad-hoc/Xcode/
    XCTest host): `csreq` khi đó ghim cdhash hoặc leaf cert → mọi bản ký đúng sau này đều
    trượt, vĩnh viễn. `project.yml` build ad-hoc, nên `requestIfNeeded()` từ 27/07 **từ
-   chối prompt** nếu team ≠ 84T567KMYD (`Accessibility.isOurSignedBuild`).
+   chối prompt** nếu team ≠ team ký của mình (`Accessibility.isOurSignedBuild`; upstream 84T567KMYD, fork CT94G6J3TH).
 2. **Thay bundle khi tiến trình còn chạy**: inode cũ bị unlink, tiến trình đang chạy
    trượt validation. Apple ("Updating Mac Software", Quinn forums 703188) yêu cầu quit
    trước rồi swap. `SelfUpdater` nay `stopForUpdate()` (tháo tap) TRƯỚC `replaceItemAt`.
@@ -198,6 +198,53 @@ reset & xin lại*, đúng cái VietTelex làm từ 1.4.18.
 không cdhash) — `make-release.sh` **fail build** nếu DR lệch; grant đầu tiên chỉ được
 tạo từ bản notarized; quit/tháo tap trước khi swap bundle; pkg xoá bundle cũ; tap owner
 không được `LSBackgroundOnly`; sau update tự kiểm bằng preflight + tapCreate.
+
+### Nút "Sửa tự động" xoá quyền rồi không xin lại — 2026-10-05
+
+Ca thật trên VTX 1.6.27 (macOS 27.0.1), bundle không đổi từ 30/09, tiến trình chạy liền
+từ 03/10. 10:59:16 probe sức khoẻ hụt ×2 → tap bị tháo và menu hiện "Quyền trợ năng bị
+kẹt". Người dùng bấm "Sửa tự động" ba lần; tccd ghi `TCCDEvent type=Delete
+service=kTCCServiceAccessibility` lúc 10:59:34 và **không có prompt nào hiện ra**. VTX
+biến khỏi danh sách Trợ năng, không còn gì để tick.
+
+Hai lỗi chồng nhau, đều ở `Accessibility.requestIfNeeded()`:
+
+1. `isOurSignedBuild` so team với `84T567KMYD` — team của **upstream**, theo commit
+   cherry-pick về. Fork ký bằng `CT94G6J3TH` nên guard luôn trượt, prompt luôn bị bỏ.
+2. Sau `tccutil reset`, tiến trình đang chạy **vẫn** trả `AXIsProcessTrusted() == true`,
+   và cả `CGPreflightPostEventAccess()` lẫn `CGPreflightListenEventAccess()` cũng `true`
+   — đo liên tục 10:59:34 → 11:03:15, trong lúc WindowServer log `Sender lacks privileges
+   to install non-process event taps` cho mỗi lần `tapCreate`. Vậy early-return "đã
+   trusted" nuốt prompt, và dấu vân tay `trusted && !canPost` ở trên **không** bắt được
+   trạng thái "dòng TCC vừa bị xoá". Chỉ `tapCreate` trả NULL là tín hiệu thật.
+
+Sửa: guard dùng team của fork; đường repair gọi `requestIfNeeded(afterReset: true)` để
+bỏ qua early-return. Gỡ tay khi đã lỡ kẹt: Trợ năng → `+` → ⌘⇧G →
+`~/Library/Input Methods/VTX.app`.
+
+**Cấp lại quyền không cứu được tiến trình đang chạy.** Sau khi thêm tay lại (tccd
+`Modify` 11:04:44 và 11:05:11), PID cũ vẫn bị `Sender lacks privileges` lúc 11:05:12.
+Kill tiến trình, IMKit tự bật bản mới, `CGGetEventTapList` thấy tap của PID mới ngay.
+(Còn một `Modify` nữa lúc 11:05:13 nên chưa loại hẳn khả năng công tắc đang tắt đúng
+giây đó — nhưng khởi động lại là bước chắc chắn.)
+
+**Cái gì làm probe hụt lúc 10:59:16.** RustDesk client (PID 56402) khởi động 10:58:33 và
+cài một session tap head-insert, mask rộng gồm phím — 43 giây trước khi probe hụt ×2.
+Tap cài sau đứng TRƯỚC tap của VTX, nên nếu nó nuốt phím (chế độ bắt bàn phím cho phiên
+remote) thì marker F20 không bao giờ tới callback của mình. Đây là tương quan thời gian,
+**chưa chứng minh nhân quả**: không có lần `tapCreate` nào giữa 10:59:16 và lúc reset, và
+sau khi VTX khởi động lại tap của nó lại đứng trước RustDesk nên không tái hiện được. Bằng chứng thêm: log focus của WindowServer cho thấy RustDesk là app frontmost liên tục 10:58:33.9 → 10:59:17.4, tức trùm đúng cả hai nhịp probe hụt.
+
+Sửa kèm: probe hụt ×2 không còn tự đặt `trustLooksStale`. Trước đó một tap bị che/wedge
+được báo thành "quyền kẹt sau khi cập nhật" và mời xoá một grant có thể vẫn tốt. Giờ
+menu hiện "Tap paused — click to retry"; chỉ `tapCreate` trả NULL mới gắn nhãn kẹt. Ca
+gỡ quyền bằng `−` (22/07) vẫn được bắt, muộn hơn một lần thử lại.
+
+Sửa tiếp cùng ngày: probe không gửi và không tính hụt khi app frontmost thuộc
+`ClientPolicy.isRemoteDesktop` (cùng danh sách passthrough đã có sẵn RustDesk từ đợt
+gonhanh-learnings — passthrough đó chỉ che đường gõ, watchdog chưa hề biết tới). Người
+dùng xác nhận đúng lúc đó đang mở RustDesk. Một app nuốt phím KHÔNG nằm trong danh sách
+vẫn gây vòng tháo tap → nghỉ 60s → tạo lại.
 
 ## Debug logging KHÔNG được nằm trên hot path — 2026-07-27
 
