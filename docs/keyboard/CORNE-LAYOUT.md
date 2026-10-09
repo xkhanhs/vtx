@@ -1,7 +1,9 @@
 # Phác thảo keymap Corne ba tầng, không trễ
 
-Phác thảo ngày 27/09/2026. Cùng ngày đã đổi quyết định mua: Corne v4 bản Bluetooth của KiwiKey (ZMK, có ZMK Studio)
-thay cho Sofle v2 có dây, chấp nhận học tầng số. Đây là keymap sẽ nạp cho bàn phím đó.
+Phác thảo ngày 27/09/2026, nạp vào bàn phím ngày 09/10/2026. Bàn phím là Corne v4 bản
+Bluetooth (ZMK, có ZMK Studio), thay cho Sofle v2 có dây, chấp nhận học tầng số.
+Firmware nằm ở repo [xkhanhs/zmk-config-corne](https://github.com/xkhanhs/zmk-config-corne),
+fork từ `shopcntech/corne1` của shop bán; keymap là file `config/corne.keymap` ở đó.
 Bản này trả lời câu hỏi: nếu dùng Corne (3 phím ngón cái mỗi bên) thì xếp modifier thế
 nào để gõ không bị khựng như home row mods trên kanata.
 
@@ -32,14 +34,16 @@ Chữ trên phím là ký tự ra theo DH-Việt. `·` là phím giữ nguyên n
 
 **Tầng 1: NAV** (giữ bằng ngón cái trái)
 ```
- ·     Esc   PgUp  ↑     PgDn  Redo  │   ·     Sáng− Sáng+ ·     ·     ·
- ·     ĐầuD  ←     ↓     →     CuốiD │   ·     ⌘     ⌥     ⌃     ⇧     ·
- ·     Del   Dán   Cắt   Chép  Undo  │   ·     Mute  Vol−  Vol+  Play  ·
+ ·     Esc   PgUp  ↑     PgDn  Redo  │  BTxoá Sáng− Sáng+ BT1   BT2   BT3
+ ·     ĐầuD  ←     ↓     →     CuốiD │  BT4   ⌘     ⌥     ⌃     ⇧     ·
+ ·     Del   Dán   Cắt   Chép  Undo  │  BT5   Mute  Vol−  Vol+  Play  ·
                    ⌘    [giữ]  ·     │  XoáTừ  ·     ·
 ```
 - Đầu dòng và Cuối dòng gửi ⌘← và ⌘→. Trên Mac, Home và End thường chỉ cuộn trang.
 - Dán, Chép, Hoàn tác đặt trùng chỗ ⌘v, ⌘c, ⌘z của DH-Việt. Phím Cắt có vì x nằm tay phải.
 - Xoá từ (⌥⌫) nằm đúng chỗ Bksp: giữ NAV rồi bấm Bksp.
+- BT1 đến BT5 chọn máy đang ghép qua Bluetooth, BT xoá gỡ ghép nối của ô đang chọn.
+  Hướng dẫn xử lý sự cố kết nối của shop đều bắt đầu bằng BT xoá.
 
 **Tầng 2: SYM** (giữ bằng ngón cái phải)
 ```
@@ -59,3 +63,14 @@ Chữ trên phím là ký tự ra theo DH-Việt. `·` là phím giữ nguyên n
   phải gửi phím Y (`&kp Y` trong ZMK), vì DH-Việt đã chuyển `;` sang đó. Các ký hiệu khác vẫn ở chỗ cũ.
 - Corne không có hàng số, và macOS không tự đổi F1–F12 của bàn phím rời thành phím
   media. Vì vậy độ sáng, âm lượng và play phải là keycode riêng ở tầng NAV.
+
+## Sửa keymap và nạp lại
+
+- Đổi phím hay đổi tầng: cắm dây vào nửa trái, mở [zmk.studio](https://zmk.studio) bằng
+  Chrome, sửa rồi Save. Bản lưu trong Studio nằm trên bàn phím và đè lên keymap của mọi
+  firmware nạp sau đó; muốn về keymap trong repo thì chọn Restore Stock Settings.
+- Đổi thứ ngoài keymap (file `.conf`, macro, combo): sửa repo, để GitHub Actions build, rồi
+  nạp file `.uf2` vào nửa trái. Keymap chỉ nằm ở nửa trái, nửa phải không cần nạp lại.
+- Keymap không có phím Bootloader. Khi cần nạp, gán tạm hành vi Bootloader cho một phím
+  **nửa trái** trong Studio, không Save, rồi bấm phím đó: ổ đĩa `NICENANO` hiện ra. Phím
+  Bootloader chỉ đưa đúng nửa chứa nó vào chế độ nạp.
