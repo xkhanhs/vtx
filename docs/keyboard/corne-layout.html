@@ -6,42 +6,45 @@
 <title>Corne ba tầng</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
 <style>
-:root{--bg:#fafaf8;--card:#fff;--text:#1f1f1d;--muted:#8a8984;--sec:#5f5e5a;--border:#d3d1c7;--mod-bg:#eeedfe;--mod-fg:#3c3489;--lay-bg:#e1f5ee;--lay-fg:#085041;--cmd-bg:#faece7;--cmd-fg:#712b13;--held-bg:#1f1f1d;--held-fg:#fff;--accent:#378add}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1a1a19;--card:#262624;--text:#eceae4;--muted:#888780;--sec:#b4b2a9;--border:#444441;--mod-bg:#3c3489;--mod-fg:#eeedfe;--lay-bg:#085041;--lay-fg:#e1f5ee;--cmd-bg:#712b13;--cmd-fg:#faece7;--held-bg:#eceae4;--held-fg:#1a1a19;--accent:#85b7eb}}
-:root[data-theme="dark"]{--bg:#1a1a19;--card:#262624;--text:#eceae4;--muted:#888780;--sec:#b4b2a9;--border:#444441;--mod-bg:#3c3489;--mod-fg:#eeedfe;--lay-bg:#085041;--lay-fg:#e1f5ee;--cmd-bg:#712b13;--cmd-fg:#faece7;--held-bg:#eceae4;--held-fg:#1a1a19;--accent:#85b7eb}
-body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,system-ui,sans-serif;line-height:1.6}
-main{max-width:720px;margin:0 auto;padding:24px 16px 48px}
-h1{font-size:22px;font-weight:500;margin:0 0 4px}
-.wrap{overflow-x:auto}
-.kb{display:grid;grid-template-columns:repeat(6,44px) 22px repeat(6,44px);grid-auto-rows:40px;gap:5px;margin:6px 0 4px;width:max-content}
-.k{border:0.5px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;background:var(--card);text-align:center;line-height:1.1;transition:box-shadow .15s}
-.k i{font-size:17px}
-.k.s{font-size:11px}
-.k.m{background:var(--mod-bg);color:var(--mod-fg);border-color:transparent}
-.k.l{background:var(--lay-bg);color:var(--lay-fg);border-color:transparent}
-.k.c{background:var(--cmd-bg);color:var(--cmd-fg);border-color:transparent;font-size:11px}
-.k.h{background:var(--held-bg);color:var(--held-fg);border-color:transparent}
-.k.t{border-style:dashed;color:var(--muted);background:transparent;font-size:11px}
-.k.on{box-shadow:0 0 0 2px var(--accent)}
-.lt{font-size:15px;font-weight:500;margin:1.4rem 0 0}
-.ls{font-size:13px;color:var(--sec);margin:0}
-.lg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--sec);margin:12px 0 0}
-.lg span{display:inline-flex;align-items:center;gap:6px}
-.sw{width:14px;height:14px;border-radius:4px;display:inline-block}
-.sc{display:flex;flex-wrap:wrap;gap:6px;margin:1rem 0 .3rem}
-.sc button{font:inherit;font-size:13px;padding:4px 10px;border-radius:8px;border:0.5px solid var(--border);background:transparent;color:var(--text);cursor:pointer}
-.sc button.act{border-color:var(--accent);color:var(--accent)}
-#how{font-size:13px;color:var(--sec);min-height:20px;margin:0}
+:root{--u:64px;--bg:#fafaf8;--card:#fff;--text:#1f1f1d;--sec:#5f5e5a;--border:#b4b2a9;--mod-bg:#eeedfe;--mod-fg:#3c3489;--lay-bg:#e1f5ee;--lay-fg:#085041;--cmd-bg:#faece7;--cmd-fg:#712b13;--bt-bg:#e6f1fb;--bt-fg:#0c447c;--held-bg:#1f1f1d;--held-fg:#fff;--accent:#185fa5}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1a1a19;--card:#262624;--text:#eceae4;--sec:#b4b2a9;--border:#5f5e5a;--mod-bg:#3c3489;--mod-fg:#eeedfe;--lay-bg:#085041;--lay-fg:#e1f5ee;--cmd-bg:#712b13;--cmd-fg:#faece7;--bt-bg:#0c447c;--bt-fg:#e6f1fb;--held-bg:#eceae4;--held-fg:#1a1a19;--accent:#85b7eb}}
+:root[data-theme="dark"]{--bg:#1a1a19;--card:#262624;--text:#eceae4;--sec:#b4b2a9;--border:#5f5e5a;--mod-bg:#3c3489;--mod-fg:#eeedfe;--lay-bg:#085041;--lay-fg:#e1f5ee;--cmd-bg:#712b13;--cmd-fg:#faece7;--bt-bg:#0c447c;--bt-fg:#e6f1fb;--held-bg:#eceae4;--held-fg:#1a1a19;--accent:#85b7eb}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,system-ui,sans-serif;font-size:17px;line-height:1.6}
+main{max-width:928px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:28px;font-weight:600;margin:0 0 4px}
+a{color:var(--accent)}
+.wrap{overflow-x:auto;padding-bottom:8px}
+.kb{position:relative;width:calc(var(--u)*14);height:calc(var(--u)*4.9);margin:10px 0 0}
+.k{position:absolute;box-sizing:border-box;width:calc(var(--u) - 6px);height:calc(var(--u) - 6px);border:1.5px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--card);text-align:center;line-height:1.1;transition:box-shadow .15s}
+.k.tall{height:calc(var(--u)*1.5 - 6px)}
+.k i{font-size:24px}
+.k.s{font-size:16px}
+.k.m{background:var(--mod-bg);color:var(--mod-fg);border-color:transparent;font-size:22px}
+.k.l{background:var(--lay-bg);color:var(--lay-fg);border:2.5px solid var(--lay-fg);font-size:17px;font-weight:700}
+.k.c{background:var(--cmd-bg);color:var(--cmd-fg);border-color:transparent;font-size:16px}
+.k.b{background:var(--bt-bg);color:var(--bt-fg);border-color:transparent;font-size:16px}
+.k.h{background:var(--held-bg);color:var(--held-fg);border-color:transparent;font-size:17px;font-weight:700}
+.k.t{border:2.5px dashed var(--sec);color:var(--sec);background:transparent;font-size:16px}
+.k.on{box-shadow:0 0 0 4px var(--accent)}
+.lt{font-size:22px;font-weight:600;margin:2rem 0 0}
+.ls{font-size:17px;color:var(--sec);margin:0}
+.lg{display:flex;gap:10px 20px;flex-wrap:wrap;font-size:16px;color:var(--sec);margin:14px 0 0}
+.lg span{display:inline-flex;align-items:center;gap:8px}
+.sw{box-sizing:border-box;width:20px;height:20px;border-radius:5px;display:inline-block}
+.sc{display:flex;flex-wrap:wrap;gap:8px;margin:1.2rem 0 .4rem}
+.sc button{font:inherit;font-size:16px;padding:6px 14px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--text);cursor:pointer}
+.sc button.act{border-color:var(--accent);color:var(--accent);border-width:2.5px;padding:5px 13px}
+#how{font-size:17px;color:var(--sec);min-height:28px;margin:0}
 </style>
 </head>
 <body>
 <main>
 <h1>Corne ba tầng, không trễ</h1>
-<p class="ls">Phác thảo 27/09/2026. Chữ theo DH-Việt. Mỗi phím chỉ một chức năng, không home row mods. Xem <a href="CORNE-LAYOUT.md" style="color:var(--accent)">CORNE-LAYOUT.md</a>.</p>
-<div class="lg"><span><i class="sw" style="background:var(--mod-bg)"></i>Modifier</span><span><i class="sw" style="background:var(--lay-bg)"></i>Phím layer, chỉ giữ</span><span><i class="sw" style="background:var(--cmd-bg)"></i>Phím tắt một chạm</span><span><i class="sw" style="background:var(--held-bg)"></i>Đang giữ</span><span><i class="sw" style="border:0.5px dashed var(--border)"></i>Như Base</span></div>
+<p class="ls">Bản đang chạy trên bàn phím, nạp ngày 09/10/2026. Chữ theo DH-Việt. Mỗi phím chỉ một chức năng, không home row mods. Xem <a href="CORNE-LAYOUT.md">CORNE-LAYOUT.md</a>.</p>
+<div class="lg"><span><i class="sw" style="background:var(--lay-bg);border:2.5px solid var(--lay-fg)"></i>Phím chuyển tầng, chỉ giữ</span><span><i class="sw" style="background:var(--held-bg)"></i>Đang giữ</span><span><i class="sw" style="background:var(--mod-bg)"></i>Phím bổ trợ</span><span><i class="sw" style="background:var(--cmd-bg)"></i>Phím tắt một chạm</span><span><i class="sw" style="background:var(--bt-bg)"></i>Bluetooth</span><span><i class="sw" style="border:2.5px dashed var(--sec)"></i>Như Base</span></div>
 <div class="sc" id="sc"></div>
 <p id="how">Bấm một phím tắt để xem cách bấm.</p>
-<div id="layers" class="wrap"></div>
+<div id="layers"></div>
 </main>
 <script>
 const I=n=>'<i class="ti ti-'+n+'" aria-hidden="true"></i>';
@@ -50,9 +53,9 @@ const M=new Set(["⌘","⌥","⌃","⇧"]);
 const C=new Set(["Hoàn tác","Làm lại","Cắt","Chép","Dán","Đầu dòng","Cuối dòng","Xoá từ"]);
 const T=null;
 const L=[
-{n:"Tầng 0 · Base",s:"⌘ ở ngón cái trái, Space trái, Bksp và Enter phải",r:B.r,t:B.t},
-{n:"Tầng 1 · NAV",s:"Giữ NAV bằng ngón cái trái. Bksp thành xoá từ (⌥⌫)",r:[[T,"Esc","PgUp",I("arrow-up"),"PgDn","Làm lại",T,"Sáng −","Sáng +",T,T,T],[T,"Đầu dòng",I("arrow-left"),I("arrow-down"),I("arrow-right"),"Cuối dòng",T,"⌘","⌥","⌃","⇧",T],[T,"Del","Dán","Cắt","Chép","Hoàn tác",T,I("volume-3"),I("volume-2"),I("volume"),I("player-pause"),T]],t:["⌘","#",T,"Xoá từ",T,T]},
-{n:"Tầng 2 · SYM",s:"Giữ SYM bằng ngón cái phải. Số và ký hiệu tay trái, modifier tay phải",r:[["`","[","7","8","9","]","F1","F2","F3","F4","F5","F6"],["'","-","4","5","6","=",T,"⌘","⌥","⌃","⇧",T],["\\",".","1","2","3",",","F7","F8","F9","F10","F11","F12"]],t:[T,"0",T,T,T,"#"]}];
+{n:"Tầng 0 · BASE",s:"Mặc định. ⌘ ở ngón cái trái, Space trái, Bksp và Enter phải.",r:B.r,t:B.t},
+{n:"Tầng 1 · NAV",s:"Giữ NAV bằng ngón cái trái. Bksp thành xoá từ (⌥⌫).",r:[[T,"Esc","PgUp",I("arrow-up"),"PgDn","Làm lại","BT xoá","Sáng −","Sáng +","BT 1","BT 2","BT 3"],[T,"Đầu dòng",I("arrow-left"),I("arrow-down"),I("arrow-right"),"Cuối dòng","BT 4","⌘","⌥","⌃","⇧",T],[T,"Del","Dán","Cắt","Chép","Hoàn tác","BT 5",I("volume-3"),I("volume-2"),I("volume"),I("player-pause"),T]],t:[T,"#",T,"Xoá từ",T,T]},
+{n:"Tầng 2 · SYM",s:"Giữ SYM bằng ngón cái phải. Số và ký hiệu tay trái, modifier tay phải.",r:[["`","[","7","8","9","]","F1","F2","F3","F4","F5","F6"],["'","-","4","5","6","=",T,"⌘","⌥","⌃","⇧",T],["\\",".","1","2","3",",","F7","F8","F9","F10","F11","F12"]],t:[T,"0",T,T,T,"#"]}];
 const S=[
 ["Xoá từ",1,["t1","t3"],"Cái trái giữ NAV, cái phải bấm Bksp. Giữ NAV và bấm liên tục để xoá nhiều từ."],
 ["⌘C · một tay",0,["t0","2-4"],"Cái trái giữ ⌘, trỏ trái bấm c (phím V vật lý)."],
@@ -64,13 +67,19 @@ const S=[
 ["⌘N",0,["t0","1-7"],"Cái trái giữ ⌘, ngón trỏ phải bấm n."],
 ["!",2,["t5","1-10","2-2"],"Cái phải giữ SYM, út phải giữ ⇧, tay trái bấm 1."],
 ["⌘⇧4",2,["t5","1-7","1-10","1-2"],"Cái phải giữ SYM, trỏ và út phải giữ ⌘⇧, tay trái bấm 4."],
-["⌘1",2,["t5","t0","2-2"],"Cái phải giữ SYM, cái trái giữ ⌘, tay trái bấm 1."]];
-function cls(v,base){if(v===T)return["t",base];if(v==="#")return["h","giữ"];if(M.has(v))return["m",v];if(v==="NAV"||v==="SYM")return["l",v];if(C.has(v))return["c",v];if(typeof v==="string"&&v.length>4&&v.indexOf("<")<0)return["s",v];return["",v]}
+["⌘1",2,["t5","t0","2-2"],"Cái phải giữ SYM, cái trái giữ ⌘, tay trái bấm 1."],
+["Đổi máy Bluetooth",1,["t1","0-9"],"Cái trái giữ NAV, tay phải bấm BT 1 đến BT 5 để chọn máy. BT xoá gỡ ghép nối của ô đang chọn."]];
+// Vị trí phím thật của Corne, đơn vị là một phím: cột lệch dọc, ba phím ngón cái xoè ra.
+const CX=[0,1,2,3,4,5,8,9,10,11,12,13],CY=[.37,.37,.12,0,.12,.24,.24,.12,0,.12,.37,.37];
+const TH=[[3.5,3.12,0,""],[4.5,3.12,12,"0 100%"],[5.5,2.83,24,"0 100%"],[7.5,2.83,-24,"100% 100%"],[8.5,3.12,-12,"100% 100%"],[9.5,3.12,0,""]];
+const two=v=>v.indexOf("<")<0&&v.indexOf(" ")>0&&v.length>5?v.replace(" ","<br>"):v;
+function cls(v,base){if(v===T)return["t",base];if(v==="#")return["h","giữ"];if(M.has(v))return["m",v];if(v==="NAV"||v==="SYM")return["l",v];if(C.has(v))return["c",two(v)];if(v.indexOf("BT ")===0)return["b",two(v)];if(v.length>2&&v.indexOf("<")<0)return["s",two(v)];return["",v]}
+const pos=(x,y)=>'left:calc(var(--u)*'+x+');top:calc(var(--u)*'+y+')';
 let h="";
-L.forEach((ly,li)=>{h+='<p class="lt">'+ly.n+'</p><p class="ls">'+ly.s+'</p><div class="kb">';
-for(let r=0;r<3;r++)for(let c=0;c<13;c++){if(c===6){h+='<div></div>';continue}const cc=c>6?c-1:c;const[k,v]=cls(ly.r[r][cc],B.r[r][cc]);h+='<div class="k '+k+'" id="k'+li+'_'+r+'-'+cc+'">'+v+'</div>'}
-const tp=[3,4,5,7,8,9];for(let c=0;c<13;c++){const i=tp.indexOf(c);if(i<0){h+='<div></div>';continue}const[k,v]=cls(ly.t[i],B.t[i]);h+='<div class="k '+k+'" id="k'+li+'_t'+i+'">'+v+'</div>'}
-h+='</div>'});
+L.forEach((ly,li)=>{h+='<p class="lt">'+ly.n+'</p><p class="ls">'+ly.s+'</p><div class="wrap"><div class="kb">';
+for(let r=0;r<3;r++)for(let c=0;c<12;c++){const[k,v]=cls(ly.r[r][c],B.r[r][c]);h+='<div class="k '+k+'" id="k'+li+'_'+r+'-'+c+'" style="'+pos(CX[c],CY[c]+r)+'">'+v+'</div>'}
+TH.forEach((t,i)=>{const[k,v]=cls(ly.t[i],B.t[i]);h+='<div class="k '+k+(t[2]&&Math.abs(t[2])>12?' tall':'')+'" id="k'+li+'_t'+i+'" style="'+pos(t[0],t[1])+(t[2]?';transform:rotate('+t[2]+'deg);transform-origin:'+t[3]:'')+'">'+v+'</div>'});
+h+='</div></div>'});
 document.getElementById("layers").innerHTML=h;
 const sc=document.getElementById("sc");
 S.forEach(s=>{const b=document.createElement("button");b.textContent=s[0];b.onclick=()=>{document.querySelectorAll(".k.on").forEach(e=>e.classList.remove("on"));document.querySelectorAll(".sc button").forEach(e=>e.classList.remove("act"));b.classList.add("act");s[2].forEach(id=>{const e=document.getElementById("k"+s[1]+"_"+id);if(e)e.classList.add("on")});document.getElementById("how").textContent=L[s[1]].n+": "+s[3]};sc.appendChild(b)});
