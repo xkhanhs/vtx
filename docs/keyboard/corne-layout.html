@@ -26,7 +26,6 @@ a{color:var(--accent)}
 .k.b{background:var(--bt-bg);color:var(--bt-fg);border-color:transparent;font-size:16px}
 .k.h{background:var(--held-bg);color:var(--held-fg);border-color:transparent;font-size:17px;font-weight:700}
 .k.t{border:2.5px dashed var(--sec);color:var(--sec);background:transparent;font-size:16px}
-.k.n::after{content:"";position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;background:var(--accent)}
 .k.on{background:var(--on-bg);color:var(--on-fg);border:2.5px solid var(--on-fg)}
 .kb.dim .k:not(.on){opacity:.45}
 .lt{font-size:20px;font-weight:600;margin:1.6rem 0 0}
@@ -43,11 +42,11 @@ a{color:var(--accent)}
 </head>
 <body>
 <main>
-<h1>Corne ba tầng, 36 phím</h1>
-<p class="ls">Phương án bỏ hẳn hai cột ngoài cùng, chưa nạp vào bàn phím. Ô có chấm xanh là chỗ đổi so với bản đang chạy (nạp ngày 09/10/2026). Chữ theo DH-Việt. Mỗi phím chỉ một chức năng, không home row mods, không phím dính. Xem <a href="CORNE-LAYOUT.md">CORNE-LAYOUT.md</a>.</p>
+<h1>Corne ba tầng, 36 phím, QWERTY</h1>
+<p class="ls">Phương án chốt ngày 10/10/2026. Hai cột ngoài cùng bỏ trống. Mỗi phím chỉ một chức năng, không home row mods, không phím dính. Ký hiệu là ⇧ ngón cái phải cộng phím số của tầng NAV. Xem <a href="CORNE-LAYOUT.md">CORNE-LAYOUT.md</a>.</p>
 
 <h2>1. Ba tầng</h2>
-<div class="lg"><span><i class="sw" style="background:var(--lay-bg);border:2.5px solid var(--lay-fg)"></i>Phím chuyển tầng, chỉ giữ</span><span><i class="sw" style="background:var(--held-bg)"></i>Đang giữ</span><span><i class="sw" style="background:var(--mod-bg)"></i>Phím bổ trợ</span><span><i class="sw" style="background:var(--cmd-bg)"></i>Phím tắt một chạm</span><span><i class="sw" style="background:var(--bt-bg)"></i>Bluetooth</span><span><i class="sw" style="border:2.5px dashed var(--sec)"></i>Như Base</span><span><i class="sw" style="width:9px;height:9px;border-radius:50%;background:var(--accent)"></i>Đổi so với bản đang chạy</span></div>
+<div class="lg"><span><i class="sw" style="background:var(--lay-bg);border:2.5px solid var(--lay-fg)"></i>Phím chuyển tầng, chỉ giữ</span><span><i class="sw" style="background:var(--held-bg)"></i>Đang giữ</span><span><i class="sw" style="background:var(--mod-bg)"></i>Phím bổ trợ</span><span><i class="sw" style="background:var(--cmd-bg)"></i>Phím tắt một chạm</span><span><i class="sw" style="background:var(--bt-bg)"></i>Bluetooth</span><span><i class="sw" style="border:2.5px dashed var(--sec)"></i>Như Base</span></div>
 <div id="layers"></div>
 
 <h2>2. Cách bấm các tổ hợp hay dùng</h2>
@@ -57,48 +56,47 @@ a{color:var(--accent)}
 </main>
 <script>
 const I=n=>'<i class="ti ti-'+n+'" aria-hidden="true"></i>';
-const B={r:[["q","w","f","g","b","Tab","l","u","y","x"],["a","h","s","t","p","m","n","e","o","i"],["j","v","r","c","z","k","d",",",".","Enter"]],t:["⌘","NAV","Space","Bksp","⇧","SYM"]};
+const B={r:[["q","w","e","r","t","y","u","i","o","p"],["a","s","d","f","g","h","j","k","l",";"],["z","x","c","v","b","n","m",",",".","/"]],t:["⌘","NAV","Space","Bksp","⇧","Enter"]};
 const M=new Set(["⌘","⌥","⌃","⇧"]);
-const C=new Set(["Hoàn tác","Làm lại","Cắt","Chép","Dán","Xoá từ","⌘⇧2","⌘⇧3","⌘⇧4","⌘⇧5"]);
+const C=new Set(["Xoá từ","⌃C","⌥←","⌥→","⌘⇧2","⌘⇧3","⌘⇧4","⌘⇧5"]);
 const T=null;
 const L=[
-{n:"Tầng 0 · BASE",s:"⇧ lên ngón cái phải, chỗ Enter cũ. Enter xuống ngón út phải, chỗ dấu / cũ. Tab vào chỗ dấu ; cũ, để ⌘Tab chỉ còn hai phím.",r:B.r,t:B.t},
-{n:"Tầng 1 · NAV",s:"Giữ NAV bằng ngón cái trái. Bksp thành xoá từ (⌥⌫). Hàng dưới tay trái là bốn nút chụp màn hình một chạm, ⌘⇧2 đến ⌘⇧5. Dán, Chép, Cắt, Hoàn tác, Làm lại bỏ đi vì giữ ⌘ rồi bấm chữ là đủ; PgUp, PgDn cũng bỏ, hàng trên còn ba ô trống. ⇧ trái để bôi chọn, dấu ? ở hàng chủ phía trong.",r:[["Esc","",I("arrow-up"),"","","BT xoá","Sáng −","Sáng +","BT 1","BT 2"],["⇧",I("arrow-left"),I("arrow-down"),I("arrow-right"),"?","BT 4","⌘","⌥","⌃","⇧"],["Del","⌘⇧2","⌘⇧3","⌘⇧4","⌘⇧5","BT 5",I("volume-3"),I("volume-2"),I("volume"),I("player-pause")]],t:[T,"#",T,"Xoá từ",T,T]},
-{n:"Tầng 2 · SYM",s:"Giữ SYM bằng ngón cái phải. Tay trái là số, tay phải là ký hiệu hay dùng, mỗi ô ra thẳng một ký hiệu. Hàng F1 đến F12 nhường chỗ. Ký hiệu còn lại là ⇧ ở hàng chủ tay phải cộng một phím số.",r:[["[","7","8","9","]","`","(",")","!","@"],["-","4","5","6","=","/","⌘","⌥","⌃","⇧"],[".","1","2","3",";","\\","'","\"",":","_"]],t:[T,"0",T,T,T,"#"]}];
-// Ô đổi so với bản đang chạy, theo từng tầng.
-const N=[["0-5","2-9","t4"],["0-1","0-3","0-4","1-0","1-4","2-1","2-2","2-3","2-4"],["0-5","0-6","0-7","0-8","0-9","1-5","2-4","2-5","2-6","2-7","2-8","2-9"]];
+{n:"Tầng 0 · BASE",s:"QWERTY nguyên vẹn, nên ? : < > vẫn là ⇧ cộng phím gốc. ⌘ ở ngón cái trái, ⇧ và Enter ở ngón cái phải.",r:B.r,t:B.t},
+{n:"Tầng 1 · NAV",s:"Giữ NAV bằng ngón cái trái. Tay trái di chuyển, tay phải là numpad với cột phép tính + - = ở phía trong. Giữ thêm ⇧ ngón cái phải để ra ký hiệu của phím số. ⌘ và ⇧ ở ngón út trái dùng khi ngón cái đang bận. Bksp thành xoá từ (⌥⌫).",r:[["Esc","[",I("arrow-up"),"]","`","+","7","8","9","'"],["⌘",I("arrow-left"),I("arrow-down"),I("arrow-right"),"Tab","-","4","5","6","0"],["⇧","⌥←","\\","⌥→","⌃C","=","1","2","3","."]],t:[T,"#",T,"Xoá từ",T,"FN"]},
+{n:"Tầng 2 · FN",s:"Giữ NAV, rồi giữ thêm ngón cái phải ngoài cùng. Bluetooth, độ sáng, âm lượng và bốn nút chụp màn hình một chạm.",r:[["BT 1","BT 2","BT 3","BT 4","BT 5","BT xoá","Sáng −","Sáng +","",""],["","","","","","",I("volume-3"),I("volume-2"),I("volume"),I("player-pause")],["","⌘⇧2","⌘⇧3","⌘⇧4","⌘⇧5","","","","",""]],t:[T,"#",T,T,T,"#"]}];
 const S=[
 ["Viết hoa",0,["t4","1-0"],"Cái phải giữ <b>⇧</b>, gõ chữ bằng tay nào cũng được. Trong hình là chữ A."],
 ["⌘⇧ · đổi bộ gõ",0,["t0","t4"],"Cái trái giữ <b>⌘</b>, cái phải chạm <b>⇧</b>. Chỉ dùng hai ngón cái."],
-["⌘⇧C",0,["t0","t4","2-3"],"Cái trái giữ <b>⌘</b>, cái phải giữ <b>⇧</b>, trỏ trái bấm <b>c</b>."],
-["Bôi chọn",1,["t1","1-0","1-3"],"Cái trái giữ <b>NAV</b>, út trái giữ <b>⇧</b>, ba ngón giữa bấm mũi tên. Trong hình là bôi sang phải."],
-["⌘Tab",0,["t0","0-5"],"Cái trái giữ <b>⌘</b>, trỏ phải bấm <b>Tab</b> ở hàng trên. Giữ ⌘ và bấm Tab tiếp để đi qua từng app; thêm ⇧ ngón cái phải để đi ngược."],
-["⌘Enter",0,["t0","2-9"],"Cái trái giữ <b>⌘</b>, út phải bấm <b>Enter</b>."],
-["Enter",0,["2-9"],"Út phải bấm <b>Enter</b>, hàng dưới."],
-["?",1,["t1","1-4"],"Cái trái giữ <b>NAV</b>, trỏ trái bấm <b>?</b> ở hàng chủ phía trong. Một tay, và ô này ra thẳng dấu hỏi, không cần ⇧."],
-["Chụp màn hình",1,["t1","2-1","2-2","2-3","2-4"],"Cái trái giữ <b>NAV</b>, bấm một trong bốn ô hàng dưới: áp út <b>⌘⇧2</b>, giữa <b>⌘⇧3</b>, trỏ <b>⌘⇧4</b>, trỏ với vào trong <b>⌘⇧5</b>. Một tay, một chạm."],
-["/",2,["t5","1-5"],"Cái phải giữ <b>SYM</b>, trỏ phải bấm <b>/</b> ở hàng chủ phía trong."],
-["Tab",0,["0-5"],"Trỏ phải bấm <b>Tab</b>, hàng trên phía trong."],
-["⌘C · một tay",0,["t0","2-3"],"Cái trái giữ <b>⌘</b>, trỏ trái bấm <b>c</b> (phím V vật lý)."],
-["⌘V · một tay",0,["t0","2-1"],"Cái trái giữ <b>⌘</b>, áp út trái bấm <b>v</b> (phím X vật lý)."],
-["⌘Z · một tay",0,["t0","2-4"],"Cái trái giữ <b>⌘</b>, trỏ trái bấm <b>z</b> (phím B vật lý)."],
+["⌘⇧C",0,["t0","t4","2-2"],"Hai ngón cái giữ <b>⌘</b> và <b>⇧</b>, giữa trái bấm <b>c</b>."],
+["⌘⇧V",0,["t0","t4","2-3"],"Hai ngón cái giữ <b>⌘</b> và <b>⇧</b>, trỏ trái bấm <b>v</b>."],
+["⌘C · một tay",0,["t0","2-2"],"Cái trái giữ <b>⌘</b>, giữa trái bấm <b>c</b>. ⌘V, ⌘X, ⌘Z cũng nằm tay trái."],
+["⌘Tab · một tay",1,["t1","1-0","1-4"],"Cái trái giữ <b>NAV</b>, út trái giữ <b>⌘</b>, trỏ trái bấm <b>Tab</b>. Giữ ⌘ và bấm Tab tiếp để đi qua từng app; ← → cũng chọn được app trong bảng chuyển."],
+["⌘Enter",0,["t0","t5"],"Cái trái giữ <b>⌘</b>, cái phải bấm <b>Enter</b>."],
+["Số",1,["t1","1-7"],"Cái trái giữ <b>NAV</b>, tay phải bấm numpad. Trong hình là số 5, ngay hàng chủ."],
+["3.14",1,["t1","2-8","2-9","2-6","1-6"],"Giữ <b>NAV</b> suốt. Số và dấu chấm đều ở tay phải, dấu chấm ngay dưới số 0."],
+["! @ # $ % ^ &amp; * ( )",1,["t1","t4","2-6"],"Hai ngón cái giữ <b>NAV</b> và <b>⇧</b>, bấm phím số. Trong hình là ! (⇧ + 1)."],
+["+ − =",1,["t1","0-5","1-5","2-5"],"Cái trái giữ <b>NAV</b>, trỏ phải bấm cột phía trong: <b>+</b> ở trên, <b>-</b> ở hàng chủ, <b>=</b> ở dưới."],
+["_",1,["t1","t4","1-5"],"Hai ngón cái giữ <b>NAV</b> và <b>⇧</b>, trỏ phải bấm ô dấu trừ."],
+["' \"",1,["t1","0-9"],"Cái trái giữ <b>NAV</b>, út phải bấm nháy đơn ở hàng trên. Thêm <b>⇧</b> ngón cái phải để ra nháy kép."],
+["[ ] { }",1,["t1","0-1","0-3"],"Cái trái giữ <b>NAV</b>, bấm hai ô kẹp hai bên mũi tên lên. Thêm <b>⇧</b> ngón cái phải để ra { }."],
+["Nhảy từ",1,["t1","2-1","2-3"],"Cái trái giữ <b>NAV</b>, bấm ô ngay dưới ← hoặc →. Thêm ⇧ ngón út trái là bôi theo từng từ."],
+["Đầu, cuối dòng",1,["t1","1-0","1-1","1-3"],"Cái trái giữ <b>NAV</b>, út trái giữ <b>⌘</b>, bấm ← hoặc →."],
+["Bôi chọn",1,["t1","2-0","1-3"],"Cái trái giữ <b>NAV</b>, út trái giữ <b>⇧</b> ở hàng dưới, bấm mũi tên. Trong hình là bôi sang phải."],
 ["Xoá từ",1,["t1","t3"],"Cái trái giữ <b>NAV</b>, cái phải bấm <b>Bksp</b>. Giữ NAV và bấm liên tục để xoá nhiều từ."],
-["!",2,["t5","0-8"],"Cái phải giữ <b>SYM</b>, áp út phải bấm <b>!</b> ở hàng trên."],
-["( )",2,["t5","0-6","0-7"],"Cái phải giữ <b>SYM</b>, trỏ phải bấm <b>(</b>, giữa phải bấm <b>)</b>, hàng trên."],
-["' \"",2,["t5","2-6","2-7"],"Cái phải giữ <b>SYM</b>, trỏ phải bấm nháy đơn, giữa phải bấm nháy kép, hàng dưới."],
-["# $ % ^ & *",2,["t5","1-9","2-3"],"Cái phải giữ <b>SYM</b>, út phải giữ <b>⇧</b> ở hàng chủ, tay trái bấm phím số. Trong hình là # (⇧ + 3). Ngón cái phải đang bận giữ SYM nên dùng ⇧ của tầng."],
-["{ } + | ~",2,["t5","1-9","0-0"],"Cái phải giữ <b>SYM</b>, út phải giữ <b>⇧</b> ở hàng chủ, rồi bấm <b>[</b> <b>]</b> <b>=</b> <b>\\</b> <b>`</b>. Trong hình là {."],
-["&lt; &gt;",0,["t4","2-7","2-8"],"Cái phải giữ <b>⇧</b>, bấm dấu phẩy hoặc dấu chấm ở Base."],
-[":",2,["t5","2-8"],"Cái phải giữ <b>SYM</b>, áp út phải bấm <b>:</b> ở hàng dưới."]];
+["⌃C",1,["t1","2-4"],"Cái trái giữ <b>NAV</b>, trỏ trái bấm <b>⌃C</b> ở hàng dưới phía trong. Dùng để ngắt lệnh trong terminal."],
+["Esc",1,["t1","0-0"],"Cái trái giữ <b>NAV</b>, út trái bấm <b>Esc</b> ở hàng trên."],
+["?",0,["t4","2-9"],"Cái phải giữ <b>⇧</b>, út phải bấm <b>/</b>."],
+["Âm lượng",2,["t1","t5","1-7","1-8"],"Hai ngón cái giữ <b>NAV</b> và <b>FN</b>, bấm giảm hoặc tăng âm lượng."],
+["Chụp màn hình",2,["t1","t5","2-1","2-2","2-3","2-4"],"Hai ngón cái giữ <b>NAV</b> và <b>FN</b>, bấm một trong bốn ô hàng dưới tay trái: <b>⌘⇧2</b> đến <b>⌘⇧5</b>."]];
 // Vị trí phím thật của Corne khi bỏ hai cột ngoài, đơn vị là một phím: cột lệch dọc, ba phím ngón cái xoè ra.
 const CX=[0,1,2,3,4,7,8,9,10,11],CY=[.37,.12,0,.12,.24,.24,.12,0,.12,.37];
 const TH=[[2.5,3.12,0,""],[3.5,3.12,12,"0 100%"],[4.5,2.83,24,"0 100%"],[6.5,2.83,-24,"100% 100%"],[7.5,3.12,-12,"100% 100%"],[8.5,3.12,0,""]];
 const two=v=>v.indexOf("<")<0&&v.indexOf(" ")>0&&v.length>5?v.replace(" ","<br>"):v;
-function cls(v,base){if(v===T)return["t",base];if(v==="#")return["h","giữ"];if(M.has(v))return["m",v];if(v==="NAV"||v==="SYM")return["l",v];if(C.has(v))return["c",two(v)];if(v.indexOf("BT ")===0)return["b",two(v)];if(v.length>2&&v.indexOf("<")<0)return["s",two(v)];return["",v]}
+function cls(v,base){if(v===T)return["t",base];if(v==="#")return["h","giữ"];if(M.has(v))return["m",v];if(v==="NAV"||v==="FN")return["l",v];if(C.has(v))return["c",two(v)];if(v.indexOf("BT ")===0)return["b",two(v)];if(v.length>2&&v.indexOf("<")<0)return["s",two(v)];return["",v]}
 const pos=(x,y)=>'left:calc(var(--u)*'+x+');top:calc(var(--u)*'+y+')';
 // Vẽ một tầng. on = các ô cần tô khi minh hoạ cách bấm.
 function draw(li,on){const ly=L[li];let h="";
-const cell=(id,v,base,style,extra)=>{const[k,t]=cls(v,base);return'<div class="k '+k+extra+(N[li].includes(id)?" n":"")+(on.includes(id)?" on":"")+'" style="'+style+'">'+t+'</div>'};
+const cell=(id,v,base,style,extra)=>{const[k,t]=cls(v,base);return'<div class="k '+k+extra+(on.includes(id)?" on":"")+'" style="'+style+'">'+t+'</div>'};
 for(let r=0;r<3;r++)for(let c=0;c<10;c++)h+=cell(r+"-"+c,ly.r[r][c],B.r[r][c],pos(CX[c],CY[c]+r),"");
 TH.forEach((t,i)=>{h+=cell("t"+i,ly.t[i],B.t[i],pos(t[0],t[1])+(t[2]?";transform:rotate("+t[2]+"deg);transform-origin:"+t[3]:""),t[2]&&Math.abs(t[2])>12?" tall":"")});
 return h}

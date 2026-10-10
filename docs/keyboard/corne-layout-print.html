@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Corne 36 phím QWERTY – bản in</title>
+<style>
+  @page { size: A4 portrait; margin: 10mm; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0 auto; padding: 6mm 0; width: 190mm; background: #fff; color: #111;
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  h1 { font-size: 13pt; font-weight: 600; margin: 0 0 1mm; }
+  .note { font-size: 8.5pt; color: #444; margin: 0 0 4mm; }
+  section { margin: 0 0 6mm; break-inside: avoid; }
+  h2 { font-size: 11pt; font-weight: 600; margin: 0 0 2mm; }
+  h2 span { font-weight: 400; font-size: 9pt; color: #444; }
+  .rows { display: grid; grid-template-columns: repeat(5, 16mm) 10mm repeat(5, 16mm); gap: 2mm; justify-content: center; }
+  .k {
+    position: relative; height: 14mm; border: 0.3mm solid #111; border-radius: 1.5mm;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13pt; font-weight: 500; line-height: 1; text-align: center;
+  }
+  .k.w { font-size: 9pt; }
+  .k.m { background: #e4e4e4; }
+  .k.h { background: #111; color: #fff; }
+  .k.t { color: #888; border-style: dashed; border-color: #888; font-weight: 400; }
+  .k.e { border-style: dotted; border-color: #aaa; }
+  .k.gap { border: 0; }
+  .k sup { position: absolute; top: 1mm; right: 1.4mm; font-size: 8pt; font-weight: 400; color: #555; }
+  .k small { position: absolute; bottom: 0.9mm; left: 0; right: 0; font-size: 6pt; font-weight: 400; color: #555; }
+  .k.h sup, .k.h small { color: #ddd; }
+  .legend { font-size: 8.5pt; color: #333; display: flex; flex-wrap: wrap; gap: 2mm 6mm; margin: 0 0 2mm; }
+  .legend i { display: inline-block; width: 5mm; height: 3.5mm; border: 0.3mm solid #111; border-radius: 0.8mm; vertical-align: -0.7mm; margin-right: 1.5mm; }
+  .tips { font-size: 8.5pt; color: #222; margin: 2mm 0 0; padding-left: 4.5mm; }
+  .tips li { margin: 0 0 0.8mm; }
+  @media print { body { padding: 0; } }
+</style>
+</head>
+<body>
+<h1>Corne 36 phím – QWERTY</h1>
+<p class="note">Keymap đang chạy trên bàn phím, nạp ngày 10/10/2026. Hàng phím vẽ thẳng cột, bỏ hai cột ngoài cùng. macOS phải ở bộ gõ QWERTY (VTX chế độ Telex).</p>
+<div class="legend">
+  <span><i style="background:#111"></i>Phím đang giữ để vào tầng</span>
+  <span><i style="background:#e4e4e4"></i>Phím bổ trợ, phím tầng</span>
+  <span><i style="border-style:dashed;border-color:#888"></i>Giữ nguyên như Base</span>
+  <span><i style="border-style:dotted;border-color:#aaa"></i>Ô trống</span>
+  <span>Chữ nhỏ góc trên: ký tự khi kèm ⇧</span>
+</div>
+
+<section>
+  <h2>Tầng 0 · Base</h2>
+  <div class="rows" id="base"></div>
+  <ul class="tips">
+    <li>⌘ ở ngón cái trái, ⇧ ở ngón cái phải. ⌘⇧C và ⌘⇧V là hai ngón cái cộng một chữ.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Tầng 1 · NAV <span>giữ bằng ngón cái trái</span></h2>
+  <div class="rows" id="nav"></div>
+  <ul class="tips">
+    <li>Ký hiệu: giữ thêm ⇧ ngón cái phải rồi bấm số. Dấu + có ô riêng, không cần ⇧.</li>
+    <li>⌘Tab một tay: NAV + ⌘ ngón út + Tab. Đầu, cuối dòng: NAV + ⌘ ngón út + ← →.</li>
+    <li>Bôi chọn: NAV + ⇧ ngón út + mũi tên. Xoá cả từ: NAV + Bksp. Ngắt lệnh terminal: NAV + ⌃C.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Tầng 2 · FN <span>giữ NAV, rồi giữ thêm ngón cái phải ngoài cùng</span></h2>
+  <div class="rows" id="fn"></div>
+  <ul class="tips">
+    <li>BT1 đến BT5 chọn máy đã ghép. BT xoá gỡ ghép nối của ô đang chọn, đừng bấm nhầm.</li>
+  </ul>
+</section>
+
+<script>
+// "nhãn|chữ nhỏ ⇧|lớp|chú thích dưới"; lớp: m bổ trợ, h đang giữ, t như Base, e trống, w nhãn dài
+const layers = {
+  base: [
+    ['q','w','e','r','t', 'y','u','i','o','p'],
+    ['a','s','d','f','g', 'h','j','k','l',';|:'],
+    ['z','x','c','v','b', 'n','m',',|<','.|>','/|?'],
+    [null,null,'⌘||m','NAV||m w','Space||w', 'Bksp||w','⇧||m','Enter||w',null,null],
+  ],
+  nav: [
+    ['Esc||w','[|{','↑',']|}','`|~', '+','7|&','8|*','9|(','\'|"'],
+    ['⌘||m','←','↓','→','Tab||w', '-|_','4|$','5|%','6|^','0|)'],
+    ['⇧||m','⌥←||w|từ trước','\\||','⌥→||w|từ sau','⌃C||w', '=|+','1|!','2|@','3|#','.|>'],
+    [null,null,'⌘||t','NAV||h w','Space||t w', 'Xoá từ||w|⌥⌫','⇧||t','FN||m w',null,null],
+  ],
+  fn: [
+    ['BT1||w','BT2||w','BT3||w','BT4||w','BT5||w', 'BT xoá||w','Sáng −||w','Sáng +||w','||e','||e'],
+    ['||e','||e','||e','||e','||e', '||e','Mute||w','Vol −||w','Vol +||w','Play||w'],
+    ['||e','⌘⇧2||w','⌘⇧3||w|cả màn hình','⌘⇧4||w|vùng chọn','⌘⇧5||w|công cụ chụp', '||e','||e','||e','||e','||e'],
+    [null,null,'⌘||t','NAV||h w','Space||t w', 'Bksp||t w','⇧||t','FN||h w',null,null],
+  ],
+};
+
+function cell(spec) {
+  const d = document.createElement('div');
+  if (spec === null) { d.className = 'k gap'; return d; }
+  const parts = spec.split('|');
+  // nhãn "\" có chữ nhỏ là "|" nên phần tách bị lệch một ô
+  let [label, shifted, cls, sub] = parts;
+  if (spec.startsWith('\\||')) { label = '\\'; shifted = '|'; cls = ''; sub = ''; }
+  d.className = 'k ' + (cls || '');
+  d.append(label);
+  if (shifted) { const s = document.createElement('sup'); s.textContent = shifted; d.append(s); }
+  if (sub) { const s = document.createElement('small'); s.textContent = sub; d.append(s); }
+  return d;
+}
+
+for (const [id, rows] of Object.entries(layers)) {
+  const el = document.getElementById(id);
+  for (const row of rows) {
+    row.forEach((spec, i) => {
+      if (i === 5) { const g = document.createElement('div'); g.className = 'k gap'; el.append(g); }
+      el.append(cell(spec));
+    });
+  }
+}
+</script>
+</body>
+</html>
