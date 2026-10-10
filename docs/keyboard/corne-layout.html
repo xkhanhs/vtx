@@ -6,16 +6,17 @@
 <title>Corne ba tầng</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
 <style>
-:root{--u:64px;--bg:#fafaf8;--card:#fff;--text:#1f1f1d;--sec:#5f5e5a;--border:#b4b2a9;--mod-bg:#eeedfe;--mod-fg:#3c3489;--lay-bg:#e1f5ee;--lay-fg:#085041;--cmd-bg:#faece7;--cmd-fg:#712b13;--bt-bg:#e6f1fb;--bt-fg:#0c447c;--held-bg:#1f1f1d;--held-fg:#fff;--accent:#185fa5}
+:root{--u:64px;--bg:#fafaf8;--card:#fff;--text:#1f1f1d;--sec:#5f5e5a;--border:#b4b2a9;--mod-bg:#eeedfe;--mod-fg:#3c3489;--lay-bg:#e1f5ee;--lay-fg:#085041;--cmd-bg:#faece7;--cmd-fg:#712b13;--bt-bg:#e6f1fb;--bt-fg:#0c447c;--held-bg:#1f1f1d;--held-fg:#fff;--accent:#185fa5;--on-bg:#f5b83d;--on-fg:#1f1f1d}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1a1a19;--card:#262624;--text:#eceae4;--sec:#b4b2a9;--border:#5f5e5a;--mod-bg:#3c3489;--mod-fg:#eeedfe;--lay-bg:#085041;--lay-fg:#e1f5ee;--cmd-bg:#712b13;--cmd-fg:#faece7;--bt-bg:#0c447c;--bt-fg:#e6f1fb;--held-bg:#eceae4;--held-fg:#1a1a19;--accent:#85b7eb}}
 :root[data-theme="dark"]{--bg:#1a1a19;--card:#262624;--text:#eceae4;--sec:#b4b2a9;--border:#5f5e5a;--mod-bg:#3c3489;--mod-fg:#eeedfe;--lay-bg:#085041;--lay-fg:#e1f5ee;--cmd-bg:#712b13;--cmd-fg:#faece7;--bt-bg:#0c447c;--bt-fg:#e6f1fb;--held-bg:#eceae4;--held-fg:#1a1a19;--accent:#85b7eb}
 body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,system-ui,sans-serif;font-size:17px;line-height:1.6}
-main{max-width:928px;margin:0 auto;padding:24px 16px 48px}
+main{max-width:800px;margin:0 auto;padding:24px 16px 48px}
 h1{font-size:28px;font-weight:600;margin:0 0 4px}
+h2{font-size:24px;font-weight:600;margin:2.4rem 0 0;padding-top:1rem;border-top:1.5px solid var(--border)}
 a{color:var(--accent)}
-.wrap{overflow-x:auto;padding-bottom:8px}
-.kb{position:relative;width:calc(var(--u)*14);height:calc(var(--u)*4.9);margin:10px 0 0}
-.k{position:absolute;box-sizing:border-box;width:calc(var(--u) - 6px);height:calc(var(--u) - 6px);border:1.5px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--card);text-align:center;line-height:1.1;transition:box-shadow .15s}
+.wrap{overflow-x:auto;padding:6px 0 8px}
+.kb{position:relative;width:calc(var(--u)*12);height:calc(var(--u)*4.9);margin:10px 0 0}
+.k{position:absolute;box-sizing:border-box;width:calc(var(--u) - 6px);height:calc(var(--u) - 6px);border:1.5px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--card);text-align:center;line-height:1.1}
 .k.tall{height:calc(var(--u)*1.5 - 6px)}
 .k i{font-size:24px}
 .k.s{font-size:16px}
@@ -25,64 +26,87 @@ a{color:var(--accent)}
 .k.b{background:var(--bt-bg);color:var(--bt-fg);border-color:transparent;font-size:16px}
 .k.h{background:var(--held-bg);color:var(--held-fg);border-color:transparent;font-size:17px;font-weight:700}
 .k.t{border:2.5px dashed var(--sec);color:var(--sec);background:transparent;font-size:16px}
-.k.on{box-shadow:0 0 0 4px var(--accent)}
-.lt{font-size:22px;font-weight:600;margin:2rem 0 0}
+.k.n::after{content:"";position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;background:var(--accent)}
+.k.on{background:var(--on-bg);color:var(--on-fg);border:2.5px solid var(--on-fg)}
+.kb.dim .k:not(.on){opacity:.45}
+.lt{font-size:20px;font-weight:600;margin:1.6rem 0 0}
 .ls{font-size:17px;color:var(--sec);margin:0}
 .lg{display:flex;gap:10px 20px;flex-wrap:wrap;font-size:16px;color:var(--sec);margin:14px 0 0}
 .lg span{display:inline-flex;align-items:center;gap:8px}
 .sw{box-sizing:border-box;width:20px;height:20px;border-radius:5px;display:inline-block}
-.sc{display:flex;flex-wrap:wrap;gap:8px;margin:1.2rem 0 .4rem}
+.sc{display:flex;flex-wrap:wrap;gap:8px;margin:1rem 0 .6rem}
 .sc button{font:inherit;font-size:16px;padding:6px 14px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--text);cursor:pointer}
 .sc button.act{border-color:var(--accent);color:var(--accent);border-width:2.5px;padding:5px 13px}
-#how{font-size:17px;color:var(--sec);min-height:28px;margin:0}
+#how{font-size:18px;min-height:58px;margin:0}
+#how b{font-weight:600}
 </style>
 </head>
 <body>
 <main>
-<h1>Corne ba tầng, không trễ</h1>
-<p class="ls">Bản đang chạy trên bàn phím, nạp ngày 09/10/2026. Chữ theo DH-Việt. Mỗi phím chỉ một chức năng, không home row mods. Xem <a href="CORNE-LAYOUT.md">CORNE-LAYOUT.md</a>.</p>
-<div class="lg"><span><i class="sw" style="background:var(--lay-bg);border:2.5px solid var(--lay-fg)"></i>Phím chuyển tầng, chỉ giữ</span><span><i class="sw" style="background:var(--held-bg)"></i>Đang giữ</span><span><i class="sw" style="background:var(--mod-bg)"></i>Phím bổ trợ</span><span><i class="sw" style="background:var(--cmd-bg)"></i>Phím tắt một chạm</span><span><i class="sw" style="background:var(--bt-bg)"></i>Bluetooth</span><span><i class="sw" style="border:2.5px dashed var(--sec)"></i>Như Base</span></div>
-<div class="sc" id="sc"></div>
-<p id="how">Bấm một phím tắt để xem cách bấm.</p>
+<h1>Corne ba tầng, 36 phím</h1>
+<p class="ls">Phương án bỏ hẳn hai cột ngoài cùng, chưa nạp vào bàn phím. Ô có chấm xanh là chỗ đổi so với bản đang chạy (nạp ngày 09/10/2026). Chữ theo DH-Việt. Mỗi phím chỉ một chức năng, không home row mods, không phím dính. Xem <a href="CORNE-LAYOUT.md">CORNE-LAYOUT.md</a>.</p>
+
+<h2>1. Ba tầng</h2>
+<div class="lg"><span><i class="sw" style="background:var(--lay-bg);border:2.5px solid var(--lay-fg)"></i>Phím chuyển tầng, chỉ giữ</span><span><i class="sw" style="background:var(--held-bg)"></i>Đang giữ</span><span><i class="sw" style="background:var(--mod-bg)"></i>Phím bổ trợ</span><span><i class="sw" style="background:var(--cmd-bg)"></i>Phím tắt một chạm</span><span><i class="sw" style="background:var(--bt-bg)"></i>Bluetooth</span><span><i class="sw" style="border:2.5px dashed var(--sec)"></i>Như Base</span><span><i class="sw" style="width:9px;height:9px;border-radius:50%;background:var(--accent)"></i>Đổi so với bản đang chạy</span></div>
 <div id="layers"></div>
+
+<h2>2. Cách bấm các tổ hợp hay dùng</h2>
+<div class="sc" id="sc"></div>
+<p id="how"></p>
+<div class="wrap"><div class="kb dim" id="demo"></div></div>
 </main>
 <script>
 const I=n=>'<i class="ti ti-'+n+'" aria-hidden="true"></i>';
-const B={r:[["Tab","q","w","f","g","b",";","l","u","y","x","Esc"],["⌃","a","h","s","t","p","m","n","e","o","i","⌥"],["⇧","j","v","r","c","z","k","d",",",".","/","⇧"]],t:["⌘","NAV","Space","Bksp","Enter","SYM"]};
+const B={r:[["q","w","f","g","b","Tab","l","u","y","x"],["a","h","s","t","p","m","n","e","o","i"],["j","v","r","c","z","k","d",",",".","Enter"]],t:["⌘","NAV","Space","Bksp","⇧","SYM"]};
 const M=new Set(["⌘","⌥","⌃","⇧"]);
-const C=new Set(["Hoàn tác","Làm lại","Cắt","Chép","Dán","Đầu dòng","Cuối dòng","Xoá từ"]);
+const C=new Set(["Hoàn tác","Làm lại","Cắt","Chép","Dán","Xoá từ","⌘⇧2","⌘⇧3","⌘⇧4","⌘⇧5"]);
 const T=null;
 const L=[
-{n:"Tầng 0 · BASE",s:"Mặc định. ⌘ ở ngón cái trái, Space trái, Bksp và Enter phải.",r:B.r,t:B.t},
-{n:"Tầng 1 · NAV",s:"Giữ NAV bằng ngón cái trái. Bksp thành xoá từ (⌥⌫).",r:[[T,"Esc","PgUp",I("arrow-up"),"PgDn","Làm lại","BT xoá","Sáng −","Sáng +","BT 1","BT 2","BT 3"],[T,"Đầu dòng",I("arrow-left"),I("arrow-down"),I("arrow-right"),"Cuối dòng","BT 4","⌘","⌥","⌃","⇧",T],[T,"Del","Dán","Cắt","Chép","Hoàn tác","BT 5",I("volume-3"),I("volume-2"),I("volume"),I("player-pause"),T]],t:[T,"#",T,"Xoá từ",T,T]},
-{n:"Tầng 2 · SYM",s:"Giữ SYM bằng ngón cái phải. Số và ký hiệu tay trái, modifier tay phải.",r:[["`","[","7","8","9","]","F1","F2","F3","F4","F5","F6"],["'","-","4","5","6","=",T,"⌘","⌥","⌃","⇧",T],["\\",".","1","2","3",",","F7","F8","F9","F10","F11","F12"]],t:[T,"0",T,T,T,"#"]}];
+{n:"Tầng 0 · BASE",s:"⇧ lên ngón cái phải, chỗ Enter cũ. Enter xuống ngón út phải, chỗ dấu / cũ. Tab vào chỗ dấu ; cũ, để ⌘Tab chỉ còn hai phím.",r:B.r,t:B.t},
+{n:"Tầng 1 · NAV",s:"Giữ NAV bằng ngón cái trái. Bksp thành xoá từ (⌥⌫). Hàng dưới tay trái là bốn nút chụp màn hình một chạm, ⌘⇧2 đến ⌘⇧5. Dán, Chép, Cắt, Hoàn tác, Làm lại bỏ đi vì giữ ⌘ rồi bấm chữ là đủ; PgUp, PgDn cũng bỏ, hàng trên còn ba ô trống. ⇧ trái để bôi chọn, dấu ? ở hàng chủ phía trong.",r:[["Esc","",I("arrow-up"),"","","BT xoá","Sáng −","Sáng +","BT 1","BT 2"],["⇧",I("arrow-left"),I("arrow-down"),I("arrow-right"),"?","BT 4","⌘","⌥","⌃","⇧"],["Del","⌘⇧2","⌘⇧3","⌘⇧4","⌘⇧5","BT 5",I("volume-3"),I("volume-2"),I("volume"),I("player-pause")]],t:[T,"#",T,"Xoá từ",T,T]},
+{n:"Tầng 2 · SYM",s:"Giữ SYM bằng ngón cái phải. Tay trái là số, tay phải là ký hiệu hay dùng, mỗi ô ra thẳng một ký hiệu. Hàng F1 đến F12 nhường chỗ. Ký hiệu còn lại là ⇧ ở hàng chủ tay phải cộng một phím số.",r:[["[","7","8","9","]","`","(",")","!","@"],["-","4","5","6","=","/","⌘","⌥","⌃","⇧"],[".","1","2","3",";","\\","'","\"",":","_"]],t:[T,"0",T,T,T,"#"]}];
+// Ô đổi so với bản đang chạy, theo từng tầng.
+const N=[["0-5","2-9","t4"],["0-1","0-3","0-4","1-0","1-4","2-1","2-2","2-3","2-4"],["0-5","0-6","0-7","0-8","0-9","1-5","2-4","2-5","2-6","2-7","2-8","2-9"]];
 const S=[
-["Xoá từ",1,["t1","t3"],"Cái trái giữ NAV, cái phải bấm Bksp. Giữ NAV và bấm liên tục để xoá nhiều từ."],
-["⌘C · một tay",0,["t0","2-4"],"Cái trái giữ ⌘, trỏ trái bấm c (phím V vật lý)."],
-["⌘V · một tay",0,["t0","2-2"],"Cái trái giữ ⌘, áp út trái bấm v (phím X vật lý)."],
-["⌘Z · một tay",0,["t0","2-5"],"Cái trái giữ ⌘, trỏ trái bấm z (phím B vật lý)."],
-["Cắt · một tay",1,["t1","2-3"],"Cái trái giữ NAV, ngón giữa trái bấm Cắt. Thay cho ⌘X, vì x của DH-Việt nằm tay phải."],
-["⌃Space",0,["1-0","t2"],"Út trái giữ ⌃, cái trái bấm Space."],
-["⌥←",1,["t1","1-8","1-2"],"Cái trái giữ NAV, ngón giữa phải giữ ⌥, áp út trái bấm ←."],
-["⌘N",0,["t0","1-7"],"Cái trái giữ ⌘, ngón trỏ phải bấm n."],
-["!",2,["t5","1-10","2-2"],"Cái phải giữ SYM, út phải giữ ⇧, tay trái bấm 1."],
-["⌘⇧4",2,["t5","1-7","1-10","1-2"],"Cái phải giữ SYM, trỏ và út phải giữ ⌘⇧, tay trái bấm 4."],
-["⌘1",2,["t5","t0","2-2"],"Cái phải giữ SYM, cái trái giữ ⌘, tay trái bấm 1."],
-["Đổi máy Bluetooth",1,["t1","0-9"],"Cái trái giữ NAV, tay phải bấm BT 1 đến BT 5 để chọn máy. BT xoá gỡ ghép nối của ô đang chọn."]];
-// Vị trí phím thật của Corne, đơn vị là một phím: cột lệch dọc, ba phím ngón cái xoè ra.
-const CX=[0,1,2,3,4,5,8,9,10,11,12,13],CY=[.37,.37,.12,0,.12,.24,.24,.12,0,.12,.37,.37];
-const TH=[[3.5,3.12,0,""],[4.5,3.12,12,"0 100%"],[5.5,2.83,24,"0 100%"],[7.5,2.83,-24,"100% 100%"],[8.5,3.12,-12,"100% 100%"],[9.5,3.12,0,""]];
+["Viết hoa",0,["t4","1-0"],"Cái phải giữ <b>⇧</b>, gõ chữ bằng tay nào cũng được. Trong hình là chữ A."],
+["⌘⇧ · đổi bộ gõ",0,["t0","t4"],"Cái trái giữ <b>⌘</b>, cái phải chạm <b>⇧</b>. Chỉ dùng hai ngón cái."],
+["⌘⇧C",0,["t0","t4","2-3"],"Cái trái giữ <b>⌘</b>, cái phải giữ <b>⇧</b>, trỏ trái bấm <b>c</b>."],
+["Bôi chọn",1,["t1","1-0","1-3"],"Cái trái giữ <b>NAV</b>, út trái giữ <b>⇧</b>, ba ngón giữa bấm mũi tên. Trong hình là bôi sang phải."],
+["⌘Tab",0,["t0","0-5"],"Cái trái giữ <b>⌘</b>, trỏ phải bấm <b>Tab</b> ở hàng trên. Giữ ⌘ và bấm Tab tiếp để đi qua từng app; thêm ⇧ ngón cái phải để đi ngược."],
+["⌘Enter",0,["t0","2-9"],"Cái trái giữ <b>⌘</b>, út phải bấm <b>Enter</b>."],
+["Enter",0,["2-9"],"Út phải bấm <b>Enter</b>, hàng dưới."],
+["?",1,["t1","1-4"],"Cái trái giữ <b>NAV</b>, trỏ trái bấm <b>?</b> ở hàng chủ phía trong. Một tay, và ô này ra thẳng dấu hỏi, không cần ⇧."],
+["Chụp màn hình",1,["t1","2-1","2-2","2-3","2-4"],"Cái trái giữ <b>NAV</b>, bấm một trong bốn ô hàng dưới: áp út <b>⌘⇧2</b>, giữa <b>⌘⇧3</b>, trỏ <b>⌘⇧4</b>, trỏ với vào trong <b>⌘⇧5</b>. Một tay, một chạm."],
+["/",2,["t5","1-5"],"Cái phải giữ <b>SYM</b>, trỏ phải bấm <b>/</b> ở hàng chủ phía trong."],
+["Tab",0,["0-5"],"Trỏ phải bấm <b>Tab</b>, hàng trên phía trong."],
+["⌘C · một tay",0,["t0","2-3"],"Cái trái giữ <b>⌘</b>, trỏ trái bấm <b>c</b> (phím V vật lý)."],
+["⌘V · một tay",0,["t0","2-1"],"Cái trái giữ <b>⌘</b>, áp út trái bấm <b>v</b> (phím X vật lý)."],
+["⌘Z · một tay",0,["t0","2-4"],"Cái trái giữ <b>⌘</b>, trỏ trái bấm <b>z</b> (phím B vật lý)."],
+["Xoá từ",1,["t1","t3"],"Cái trái giữ <b>NAV</b>, cái phải bấm <b>Bksp</b>. Giữ NAV và bấm liên tục để xoá nhiều từ."],
+["!",2,["t5","0-8"],"Cái phải giữ <b>SYM</b>, áp út phải bấm <b>!</b> ở hàng trên."],
+["( )",2,["t5","0-6","0-7"],"Cái phải giữ <b>SYM</b>, trỏ phải bấm <b>(</b>, giữa phải bấm <b>)</b>, hàng trên."],
+["' \"",2,["t5","2-6","2-7"],"Cái phải giữ <b>SYM</b>, trỏ phải bấm nháy đơn, giữa phải bấm nháy kép, hàng dưới."],
+["# $ % ^ & *",2,["t5","1-9","2-3"],"Cái phải giữ <b>SYM</b>, út phải giữ <b>⇧</b> ở hàng chủ, tay trái bấm phím số. Trong hình là # (⇧ + 3). Ngón cái phải đang bận giữ SYM nên dùng ⇧ của tầng."],
+["{ } + | ~",2,["t5","1-9","0-0"],"Cái phải giữ <b>SYM</b>, út phải giữ <b>⇧</b> ở hàng chủ, rồi bấm <b>[</b> <b>]</b> <b>=</b> <b>\\</b> <b>`</b>. Trong hình là {."],
+["&lt; &gt;",0,["t4","2-7","2-8"],"Cái phải giữ <b>⇧</b>, bấm dấu phẩy hoặc dấu chấm ở Base."],
+[":",2,["t5","2-8"],"Cái phải giữ <b>SYM</b>, áp út phải bấm <b>:</b> ở hàng dưới."]];
+// Vị trí phím thật của Corne khi bỏ hai cột ngoài, đơn vị là một phím: cột lệch dọc, ba phím ngón cái xoè ra.
+const CX=[0,1,2,3,4,7,8,9,10,11],CY=[.37,.12,0,.12,.24,.24,.12,0,.12,.37];
+const TH=[[2.5,3.12,0,""],[3.5,3.12,12,"0 100%"],[4.5,2.83,24,"0 100%"],[6.5,2.83,-24,"100% 100%"],[7.5,3.12,-12,"100% 100%"],[8.5,3.12,0,""]];
 const two=v=>v.indexOf("<")<0&&v.indexOf(" ")>0&&v.length>5?v.replace(" ","<br>"):v;
 function cls(v,base){if(v===T)return["t",base];if(v==="#")return["h","giữ"];if(M.has(v))return["m",v];if(v==="NAV"||v==="SYM")return["l",v];if(C.has(v))return["c",two(v)];if(v.indexOf("BT ")===0)return["b",two(v)];if(v.length>2&&v.indexOf("<")<0)return["s",two(v)];return["",v]}
 const pos=(x,y)=>'left:calc(var(--u)*'+x+');top:calc(var(--u)*'+y+')';
-let h="";
-L.forEach((ly,li)=>{h+='<p class="lt">'+ly.n+'</p><p class="ls">'+ly.s+'</p><div class="wrap"><div class="kb">';
-for(let r=0;r<3;r++)for(let c=0;c<12;c++){const[k,v]=cls(ly.r[r][c],B.r[r][c]);h+='<div class="k '+k+'" id="k'+li+'_'+r+'-'+c+'" style="'+pos(CX[c],CY[c]+r)+'">'+v+'</div>'}
-TH.forEach((t,i)=>{const[k,v]=cls(ly.t[i],B.t[i]);h+='<div class="k '+k+(t[2]&&Math.abs(t[2])>12?' tall':'')+'" id="k'+li+'_t'+i+'" style="'+pos(t[0],t[1])+(t[2]?';transform:rotate('+t[2]+'deg);transform-origin:'+t[3]:'')+'">'+v+'</div>'});
-h+='</div></div>'});
-document.getElementById("layers").innerHTML=h;
+// Vẽ một tầng. on = các ô cần tô khi minh hoạ cách bấm.
+function draw(li,on){const ly=L[li];let h="";
+const cell=(id,v,base,style,extra)=>{const[k,t]=cls(v,base);return'<div class="k '+k+extra+(N[li].includes(id)?" n":"")+(on.includes(id)?" on":"")+'" style="'+style+'">'+t+'</div>'};
+for(let r=0;r<3;r++)for(let c=0;c<10;c++)h+=cell(r+"-"+c,ly.r[r][c],B.r[r][c],pos(CX[c],CY[c]+r),"");
+TH.forEach((t,i)=>{h+=cell("t"+i,ly.t[i],B.t[i],pos(t[0],t[1])+(t[2]?";transform:rotate("+t[2]+"deg);transform-origin:"+t[3]:""),t[2]&&Math.abs(t[2])>12?" tall":"")});
+return h}
+document.getElementById("layers").innerHTML=L.map((ly,li)=>'<p class="lt">'+ly.n+'</p><p class="ls">'+ly.s+'</p><div class="wrap"><div class="kb">'+draw(li,[])+'</div></div>').join("");
 const sc=document.getElementById("sc");
-S.forEach(s=>{const b=document.createElement("button");b.textContent=s[0];b.onclick=()=>{document.querySelectorAll(".k.on").forEach(e=>e.classList.remove("on"));document.querySelectorAll(".sc button").forEach(e=>e.classList.remove("act"));b.classList.add("act");s[2].forEach(id=>{const e=document.getElementById("k"+s[1]+"_"+id);if(e)e.classList.add("on")});document.getElementById("how").textContent=L[s[1]].n+": "+s[3]};sc.appendChild(b)});
+function show(s,b){document.querySelectorAll("#sc button").forEach(e=>e.classList.remove("act"));b.classList.add("act");
+document.getElementById("demo").innerHTML=draw(s[1],s[2]);document.getElementById("how").innerHTML="<b>"+s[0]+"</b> · "+L[s[1]].n+"<br>"+s[3]}
+S.forEach((s,i)=>{const b=document.createElement("button");b.innerHTML=s[0];b.onclick=()=>show(s,b);sc.appendChild(b);if(!i)show(s,b)});
 </script>
 </body>
 </html>
