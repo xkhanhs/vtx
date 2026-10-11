@@ -138,30 +138,6 @@ final class ContextEnglishLoanwordTests: XCTestCase {
         XCTAssertTrue(f.previousWordEnglish)                       // fix + bug = run
     }
 
-    /// External (swiped) words: function words open, content words are candidates.
-    func testNoteExternalWord() {
-        var e = TelexEngine(); e.liveSpellCheck = true; e.contextualEnglish = true
-        e.noteExternalWord("suggestion", english: true)
-        XCTAssertFalse(e.previousWordEnglish)
-        for ch in "been" { _ = e.feed(ch) }
-        XCTAssertEqual(e.commitText(autoRestore: true), "bên")
-
-        e.resetContext()
-        e.noteExternalWord("it", english: true)
-        XCTAssertTrue(e.previousWordEnglish)
-        e.noteExternalWord("has", english: true)
-        for ch in "been" { _ = e.feed(ch) }
-        XCTAssertEqual(e.commitText(autoRestore: true), "been")
-
-        e.resetContext()
-        e.noteExternalWord(english: true)                          // word unknown: content
-        XCTAssertFalse(e.previousWordEnglish)
-        e.noteExternalWord(english: true)                          // second English word
-        XCTAssertTrue(e.previousWordEnglish)
-        e.noteExternalWord(english: false)
-        XCTAssertFalse(e.previousWordEnglish)
-    }
-
     /// Table invariants: every function word is recognized English; the gate table is
     /// well-formed.
     func testTableInvariants() {

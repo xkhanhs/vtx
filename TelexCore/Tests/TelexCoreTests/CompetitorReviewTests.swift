@@ -16,7 +16,6 @@ final class CompetitorReviewTests: XCTestCase {
     private static func appDefault(_ e: inout TelexEngine) {
         e.freeMarking = true
         e.liveSpellCheck = true
-        e.teencode = false
         e.contextualEnglish = true
         e.collisionPrefersVietnamese = true
         e.modernTone = false
