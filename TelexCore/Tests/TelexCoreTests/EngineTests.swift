@@ -119,6 +119,30 @@ final class EngineGoldenTests: XCTestCase {
         XCTAssertEqual(compose("nguwoif"), "người")   // reordered
     }
 
+    // "uou" + w typed AFTER the whole nucleus horns the o (→ ươu), like "tuoiw"→tươi.
+    // The w used to land on the last u and leave the useless "ruoư".
+    func testUouHornAfterNucleus() {
+        XCTAssertEqual(compose("ruouw"), "rươu")
+        XCTAssertEqual(compose("ruouwj"), "rượu")
+        XCTAssertEqual(compose("ruoujw"), "rượu")       // tone before w
+        XCTAssertEqual(compose("huouw"), "hươu")
+        XCTAssertEqual(compose("buouws"), "bướu")
+        XCTAssertEqual(compose("khuouw"), "khươu")
+        XCTAssertEqual(compose("Ruouwj"), "Rượu")
+
+        // The orders that already worked still agree.
+        XCTAssertEqual(compose("ruowuj"), "rượu")
+        XCTAssertEqual(compose("ruwouj"), "rượu")
+        XCTAssertEqual(compose("ruwowuj"), "rượu")
+
+        // A second w cancels, leaving the literal w.
+        XCTAssertEqual(compose("ruouww"), "ruouw")
+
+        // Not a "uou" nucleus: untouched.
+        XCTAssertEqual(compose("luuw"), "lưu")
+        XCTAssertEqual(compose("houw"), "hoư")
+    }
+
     // "Bỏ dấu tự do" toggle. Default (strict / Minimal Telex):
     // modifiers act only on the adjacent vowel — reach-back over a consonant is off,
     // so English/code types cleanly. Free mode: modifiers reach back over consonants.

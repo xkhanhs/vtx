@@ -19,6 +19,16 @@ final class VNIHornUURetargetTests: XCTestCase {
         XCTAssertEqual(vni("u7u"), "ưu")      // đặt sớm vẫn thế (đã đúng từ trước)
     }
 
+    /// "uou" nucleus: 7 typed after the whole nucleus horns the o (→ ươu), same
+    /// rule as Telex "ruouw"→rươu.
+    func testHornOnUouTargetsO() {
+        XCTAssertEqual(vni("ruou7"), "rươu")
+        XCTAssertEqual(vni("ruou75"), "rượu")
+        XCTAssertEqual(vni("huou7"), "hươu")
+        XCTAssertEqual(vni("ruo7u5"), "rượu")   // đặt sớm vẫn thế (đã đúng từ trước)
+        XCTAssertEqual(vni("ruou77"), "ruou7")  // second 7 cancels
+    }
+
     func testSingleUAndUaUnchanged() {
         XCTAssertEqual(vni("mua7"), "mưa")    // scan-back skips 'a', horns the u
         XCTAssertEqual(vni("tu7"), "tư")

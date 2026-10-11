@@ -1651,6 +1651,18 @@ public struct TelexEngine {
                !(tIdx >= 2 && letters[tIdx - 2].base == UInt8(ascii: "q")) {
                 tIdx -= 1
             }
+            // "uou" nucleus: w horns the o (→ ươu after propagation: rượu, hươu,
+            // bướu) — "uoư" is not a valid Vietnamese nucleus, so "ruouw"→rươu like
+            // "tuoiw"→tươi. An already-horned o retargets too, so a second w cancels
+            // it ("ruouww"→ruouw). Same "qu" exclusion.
+            if tIdx >= 2,
+               letters[tIdx].base == UInt8(ascii: "u"), letters[tIdx].mark == .none,
+               letters[tIdx - 1].base == UInt8(ascii: "o"),
+               letters[tIdx - 1].mark == .none || letters[tIdx - 1].mark == .horn,
+               letters[tIdx - 2].base == UInt8(ascii: "u"),
+               !(tIdx >= 3 && letters[tIdx - 3].base == UInt8(ascii: "q")) {
+                tIdx -= 1
+            }
             if tIdx >= 0 {
                 let p = letters[tIdx]
                 if p.mark == .none && p.base == UInt8(ascii: "a") {
@@ -1905,6 +1917,16 @@ public struct TelexEngine {
                        letters[target].base == UInt8(ascii: "u"), letters[target].mark == .none,
                        letters[target - 1].base == UInt8(ascii: "u"),
                        !(target >= 2 && letters[target - 2].base == UInt8(ascii: "q")) {
+                        target -= 1
+                    }
+                    // "uou" nucleus: 7 đặt lên chữ o (→ ươu: rượu, hươu, bướu), cùng
+                    // luật với w-handler Telex ("ruouw"→rươu, "ruouww"→ruouw).
+                    if mark == .horn, target >= 2,
+                       letters[target].base == UInt8(ascii: "u"), letters[target].mark == .none,
+                       letters[target - 1].base == UInt8(ascii: "o"),
+                       letters[target - 1].mark == .none || letters[target - 1].mark == .horn,
+                       letters[target - 2].base == UInt8(ascii: "u"),
+                       !(target >= 3 && letters[target - 3].base == UInt8(ascii: "q")) {
                         target -= 1
                     }
                     if letters[target].mark == .none {
