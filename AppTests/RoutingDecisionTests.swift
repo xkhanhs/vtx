@@ -1,5 +1,6 @@
 import XCTest
 @testable import VietTelex
+import TelexCore
 
 // The per-key routing used to be 6-8 separate AppState calls (each its own lock trip,
 // several re-reading Accessibility.isTrusted). tapRouting() collapses that into ONE
@@ -403,6 +404,82 @@ final class SpotlightClientIDNeverMergesWithFrontTests: XCTestCase {
     }
 }
 
+// Issue #110 (02/10/2026): Raycast 2.6 opened over Edge — Raycast is a non-activating
+// panel, so FrontmostApp stays Edge while IMK reports client=com.raycast.macos. The
+// front merge made Raycast's own keys tap-defer (Edge page content → tap) and the tap
+// backspace-retyped into Raycast, which applies ⌫ after the inserts ("wngs" → "ưnứ";
+// the logged tap-emit bs/ins matched the engine 1:1). Contract: overlay launchers
+// route by their OWN rule (inPlace) and the tap yields while IMK serves them.
+final class OverlayLauncherRoutingTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        Accessibility.testTrustOverride = true
+    }
+
+    override func tearDown() {
+        Accessibility.testTrustOverride = nil
+        ClientFocus.noteActivated(client: nil)
+        super.tearDown()
+    }
+
+    func testRaycastIsOverlayLauncher() {
+        XCTAssertTrue(AppState.isOverlayLauncher("com.raycast.macos"))
+        XCTAssertFalse(AppState.isOverlayLauncher("com.microsoft.edgemac"))
+        XCTAssertFalse(AppState.isOverlayLauncher(nil))
+    }
+
+    func testRaycastOverEdgeOrTerminalComposesViaIMKit() {
+        for front in ["com.microsoft.edgemac", "com.google.Chrome", "com.apple.Terminal", "com.vng.zalo"] {
+            let r = AppState.shared.tapRouting("com.raycast.macos", front: front)
+            XCTAssertFalse(r.tapDefer, "Raycast over \(front): its own inPlace rule decides")
+        }
+    }
+
+    func testOtherClientsStillMergeWithFront() {
+        XCTAssertTrue(AppState.shared.tapRouting(nil, front: "com.apple.Terminal").tapDefer)
+        // Unrelated in-place client over a terminal keeps the old safety net.
+        XCTAssertTrue(AppState.shared.tapRouting("com.apple.Notes", front: "com.apple.Terminal").tapDefer)
+    }
+
+    func testTapYieldsWhileLauncherLatched() {
+        XCTAssertTrue(TerminalTapController.overlayLauncherOwnsKeys(
+            latchedLauncher: "com.raycast.macos", front: "com.microsoft.edgemac", manualPin: { _ in nil }))
+        for pin: AppState.AppMode in [.auto, .inPlace, .marked, .axDetect, .passthrough] {
+            XCTAssertTrue(TerminalTapController.overlayLauncherOwnsKeys(
+                latchedLauncher: "com.raycast.macos", front: "com.apple.Terminal", manualPin: { _ in pin }),
+                "pin=\(pin)")
+        }
+    }
+
+    func testExplicitTapFamilyPinOnLauncherKeepsTap() {
+        for pin: AppState.AppMode in [.tap, .selection, .emptyReset] {
+            XCTAssertFalse(TerminalTapController.overlayLauncherOwnsKeys(
+                latchedLauncher: "com.raycast.macos", front: "com.apple.Terminal", manualPin: { _ in pin }))
+        }
+    }
+
+    func testNoLatchNeverYields() {
+        XCTAssertFalse(TerminalTapController.overlayLauncherOwnsKeys(
+            latchedLauncher: nil, front: "com.apple.Terminal",
+            manualPin: { _ in XCTFail("no latch → pin must not be read"); return nil }))
+        // Latched id == front (launcher genuinely frontmost, e.g. its settings window):
+        // the tap's own routing already answers for it.
+        XCTAssertFalse(TerminalTapController.overlayLauncherOwnsKeys(
+            latchedLauncher: "com.raycast.macos", front: "com.raycast.macos", manualPin: { _ in nil }))
+    }
+
+    func testLatchFollowsIMKActivation() {
+        ClientFocus.noteActivated(client: "com.raycast.macos")
+        XCTAssertEqual(ClientFocus.overlayLauncher, "com.raycast.macos")
+        // Esc → Edge's field re-activates: the panel no longer owns the keyboard.
+        ClientFocus.noteActivated(client: "com.microsoft.edgemac")
+        XCTAssertNil(ClientFocus.overlayLauncher)
+        ClientFocus.noteActivated(client: "com.raycast.macos")
+        ClientFocus.noteActivated(client: nil)
+        XCTAssertNil(ClientFocus.overlayLauncher)
+    }
+}
+
 // Field report 2026-08-11: Esc in Spotlight resets the query without closing the
 // overlay, cycling activateServer(iTerm)→activateServer(Spotlight) within ~1ms. The
 // freshly re-activated session's client.selectedRange() then reported a stale huge
@@ -604,5 +681,189 @@ final class UnknownAppPolicyTests: XCTestCase {
         XCTAssertEqual(AppState.shared.autoResolvedMode(unknown), .inPlace,
                        "legacy: learned in-place lại có hiệu lực")
         XCTAssertFalse(AppState.shared.usesMarkedText(unknown))
+    }
+}
+
+// Issue #110 vòng 2 (02/10/2026, v1.8.8 debug logs của tqkhiemDev): Raycast mở trên
+// Edge, phím ĐẦU tới tap trước khi IMK activate panel → tap soạn như Edge và chèn "ư"
+// (log: `tap-emit mode=emptyReset bs=0 ins=1` @12471.9 / @112343.4, rồi
+// `activateServer client=com.raycast.macos front=com.microsoft.edgemac` @12512.7 /
+// @112391.5). IMK bắt đầu engine mới với "ngs"/"ord" → "ưngs", "ưord " (applyInPlace
+// start=1 anchor=1). Các test này phát lại đúng thứ tự sự kiện đó trên mô hình ô chữ
+// thuần: tap gõ như Edge → activateServer Raycast → phím IMK.
+final class TapHandoffTests: XCTestCase {
+    private let raycast = "com.raycast.macos"
+    private let edge = "com.microsoft.edgemac"
+    private let t0: UInt64 = 10_000_000_000
+    private let e0: UInt64 = 41
+
+    /// Settings trong log của reporter (freeMarking, liveSpell, autoRestore, ctxEnglish,
+    /// teencode, collisionVN bật; simpleTelex/modern/vni tắt).
+    private func reporterEngine() -> TelexEngine {
+        var f = AppState.EngineFlags()
+        f.freeMarking = true; f.modernTone = false; f.liveSpellCheck = true
+        f.simpleTelex = false; f.quickTelex = false; f.vniMode = false
+        f.contextualEnglish = true; f.collisionPrefersVietnamese = true
+        var e = TelexEngine()
+        e.apply(f)
+        return e
+    }
+
+    /// Tap (as Edge) types `tapKeys` into the panel's field the way SyntheticKeyboard
+    /// would; returns the field text and the snapshot noteHandoff() records.
+    private func tapTypes(_ tapKeys: String) -> (field: String, snap: TapHandoff.Snapshot) {
+        var tap = reporterEngine()
+        let field = NSMutableString()
+        for ch in tapKeys {
+            switch tap.feed(ch) {
+            case .passthrough: field.append(String(ch))
+            case .none: break
+            case let .replace(bs, ins):
+                field.deleteCharacters(in: NSRange(location: field.length - bs, length: bs))
+                field.append(ins)
+            }
+        }
+        return (field as String, .init(raw: tap.rawKeystrokes, composed: tap.composed, atNs: t0, epoch: e0))
+    }
+
+    /// IMK in-place composition over `field` (anchor/onLen window, as applyInPlace),
+    /// optionally adopting the tap's snapshot at the first word key, then a boundary.
+    private func imkTypes(_ keys: String, into start: String, adopting snap: TapHandoff.Snapshot?,
+                          space: Bool) -> String {
+        var engine = reporterEngine()
+        let field = NSMutableString(string: start)
+        var anchor = field.length, onLen = 0
+        if let s = TapHandoff.adoptable(snap, nowNs: t0 + 100_000_000, epochNow: e0 + 1,
+                                        latchedLauncher: raycast, clientID: raycast,
+                                        textBeforeCaret: start),
+           TapHandoff.replay(&engine, raw: s.raw, expect: s.composed) {
+            onLen = (s.composed as NSString).length
+            anchor = field.length - onLen
+        }
+        func apply(_ a: TelexAction, _ ch: Character?) {
+            switch a {
+            case .passthrough:
+                if let ch { field.insert(String(ch), at: anchor + onLen); onLen += 1 }
+            case .none: break
+            case let .replace(bs, ins):
+                field.replaceCharacters(in: NSRange(location: anchor + onLen - bs, length: bs), with: ins)
+                onLen += (ins as NSString).length - bs
+            }
+        }
+        for ch in keys { apply(engine.feed(ch), ch) }
+        if space {
+            apply(engine.commitBoundary(autoRestore: true), nil)
+            field.append(" ")
+        }
+        return field as String
+    }
+
+    // MARK: Hai chuỗi trong report
+
+    func testWngsAfterTapFirstKeyBecomesUng() {
+        let (field, snap) = tapTypes("w")
+        XCTAssertEqual(field, "ư", "tap đã chèn ư vào ô Raycast trước activateServer")
+        XCTAssertEqual(imkTypes("ngs", into: field, adopting: nil, space: false), "ưngs",
+                       "bản 1.8.8: engine IMK mới không biết chữ ư — đúng triệu chứng report")
+        XCTAssertEqual(imkTypes("ngs", into: field, adopting: snap, space: false), "ứng")
+    }
+
+    func testWordAfterTapFirstKeyRestoresEnglish() {
+        let (field, snap) = tapTypes("w")
+        XCTAssertEqual(imkTypes("ord", into: field, adopting: nil, space: true), "ưord ",
+                       "bản 1.8.8: đúng triệu chứng report")
+        // Phát lại phím THÔ "w" (không phải seed("ư") = "uw") nên khôi phục ra "word".
+        XCTAssertEqual(imkTypes("ord", into: field, adopting: snap, space: true), "word ")
+    }
+
+    func testTwoTapKeysBeforeActivationStillContinue() {
+        // Hàng đợi synthetic chưa rút → tap tự chèn cả phím thứ 2 (noteHandoff chụp lại).
+        let (field, snap) = tapTypes("wo")
+        XCTAssertEqual(imkTypes("rd", into: field, adopting: snap, space: true), "word ")
+        let (f2, s2) = tapTypes("wn")
+        XCTAssertEqual(imkTypes("gs", into: f2, adopting: s2, space: false), "ứng")
+    }
+
+    // MARK: Không bao giờ đoán sai mà sửa chữ
+
+    func testRejectsWhenScreenDisagrees() {
+        let (_, snap) = tapTypes("w")
+        for screen in ["", "u", "aư", "query ưu", "u\u{31B}"] {   // last: NFD ư
+            XCTAssertNil(TapHandoff.adoptable(snap, nowNs: t0 + 1, epochNow: e0 + 1,
+                                              latchedLauncher: raycast, clientID: raycast,
+                                              textBeforeCaret: screen), "screen=\(screen)")
+        }
+        // Chữ tap chèn đứng sau ranh giới: vẫn là từ của nó → nhận.
+        XCTAssertNotNil(TapHandoff.adoptable(snap, nowNs: t0 + 1, epochNow: e0 + 1,
+                                             latchedLauncher: raycast, clientID: raycast,
+                                             textBeforeCaret: "open ư"))
+        // Engine IMK giữ nguyên khi bị từ chối: phím đi tiếp như 1.8.8, không sửa gì.
+        XCTAssertEqual(imkTypes("ngs", into: "u", adopting: snap, space: false), "ungs")
+    }
+
+    func testRejectsWrongFocusHistory() {
+        let (field, snap) = tapTypes("w")
+        func ok(epoch: UInt64, latched: String?, client: String?, now: UInt64) -> Bool {
+            TapHandoff.adoptable(snap, nowNs: now, epochNow: epoch, latchedLauncher: latched,
+                                 clientID: client, textBeforeCaret: field) != nil
+        }
+        XCTAssertTrue(ok(epoch: e0 + 1, latched: raycast, client: raycast, now: t0 + 50_000_000))
+        XCTAssertFalse(ok(epoch: e0, latched: raycast, client: raycast, now: t0 + 1), "chưa activate gì")
+        XCTAssertFalse(ok(epoch: e0 + 2, latched: raycast, client: raycast, now: t0 + 1),
+                       "có một lần đổi focus khác xen giữa")
+        XCTAssertFalse(ok(epoch: e0 + 1, latched: nil, client: raycast, now: t0 + 1))
+        XCTAssertFalse(ok(epoch: e0 + 1, latched: raycast, client: raycast,
+                          now: t0 + TapHandoff.maxAgeNs + 1), "ảnh chụp thiu")
+        XCTAssertFalse(ok(epoch: e0 + 1, latched: raycast, client: raycast, now: t0 - 1))
+    }
+
+    func testEdgeItselfNeverAdopts() {
+        // Raycast không mở: client là Edge (hoặc bất kỳ app thường nào) → không bao giờ.
+        let (field, snap) = tapTypes("w")
+        for client in [edge, "com.google.Chrome", "com.apple.Terminal", nil] as [String?] {
+            XCTAssertNil(TapHandoff.adoptable(snap, nowNs: t0 + 1, epochNow: e0 + 1,
+                                              latchedLauncher: client, clientID: client,
+                                              textBeforeCaret: field), "client=\(client ?? "nil")")
+        }
+    }
+
+    func testReplayRejectsMismatch() {
+        var e = reporterEngine()
+        XCTAssertFalse(TapHandoff.replay(&e, raw: "w", expect: "u"))
+        XCTAssertTrue(e.isEmpty, "từ chối → engine sạch")
+        XCTAssertTrue(TapHandoff.replay(&e, raw: "w", expect: "ư"))
+        XCTAssertEqual(e.rawKeystrokes, "w")
+    }
+
+    func testSnapshotIsOneShot() {
+        TapHandoff.record(.init(raw: "w", composed: "ư", atNs: t0, epoch: e0))
+        XCTAssertNotNil(TapHandoff.take())
+        XCTAssertNil(TapHandoff.take())
+        TapHandoff.record(.init(raw: "w", composed: "ư", atNs: t0, epoch: e0))
+        TapHandoff.clear()
+        XCTAssertNil(TapHandoff.take())
+    }
+
+    func testLauncherPresenceGate() {
+        XCTAssertTrue(FrontmostApp.anyOverlayLauncher(["com.apple.finder", "com.raycast.macos"]))
+        XCTAssertFalse(FrontmostApp.anyOverlayLauncher(["com.apple.finder", nil, "com.microsoft.edgemac"]))
+    }
+
+    /// Chi phí đo được: noteHandoff() (khi có launcher chạy) = 1 lock đọc cờ + dựng 2
+    /// chuỗi ngắn + 1 lock ghi, chỉ ở lần tap TỰ chèn chữ (không phải mỗi phím).
+    func testRecordCostIsNegligible() {
+        var e = reporterEngine()
+        for ch in "nguyeenx" { _ = e.feed(ch) }
+        let n = 20_000
+        let start = DispatchTime.now().uptimeNanoseconds
+        for _ in 0..<n {
+            _ = FrontmostApp.shared.overlayLauncherRunning
+            TapHandoff.record(.init(raw: e.rawKeystrokes, composed: e.composed,
+                                    atNs: DispatchTime.now().uptimeNanoseconds, epoch: ClientFocus.epoch))
+        }
+        let perNs = (DispatchTime.now().uptimeNanoseconds - start) / UInt64(n)
+        TapHandoff.clear()
+        print("TapHandoff record cost: \(perNs) ns/emit")
+        XCTAssertLessThan(perNs, 20_000, "phải là vài trăm ns, không phải ms")
     }
 }

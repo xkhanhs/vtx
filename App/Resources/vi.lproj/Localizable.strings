@@ -248,3 +248,6 @@ Bấm “Sửa tự động”: VTX tự xoá mục bị kẹt của chính nó 
 "Paste it into your bug report (⌘V)." = "Dán vào báo lỗi của bạn (⌘V).";
 
 "Click: open the Typing modes table + copy debug info" = "Bấm: mở Bảng cơ chế gõ + sao chép thông tin gỡ lỗi";
+
+"%@ is on a password field" = "%@ đang ở ô mật khẩu";
+"macOS pauses every input method in password fields — normal. Click another field to type Vietnamese again" = "macOS tạm tắt mọi bộ gõ trong ô mật khẩu — bình thường. Bấm sang ô khác là gõ tiếng Việt lại được";

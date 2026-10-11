@@ -54,6 +54,10 @@ final class TelexInputController: IMKInputController {
     /// PRIOR one closely enough that the fresh client's selectedRange() cannot be
     /// trusted as a real caret. Consumed by the very next word-start anchor.
     private var distrustNextAnchor = false
+    /// Issue #110 vòng 2: phiên này là một overlay launcher (Raycast) vừa được activate
+    /// — phím từ đầu tiên thử nhận lại từ mà tap đã chèn trước activateServer
+    /// (TapHandoff). Một lần mỗi activation; mọi client khác: false, không tốn gì.
+    private var pendingTapHandoff = false
 
     /// Pure so the 5s window is pinned by a test without mocking IMKTextInput.
     /// lastActivateNs == 0 means "never activated before" — never distrust the
@@ -74,6 +78,9 @@ final class TelexInputController: IMKInputController {
     /// offset-0 in-place is honored, and pinned apps get no verify probes, so
     /// this is the only guard their first word has.
     private var edgeTapWord = false
+    /// Machine-speed key burst in THIS client (#118: OpenClaw types ~1 key/ms) — those
+    /// keys pass through verbatim, no composition, no calls into the client.
+    private var machineTyping = MachineTypingDetector()
     /// Echo budget of the edge word's synthetic bursts. macOS 26 strips the magic
     /// userData before events reach IMKit (measured: our own burst arrives
     /// "magic=false" even in TextEdit), so echoes are recognized by CONTENT:
@@ -242,6 +249,19 @@ final class TelexInputController: IMKInputController {
     override func handle(_ event: NSEvent!, client sender: Any!) -> Bool {
         guard let event = event else { return false }
 
+        // Stall breaker (#118): handle() runs on MAIN, the one queue every app's keys
+        // share, and calls back into the client over synchronous XPC that has no
+        // timeout we can set. A client that made recent keys stall is passthrough for
+        // a cooldown — return false at once, never touch it — so its slowness cannot
+        // queue every other app's keys behind it. Otherwise: time this key.
+        let stallID = AppState.shared.currentBundleID ?? FrontmostApp.shared.bundleID
+        if ClientStallBreaker.shared.isDegraded(stallID) {
+            if !engine.isEmpty { dropComposition(cause: "client-stall") }
+            return false
+        }
+        let stallT0 = DispatchTime.now().uptimeNanoseconds
+        defer { ClientStallBreaker.shared.noteKeyHandled(stallID, path: .imk, startNs: stallT0) }
+
         // A ⌘/⌃/⌥ modifier just went DOWN: end any composition NOW, one event cycle
         // BEFORE the shortcut's letter arrives. Committing inside the same cycle as
         // the combo (the old approach) lost the first press — the app swallows a key
@@ -320,6 +340,29 @@ final class TelexInputController: IMKInputController {
                 logDecision("edge-echo chunk swallowed, chunks left=\(edgeEchoChunks.count)")
                 return false
             }
+        }
+
+        // Machine typing (#118): a burst faster than any human (agent / text expander /
+        // barcode scanner) passes through VERBATIM — composing it mangles the text the
+        // sender chose, and an agent that re-reads and retypes turns that into an
+        // endless stream of synchronous IMK round trips on MAIN. Our own echoes were
+        // filtered above, so only foreign keys reach the detector.
+        let machine = machineTyping.observe(
+            eventNs: event.timestamp > 0 ? UInt64(event.timestamp * 1_000_000_000) : 0,
+            arrivalNs: DispatchTime.now().uptimeNanoseconds,
+            isRepeat: event.isARepeat)
+        if machine.machine, AppState.shared.tapCascadeBreaker {
+            if machine.began {
+                MachineTypingLog.noteBurst(entryID, path: "imk")
+                DebugLog.log("machine typing: \(entryID) — burst faster than human, keys pass verbatim")
+                Signposts.log.notice("machine typing: \(entryID, privacy: .public) — passthrough")
+                // Once per burst: a MARKED composition must be committed, or the
+                // passed-through key would replace the still-marked word.
+                endComposition(client)
+            }
+            discardComposition()
+            spMode = "machine"
+            return false
         }
 
         // Word-table class (maintainer repro 23/08/2026): the tap witnessed a
@@ -794,6 +837,18 @@ final class TelexInputController: IMKInputController {
             }
         }
 
+        // Overlay launcher's first word key (#110): the tap may already have typed the
+        // start of this word before IMK activated the panel — adopt it if the screen
+        // proves it. One-shot per activation; a Bool test for every other client.
+        if pendingTapHandoff {
+            pendingTapHandoff = false
+            if engine.isEmpty, tracking, selToClear == 0, !markedNow, !edgeTapWord {
+                tryAdoptTapHandoff(caret: anchor, client, id: id)
+            } else {
+                TapHandoff.clear()
+            }
+        }
+
         // RE-EDIT (experimental, opt-in): a tone/mark key on an EMPTY engine right after a
         // word means "add this diacritic to that word" ("toan" + s → toán). Seed the
         // engine from the text on screen so the normal replace machinery does the edit.
@@ -999,7 +1054,10 @@ final class TelexInputController: IMKInputController {
         guard let sub = client.attributedSubstring(from: NSRange(location: caret - window,
                                                                  length: window)) else { return }
         let text = sub.string
-        guard text == text.precomposedStringWithCanonicalMapping else {
+        // Exact UTF-16 compare, NOT `==`: Swift String equality is canonical-equivalence,
+        // so an NFD field ("ta\u{302}n") would pass `==` against its NFC form and the
+        // later ⌫ counts would fall short of what is really on screen.
+        guard text.utf16.elementsEqual(text.precomposedStringWithCanonicalMapping.utf16) else {
             DebugLog.log("re-edit \(id ?? "?"): skipped (field text is not precomposed)")
             return
         }
@@ -1013,6 +1071,37 @@ final class TelexInputController: IMKInputController {
         onLen = wordLen
         anchorVerified = true
         DebugLog.log("re-edit \(id ?? "?"): seeded \(wordLen) chars before caret")
+    }
+
+    /// TapHandoff (#110 vòng 2): ô Raycast đang chứa chữ tap chèn cho phím đầu (vd "ư"
+    /// từ "w") mà engine IMK mới không biết. Đọc lại chữ trước con trỏ; chỉ khi khớp
+    /// CHÍNH XÁC chữ tap đã chèn (và các điều kiện của TapHandoff.adoptable) mới phát
+    /// lại phím thô vào engine và trỏ cửa sổ soạn vào đúng chữ đó — giống hệt re-edit
+    /// sau khi seed. Không khớp: im lặng, như bản 1.8.8.
+    private func tryAdoptTapHandoff(caret: Int, _ client: IMKTextInput, id: String?) {
+        guard let snap = TapHandoff.take() else { return }
+        let len = (snap.composed as NSString).length
+        guard len > 0, caret >= len else {
+            DebugLog.log("tap-handoff \(id ?? "?"): skipped (caret=\(caret) len=\(len))")
+            return
+        }
+        let window = min(caret, 24)
+        let text = client.attributedSubstring(from: NSRange(location: caret - window, length: window))?.string ?? ""
+        guard TapHandoff.adoptable(snap, nowNs: DispatchTime.now().uptimeNanoseconds,
+                                   epochNow: ClientFocus.epoch,
+                                   latchedLauncher: ClientFocus.overlayLauncher,
+                                   clientID: id, textBeforeCaret: text) != nil else {
+            DebugLog.log("tap-handoff \(id ?? "?"): skipped (screen/epoch/age mismatch, len=\(len))")
+            return
+        }
+        guard TapHandoff.replay(&engine, raw: snap.raw, expect: snap.composed) else {
+            DebugLog.log("tap-handoff \(id ?? "?"): skipped (replay mismatch)")
+            return
+        }
+        anchor = caret - len
+        onLen = len
+        anchorVerified = true
+        DebugLog.log("tap-handoff \(id ?? "?"): adopted \(len) chars typed by the tap before activateServer")
     }
 
     // MARK: - Re-open the last committed word on ⌫ (issue #40)
@@ -1062,7 +1151,7 @@ final class TelexInputController: IMKInputController {
         let start = sel.location - 1 - wordLen          // this ⌫ removes the boundary char
         guard start >= 0,
               let sub = client.attributedSubstring(from: NSRange(location: start, length: wordLen)),
-              sub.string == word                        // NFD field ⇒ mismatch ⇒ skip, as intended
+              sub.string.utf16.elementsEqual(word.utf16) // exact, not `==` (canonical): NFD field ⇒ skip
         else {
             engine.reset()
             DebugLog.log("⌫ re-open \(id ?? "?"): skipped (screen disagrees)")
@@ -1657,8 +1746,15 @@ final class TelexInputController: IMKInputController {
         fieldForcedMarked = false
         fieldVerifyStrikes = 0
         fieldInconclusive = 0
-        if let client = sender as? IMKTextInput {
+        let activatedClient = sender as? IMKTextInput
+        if let client = activatedClient {
             AppState.shared.currentBundleID = client.bundleIdentifier()
+        }
+        // Tap-side view of this activation: focus epoch for re-edit(tap) (#111) and
+        // the overlay-launcher latch (#110). Before anything else reads the client.
+        ClientFocus.noteActivated(client: activatedClient != nil ? AppState.shared.currentBundleID : nil)
+        pendingTapHandoff = activatedClient != nil && AppState.isOverlayLauncher(AppState.shared.currentBundleID)
+        if activatedClient != nil {
             // Spotlight took focus: stamp the visibility cache NOW — the overlay-raw
             // gate in the tap must not wait for a CGWindowList scan that only lands
             // after the first keys have already been mis-composed (2026-07-31).
@@ -1792,9 +1888,12 @@ final class TelexInputController: IMKInputController {
         // từ Info.plist là tĩnh, không nhúng version được, nên dòng "VTX 1.6.x" thừa.
         // Version vẫn ở Cài đặt → Giới thiệu và dòng đầu của snapshot debug.
         let menu = NSMenu(title: "VTX")
-        // macOS appends a standard "Edit Text Substitutions…" item to input-method
-        // menus. Strip it (and any trailing separator) each time the menu opens.
-        menu.delegate = self
+        // NO delegate / no stripping of the system "Edit Text Substitutions…" item any
+        // more: macOS 27's TextInputMenuAgent builds its item views from the menu
+        // BEFORE our delegate edits it, so removing items mid-open left the views off
+        // by one — our section rendered as a "··········" placeholder while the
+        // stripped item showed (log: "didChangeIndent: rep returned item view with
+        // wrong item", 21/09/2026). A visible system item is the lesser evil.
 
         // Status first — nhưng CHỈ khi có chuyện (maintainer 15/08/2026): "Tình
         // trạng: OK" thường trực là nhiễu, ẨN đi khi mọi thứ ổn. Tính năng ẩn
@@ -2333,23 +2432,6 @@ final class TelexInputController: IMKInputController {
 
 }
 
-extension TelexInputController: NSMenuDelegate {
-    // Remove the system-appended "Edit Text Substitutions…" item (+ dangling
-    // separator). Try both hooks: menuNeedsUpdate (early) and menuWillOpen (right
-    // before display, after the system has appended its items).
-    func menuNeedsUpdate(_ menu: NSMenu) { stripSystemItems(menu) }
-    func menuWillOpen(_ menu: NSMenu) { stripSystemItems(menu) }
-
-    private func stripSystemItems(_ menu: NSMenu) {
-        let subs = Selector(("orderFrontSubstitutionsPanel:"))
-        for item in menu.items where item.action == subs || item.title.localizedCaseInsensitiveContains("substitution") {
-            menu.removeItem(item)
-        }
-        while let last = menu.items.last, last.isSeparatorItem {
-            menu.removeItem(last)
-        }
-    }
-}
 
 @inline(__always)
 func isAsciiDigit(_ c: UInt8) -> Bool {

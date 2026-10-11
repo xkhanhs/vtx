@@ -315,6 +315,20 @@ final class FrontmostApp {
     private var _bundleID: String?
     var bundleID: String? { lock.withLock { _bundleID } }
 
+    /// Có tiến trình overlay launcher nào (AppState.overlayLauncherBundleIDs) đang chạy
+    /// không — cổng chi phí của TapHandoff (issue #110): không có Raycast thì tap không
+    /// chụp gì. Cập nhật bằng KVO runningApplications (chỉ khi app mở/tắt), đọc 1 lock trip ở
+    /// mỗi lần tap-emit (không phải mỗi phím).
+    private var _overlayLauncherRunning = false
+    var overlayLauncherRunning: Bool { lock.withLock { _overlayLauncherRunning } }
+    static func anyOverlayLauncher(_ ids: [String?]) -> Bool {
+        ids.contains { AppState.isOverlayLauncher($0) }
+    }
+    private func refreshOverlayLaunchers() {
+        let running = Self.anyOverlayLauncher(NSWorkspace.shared.runningApplications.map(\.bundleIdentifier))
+        lock.withLock { _overlayLauncherRunning = running }
+    }
+
     /// Most-recently-activated apps (newest first, distinct), EXCLUDING VietTelex
     /// itself — so Settings can offer "recent apps" to pin without typing a bundle id.
     /// MAIN-thread only (observer writes, Settings UI reads) — no lock needed.
@@ -338,7 +352,14 @@ final class FrontmostApp {
             self.recent.insert((id, app?.localizedName ?? id), at: 0)
             if self.recent.count > 10 { self.recent.removeLast() }
         }
+        refreshOverlayLaunchers()
+        // KVO, không phải didLaunch/didTerminate: Raycast là LSUIElement agent, loại
+        // app mà các notification đó không đảm bảo báo. Chỉ chạy khi có app mở/tắt.
+        runningAppsObservation = NSWorkspace.shared.observe(\.runningApplications) { [weak self] _, _ in
+            self?.refreshOverlayLaunchers()
+        }
     }
+    private var runningAppsObservation: NSKeyValueObservation?
 }
 
 /// TTL backoff shared by the three AX/window-list verdict caches below. While the user
@@ -361,6 +382,116 @@ enum DetectorBackoff {
         let doublings = min(stableRuns - threshold + 1, 16)
         let grown = base << UInt64(doublings)
         return grown >= capNs || grown < base ? capNs : grown
+    }
+}
+
+/// What IMKit last activated, as seen from the TAP thread. Written on MAIN (every
+/// activateServer), read on the TAP thread per key — hence the lock (one uncontended
+/// lock trip per key, no AX, no XPC).
+/// - `epoch`: đếm mọi lần activateServer. Re-edit(tap) chỉ seed khi KHÔNG có lần đổi
+///   focus nào kể từ phím/click gần nhất (issue #111, xem FocusAnchor).
+/// - `overlayLauncher`: id của overlay launcher (AppState.isOverlayLauncher) khi IMK
+///   đang phục vụ nó, nil với mọi client khác (issue #110). Một client KHÁC được
+///   activate là bằng chứng panel đã mất bàn phím — cùng lập luận với
+///   SpotlightDetector.noteUnfocused.
+enum ClientFocus {
+    private static let lock = NSLock()
+    private static var _epoch: UInt64 = 0
+    private static var _overlayLauncher: String?
+
+    static func noteActivated(client: String?) {
+        lock.withLock {
+            _epoch &+= 1
+            _overlayLauncher = AppState.isOverlayLauncher(client) ? client : nil
+        }
+    }
+
+    static var epoch: UInt64 { lock.withLock { _epoch } }
+    static var overlayLauncher: String? { lock.withLock { _overlayLauncher } }
+}
+
+/// Issue #110 vòng 2 (02/10/2026, v1.8.8, Raycast 2.6 trên Edge): CUỘC ĐUA PHÍM ĐẦU.
+/// Panel Raycast chỉ được IMK activate khi phím đầu tiên tới nó, nên phím đầu tới TAP
+/// lúc latch ClientFocus còn rỗng và front = Edge → tap soạn như Edge, chèn "ư" (từ
+/// "w") vào ô Raycast; ~40ms sau mới có activateServer client=com.raycast.macos và IMK
+/// bắt đầu engine MỚI với "ngs"/"ord" → "ưngs", "ưord " (log: tap-emit bs=0 ins=1 ngay
+/// trước activateServer, rồi applyInPlace start=1 anchor=1).
+///
+/// Không đoán trước được phím sẽ vào đâu (panel non-activating: frontmost vẫn Edge,
+/// không có tín hiệu rẻ nào trước activateServer). Thay vào đó HOÀ GIẢI sau: mỗi lần
+/// tap tự chèn chữ cho một từ (chỉ khi có launcher đang chạy), nó chụp phím thô + chữ
+/// đã chèn. Phím từ ĐẦU TIÊN mà IMK nhận trong launcher nhận lại ảnh chụp đó — CHỈ khi
+/// đúng một activateServer kể từ lúc chụp, còn tươi, và chữ trước con trỏ trong ô
+/// khớp CHÍNH XÁC chữ tap đã chèn (đọc lại). Khi đó engine IMK được phát lại đúng các
+/// phím thô ("w") nên từ đi tiếp như gõ liền một mạch ("ứng", "word " — khôi phục
+/// tiếng Anh dùng raw "word", không phải "uword"). Lệch bất cứ điều gì → bỏ, y như cũ.
+enum TapHandoff {
+    struct Snapshot: Equatable {
+        let raw: String
+        let composed: String
+        let atNs: UInt64
+        let epoch: UInt64
+    }
+    /// Log: tap-emit → phím IMK đầu tiên 57–103ms. Rộng tay cho người gõ chậm; cổng
+    /// thật là đếm phím (tap xoá ảnh chụp ở phím vật lý thứ 2 sau lần chụp) + đọc lại.
+    static let maxAgeNs: UInt64 = 3_000_000_000
+
+    private static let lock = NSLock()
+    private static var _pending: Snapshot?
+
+    static func record(_ s: Snapshot) { lock.withLock { _pending = s } }
+    static func clear() { lock.withLock { _pending = nil } }
+    /// Một lần duy nhất: lấy ra là xoá.
+    static func take() -> Snapshot? { lock.withLock { defer { _pending = nil }; return _pending } }
+
+    /// Có được nhận ảnh chụp cho phím từ đầu tiên của `clientID` không. Pure để test.
+    /// - client là overlay launcher và chính nó đang được latch (IMK đang phục vụ nó);
+    /// - đúng MỘT activateServer kể từ lúc chụp (lần activate của launcher) — chụp từ
+    ///   trước một lần đổi focus khác thì không phải chữ của phiên này;
+    /// - còn tươi;
+    /// - từ ngay trước con trỏ trong ô == chữ tap đã chèn, so UTF-16 chính xác.
+    static func adoptable(_ s: Snapshot?, nowNs: UInt64, epochNow: UInt64,
+                          latchedLauncher: String?, clientID: String?,
+                          textBeforeCaret: String) -> Snapshot? {
+        guard let s, !s.composed.isEmpty, !s.raw.isEmpty,
+              AppState.isOverlayLauncher(clientID), latchedLauncher == clientID,
+              epochNow == s.epoch &+ 1,
+              nowNs >= s.atNs, nowNs &- s.atNs <= maxAgeNs,
+              let word = TelexInputController.trailingWord(textBeforeCaret),
+              word.utf16.elementsEqual(s.composed.utf16)
+        else { return nil }
+        return s
+    }
+
+    /// Phát lại đúng phím thô vào engine (đã reset); true nếu ra đúng chữ đã chèn.
+    /// Sai → engine reset, caller để mọi thứ như cũ.
+    static func replay(_ engine: inout TelexEngine, raw: String, expect: String) -> Bool {
+        engine.reset()
+        for ch in raw { _ = engine.feed(ch) }
+        guard engine.composed.unicodeScalars.elementsEqual(expect.unicodeScalars) else {
+            engine.reset(); return false
+        }
+        return true
+    }
+}
+
+/// Issue #111 (Zalo, 02/10/2026): đang ở ô chat A, bấm sang hội thoại B rồi gõ "w" →
+/// re-edit(tap) seed "dà" (chữ của ô CŨ — AX của Electron chưa cập nhật) → "ằ", và
+/// "word␣" ra "dafword" (tap-emit trong log khớp 1:1 với engine seed "dà").
+/// Click xoá cờ ranh giới (click ở cuối từ rồi gõ dấu là ca chính của re-edit), nên
+/// gate cũ để lọt. Luật: chỉ tin chữ AX trước con trỏ khi focus ĐỨNG YÊN kể từ phím/
+/// click gần nhất. Click chuyển hội thoại tới tap TRƯỚC activateServer mà nó gây ra,
+/// nên phím đầu tiên trong ô mới luôn thấy epoch lệch → không seed; phím đó neo lại,
+/// từ phím sau mọi thứ như cũ. Giá: click sang ô KHÁC rồi gõ dấu ngay thì phím đó
+/// không re-edit (click thêm lần nữa trong ô là được) — fail-closed, chấp nhận.
+/// Pure để test (epoch là tham số).
+struct FocusAnchor {
+    private(set) var epoch: UInt64?
+    /// Neo tại một phím/click vật lý; trả về true nếu không có activateServer nào
+    /// kể từ lần neo trước.
+    mutating func observe(_ current: UInt64) -> Bool {
+        defer { epoch = current }
+        return epoch == current
     }
 }
 
@@ -1959,6 +2090,8 @@ final class TerminalTapController {
     /// Máy nhận diện chord hotkey chuyển bộ gõ — TAP-thread confined (mọi note/disarm
     /// đều từ callback), không cần lock. Xem SwitchHotkey.swift.
     private var chordRecognizer = ModifierChordRecognizer()
+    /// Machine-speed key bursts (#118) — TAP-thread confined like chordRecognizer.
+    private var machineTyping = MachineTypingDetector()
 
     /// TAP-thread confined: keycode của ⌃+số vừa bị nuốt (SwitchHotkey.directSources),
     /// để keyUp cùng cặp cũng bị nuốt — app không bao giờ thấy nửa nào của phím đó.
@@ -1993,9 +2126,18 @@ final class TerminalTapController {
         trustPoll = nil
     }
 
-    private func startWatchdog() {
+    /// Watchdog cadence. Typing: 3s (probe + trust + tap health). Idle (no key for
+    /// `watchdogIdleNs`): 30s — the idle tick only re-checks trust / tap liveness /
+    /// the stale-grant hint, and the probe is already paused, so 10× fewer wakeups
+    /// cost nothing but battery (maintainer 25/09/2026). The first key after idle
+    /// restores 3s (see `watchdogSlow` in the key path). Pure — pinned by tests.
+    static func watchdogInterval(idle: Bool) -> TimeInterval { idle ? 30 : 3 }
+    /// Guarded by stateLock: the timer is currently on the idle cadence.
+    private var watchdogSlow = false
+
+    private func startWatchdog(interval: TimeInterval = TerminalTapController.watchdogInterval(idle: false)) {
         watchdog?.invalidate()
-        let t = Timer(timeInterval: 3, repeats: true) { [weak self] _ in
+        let t = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             guard let self else { return }
             if !AXIsProcessTrusted() {
                 Signposts.log.fault("watchdog: Accessibility revoked with a live tap — forcing teardown")
@@ -2046,6 +2188,16 @@ final class TerminalTapController {
                     self.trustLooksStale = true
                     DebugLog.log("watchdog: grant looks stale (trusted but canPost=false) → offer repair")
                 }
+                // Drop to the idle cadence once (re-armed from the key path on resume).
+                let slowNow: Bool = self.stateLock.withLock {
+                    defer { self.watchdogSlow = true }; return !self.watchdogSlow
+                }
+                if slowNow {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, self.watchdog != nil else { return }
+                        self.startWatchdog(interval: Self.watchdogInterval(idle: true))
+                    }
+                }
                 return
             }
             if sent != seen {
@@ -2090,7 +2242,7 @@ final class TerminalTapController {
                 DebugLog.log("watchdog: grant looks stale (trusted but canPost=false) → offer repair")
             }
         }
-        t.tolerance = 1
+        t.tolerance = interval / 3
         RunLoop.main.add(t, forMode: .common)
         watchdog = t
     }
@@ -2109,6 +2261,16 @@ final class TerminalTapController {
     private var lastTapKeyWasBoundary = false
     // Thời điểm ⌫ vật lý gần nhất — gate của re-edit(tap), xem reEditGateOpen.
     private var lastDeleteNs: UInt64 = 0
+    /// Neo focus cho re-edit(tap) — issue #111, xem FocusAnchor. `reEditFocusStable`:
+    /// phím ĐANG xử lý tới khi chưa có activateServer nào kể từ phím/click trước.
+    /// TAP-thread confined.
+    private var reEditFocus = FocusAnchor()
+    private var reEditFocusStable = true
+    /// TapHandoff (#110): số phím vật lý kể từ lần chụp gần nhất, -1 = không có ảnh
+    /// chụp. Phím thứ 2 (hoặc click) xoá ảnh chụp — chỉ phím NGAY SAU lần chèn mới có
+    /// thể là phím đầu IMK nhận trong launcher. Không có ảnh chụp: một phép so Int.
+    /// TAP-thread confined.
+    private var handoffKeys = -1
 
     /// TRUE → the Spotlight overlay owns the keys and no one may compose: the
     /// routing verdict (from the app BEHIND the overlay) says tap-family, but a
@@ -2118,6 +2280,19 @@ final class TerminalTapController {
     /// polarity is pinned by tests.
     static func spotlightOverlayForcesRaw(visible: Bool, manualPin: AppState.AppMode?) -> Bool {
         visible && !(manualPin == .selection || manualPin == .tap || manualPin == .emptyReset)
+    }
+
+    /// Issue #110: IMK đang phục vụ một overlay launcher (Raycast) mà FrontmostApp là
+    /// app PHÍA SAU → phím rơi vào ô của panel, routing của tap lại là của app phía
+    /// sau (Edge → nội dung trang → ⌫+gõ-lại). Panel gõ IMK in-place theo rule của
+    /// nó (AppState.tapRouting không gộp front cho id này) nên tap phải NHƯỜNG phím
+    /// nguyên vẹn. Chỉ ép tay họ tap trên chính launcher mới giữ đường tap cũ.
+    /// `manualPin` lười: chỉ tra khi có launcher đang được latch.
+    static func overlayLauncherOwnsKeys(latchedLauncher: String?, front: String?,
+                                        manualPin: (String) -> AppState.AppMode?) -> Bool {
+        guard let l = latchedLauncher, l != front else { return false }
+        let pin = manualPin(l)
+        return !(pin == .selection || pin == .tap || pin == .emptyReset)
     }
 
     /// Emit mode cho một phím mà routing đã quyết là của TAP; nil = tap không giữ
@@ -2181,7 +2356,14 @@ final class TerminalTapController {
             callback: { _, type, event, refcon in
                 guard let refcon else { return Unmanaged.passUnretained(event) }
                 let me = Unmanaged<TerminalTapController>.fromOpaque(refcon).takeUnretainedValue()
-                return me.handle(type: type, event: event)
+                // Stall breaker (#118): time every keyDown; a slow one is charged to the
+                // frontmost app (id looked up ONLY when slow — two clock reads otherwise).
+                let t0 = DispatchTime.now().uptimeNanoseconds
+                let result = me.handle(type: type, event: event)
+                if type == .keyDown {
+                    ClientStallBreaker.shared.noteKeyHandled(FrontmostApp.shared.bundleID, path: .tap, startNs: t0)
+                }
+                return result
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
@@ -2303,6 +2485,7 @@ final class TerminalTapController {
     private func teardown() {
         watchdog?.invalidate()
         watchdog = nil
+        stateLock.withLock { watchdogSlow = false }   // a rebuilt tap starts on the 3s cadence
         let (tap, source, runLoop) = stateLock.withLock {
             let t = (self.tap, self.source, self.tapRunLoop)
             self.tap = nil
@@ -2429,6 +2612,11 @@ final class TerminalTapController {
         // path), so right after the toggle it can still say "trusted" and re-arm the
         // fight. Same rule as the watchdog: revoke-critical paths never read the cache.
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            // macOS measured our callback too slow: charge the frontmost app (#118) —
+            // repeated strikes inside the window make its keys pass through untouched.
+            if type == .tapDisabledByTimeout {
+                ClientStallBreaker.shared.noteTapTimeout(FrontmostApp.shared.bundleID)
+            }
             // GRANT-REMOVAL guard (field bug 2026-07-22): when the user REMOVES the
             // Accessibility entry (−, not a toggle), AXIsProcessTrusted() keeps
             // returning a stale TRUE — so the old code re-enabled, the OS disabled
@@ -2492,6 +2680,8 @@ final class TerminalTapController {
         if type == .leftMouseDown || type == .rightMouseDown {
             engine.reset()
             lastTapKeyWasBoundary = false   // click at a word's end re-arms re-edit
+            _ = reEditFocus.observe(ClientFocus.epoch)   // click = neo focus mới (#111)
+            if handoffKeys >= 0 { TapHandoff.clear(); handoffKeys = -1 }   // #110
             chordRecognizer.disarm()        // click giữa lúc giữ chord = không phải toggle
             // Sticky-source: click trong dải menu bar = user có thể đang tự đổi input
             // source bằng menu — dấu vết để KHÔNG giành lại (StickyInputSource).
@@ -2507,6 +2697,13 @@ final class TerminalTapController {
         if SyntheticKeyboard.isSynthetic(event) {
             SyntheticKeyboard.noteObservedSynthetic()
             return pass
+        }
+
+        // Mọi phím vật lý (cả chord ⌘K đổi hội thoại) neo focus cho re-edit (#111).
+        reEditFocusStable = reEditFocus.observe(ClientFocus.epoch)
+        if handoffKeys >= 0 {
+            handoffKeys += 1
+            if handoffKeys > 1 { TapHandoff.clear(); handoffKeys = -1 }
         }
 
         // One read of the activation latch for the whole key (it is a locked computed
@@ -2542,14 +2739,24 @@ final class TerminalTapController {
             return nil
         }
 
+        var wakeWatchdog = false
         let needsEngineReset: Bool = stateLock.withLock {
             if Self.stampsLiveness(imeActive: active) {
                 lastKeyDownNs = DispatchTime.now().uptimeNanoseconds
+                // First key after idle: back to the 3s cadence (one hop per idle
+                // stretch, not per key — the flag flips once).
+                if watchdogSlow { watchdogSlow = false; wakeWatchdog = true }
             }
             defer { pendingEngineReset = false }
             return pendingEngineReset
         }
         if needsEngineReset { engine.reset() }
+        if wakeWatchdog {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.watchdog != nil else { return }
+                self.startWatchdog()
+            }
+        }
 
         // Self-heal the latched imeActive against the authoritative selected source.
         // imeActive is a cache flipped by activate / deactivate / the TIS notification,
@@ -2633,6 +2840,26 @@ final class TerminalTapController {
         //  - Terminals (fallbackApps) → Backspace+retype.
         //  - Anything else → the IMKit in-place path handles it (pass through).
         let id = FrontmostApp.shared.bundleID
+        // Machine typing (#118, see MachineTypingDetector): a superhuman burst (agent,
+        // text expander, scanner) passes VERBATIM — no compose, no synthetic burst per
+        // key. CGEventTimestamp is fed as-is: if it is mach ticks rather than ns the
+        // event clock only reads "faster", and the arrival clock still has to agree.
+        let machine = machineTyping.observe(
+            eventNs: UInt64(event.timestamp),
+            arrivalNs: DispatchTime.now().uptimeNanoseconds,
+            isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0)
+        if machine.machine, AppState.shared.tapCascadeBreaker {
+            if machine.began {
+                MachineTypingLog.noteBurst(id, path: "tap")
+                DebugLog.log("machine typing (tap): \(id ?? "?") — keys pass verbatim")
+            }
+            engine.reset(); return pass
+        }
+        // Stall breaker (#118): an app that made recent keys stall is passthrough for a
+        // cooldown — raw key, no AX, no synthetic burst, nothing that can wait on it.
+        if ClientStallBreaker.shared.isDegraded(id) {
+            engine.reset(); return pass
+        }
         // Spotlight is IN-PLACE by default (builtInInPlaceApps) — the tap engages
         // only for an explicit tap-family manual pick. Manual pin consulted FIRST:
         // isVisible kicks a CGWindowList background scan every 200ms while typing,
@@ -2694,6 +2921,12 @@ final class TerminalTapController {
         // routed to a tap-family app — plain in-place apps still never pay for it.
         if Self.spotlightOverlayForcesRaw(visible: SpotlightDetector.isVisible,
                                           manualPin: spotlightManual) {
+            engine.reset(); return pass
+        }
+        // Overlay launcher (Raycast, #110): cùng lớp với Spotlight ở trên, nhưng panel
+        // gõ IMK in-place (không phải raw) — tap chỉ cần nhường phím.
+        if Self.overlayLauncherOwnsKeys(latchedLauncher: ClientFocus.overlayLauncher, front: id,
+                                        manualPin: { AppState.shared.manualMode($0) }) {
             engine.reset(); return pass
         }
         // Secure input (native password prompts) OR an AX-reported password field (web
@@ -2858,7 +3091,11 @@ final class TerminalTapController {
                                lastKeyWasBoundary: lastTapKeyWasBoundary,
                                queueDrained: SyntheticKeyboard.queueDrained(),
                                msSinceDelete: (DispatchTime.now().uptimeNanoseconds &- lastDeleteNs) / 1_000_000) {
-            tryReEditWordTap(id: id)
+            if reEditFocusStable {
+                tryReEditWordTap(id: id)
+            } else {
+                DebugLog.log("re-edit(tap) \(id ?? "?"): skipped (focus changed since last key/click)")
+            }
         }
         lastTapKeyWasBoundary = false   // this key is a word key
 
@@ -2878,15 +3115,28 @@ final class TerminalTapController {
                 return pass                               // native: zero synthetic events
             }
             SyntheticKeyboard.apply(backspaces: 0, insert: String(ch), mode: emitMode)
+            noteHandoff()
         case .none:
             break
         case let .replace(bs, insert):
             // B1: a single-char transform (w→ư) rewrites this event in place; anything
             // with backspaces, multi-char, or a draining burst keeps the synthetic path.
-            if modifyInPlace(event: event, backspaces: bs, insert: insert) { return pass }
+            if modifyInPlace(event: event, backspaces: bs, insert: insert) { noteHandoff(); return pass }
             SyntheticKeyboard.apply(backspaces: bs, insert: insert, mode: emitMode)
+            noteHandoff()
         }
         return nil
+    }
+
+    /// TapHandoff (#110): tap vừa tự đặt chữ của từ đang soạn lên màn hình. Nếu phím
+    /// này thực ra đã rơi vào một overlay launcher chưa kịp activate, phím IMK đầu tiên
+    /// ở đó sẽ nhận lại từ này. Không có launcher nào đang chạy: một lock trip, xong.
+    private func noteHandoff() {
+        guard FrontmostApp.shared.overlayLauncherRunning else { return }
+        TapHandoff.record(.init(raw: engine.rawKeystrokes, composed: engine.composed,
+                                atNs: DispatchTime.now().uptimeNanoseconds,
+                                epoch: ClientFocus.epoch))
+        handoffKeys = 0
     }
 
     /// Task B1 — modify the physical CGEvent in place instead of suppress + post.
@@ -2970,7 +3220,9 @@ final class TerminalTapController {
         guard let caret = AXTextEdit.readCaret(), caret > 0 else { return }
         let window = min(caret, 24)
         guard let text = AXTextEdit.readString(at: caret - window, length: window) else { return }
-        guard text == text.precomposedStringWithCanonicalMapping else {
+        // Exact UTF-16 compare — `==` is canonical-equivalence and would let NFD through
+        // (see TelexInputController.tryReEditWord).
+        guard text.utf16.elementsEqual(text.precomposedStringWithCanonicalMapping.utf16) else {
             DebugLog.log("re-edit(tap) \(id ?? "?"): skipped (field text is not precomposed)")
             return
         }
@@ -3019,7 +3271,7 @@ final class TerminalTapController {
         let start = caret - 1 - wordLen                 // this ⌫ removes the boundary char
         guard start >= 0,
               let text = AXTextEdit.readString(at: start, length: wordLen),
-              text == word
+              text.utf16.elementsEqual(word.utf16)     // exact, not `==` (canonical)
         else {
             engine.reset()
             DebugLog.log("⌫ re-open(tap) \(id ?? "?"): skipped (screen disagrees)")

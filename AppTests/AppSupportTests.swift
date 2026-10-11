@@ -40,6 +40,20 @@ final class AppSupportTests: XCTestCase {
         XCTAssertTrue(DebugLog.snapshot(header: []).contains("log empty"))
     }
 
+    /// Ring wraps several times: snapshot stays oldest→newest, exactly `capacity` lines.
+    func testDebugLogRingOrderAfterWrapping() {
+        let wasOn = AppState.shared.debugLogging
+        defer { AppState.shared.debugLogging = wasOn; DebugLog.clear() }
+        AppState.shared.debugLogging = true
+        DebugLog.clear()
+        for i in 0..<4_321 { DebugLog.log("w \(i)") }
+        let nums: [Int] = DebugLog.snapshot(header: []).split(separator: "\n").compactMap { line in
+            guard let r = line.range(of: "  w ") else { return nil }
+            return Int(line[r.upperBound...])
+        }
+        XCTAssertEqual(nums, Array(2_321..<4_321))
+    }
+
     // MARK: Updater — pure logic
 
     func testVersionCompare() {
@@ -125,6 +139,38 @@ final class AppSupportTests: XCTestCase {
         XCTAssertTrue(SecureInputMonitor.processIsAlive(0))             // không rõ ai giữ → đừng khuyên láo
         // Tên process của chính test host phải resolve được (đường NSRunningApplication).
         XCTAssertNotNil(SecureInputMonitor.processName(ProcessInfo.processInfo.processIdentifier))
+    }
+
+    /// Maintainer 24/09/2026: Chrome on a login page showed "Không gõ được tiếng Việt —
+    /// Google Chrome", which reads like a VietTelex failure. When the holder is the
+    /// app in FRONT it's just a password field — say that. Specific diagnoses win.
+    func testFrontAppPasswordFieldIsNotReportedAsAFault() {
+        XCTAssertEqual(
+            SecureInputMonitor.classifyHint(holderName: "Google Chrome", holderAlive: true,
+                                            runningPasswordManagers: [], holderIsFrontmost: true),
+            .passwordFieldInFrontApp("Google Chrome"))
+        // Not in front → still the generic "an app is holding it" diagnosis.
+        XCTAssertEqual(
+            SecureInputMonitor.classifyHint(holderName: "Google Chrome", holderAlive: true,
+                                            runningPasswordManagers: [], holderIsFrontmost: false),
+            .generic)
+        // Specific causes keep their own fix even when in front.
+        XCTAssertEqual(
+            SecureInputMonitor.classifyHint(holderName: "iTerm2", holderAlive: true,
+                                            runningPasswordManagers: [], holderIsFrontmost: true),
+            .terminal)
+        XCTAssertEqual(
+            SecureInputMonitor.classifyHint(holderName: "1Password", holderAlive: true,
+                                            runningPasswordManagers: [], holderIsFrontmost: true),
+            .passwordManager("1Password"))
+        XCTAssertEqual(
+            SecureInputMonitor.classifyHint(holderName: "Chrome", holderAlive: false,
+                                            runningPasswordManagers: [], holderIsFrontmost: true),
+            .orphan)
+        let k = SecureInputMonitor.HintKind.passwordFieldInFrontApp("Google Chrome")
+        XCTAssertFalse(SecureInputMonitor.wantsLockScreen(k))
+        XCTAssertNil(SecureInputMonitor.revealTarget(k))
+        XCTAssertTrue(SecureInputMonitor.menuHeadline(k, holderName: "Google Chrome").contains("Google Chrome"))
     }
 
     func testSecureInputHintClassifiesPasswordManagerAfterSleep() {
@@ -766,6 +812,52 @@ final class ReEditWordTests: XCTestCase {
 // moved onto the tap). Only the PURE gate is unit-testable here — the AX read-back
 // itself needs a live focused element, same limitation as the IMKit version above.
 final class ReEditWordTapGateTests: XCTestCase {
+
+    /// Issue #111 (Zalo, 02/10/2026): click sang hội thoại khác → activateServer →
+    /// phím "w" đầu tiên seed chữ CŨ ("dà") từ AX → "ằ", "word␣" ra "dafword".
+    /// Chuỗi thật: phím trong ô A, click (tap thấy TRƯỚC khi app đổi focus),
+    /// activateServer, rồi phím đầu tiên trong ô B — phím đó không được tin AX.
+    func testFirstKeyAfterFocusChangeIsNotStable() {
+        var a = FocusAnchor()
+        var epoch: UInt64 = 7
+        _ = a.observe(epoch)                    // gõ trong ô A
+        XCTAssertTrue(a.observe(epoch))         // phím tiếp theo, cùng ô
+        _ = a.observe(epoch)                    // click vào danh sách hội thoại
+        epoch += 1                              // Zalo đổi focus → activateServer
+        XCTAssertFalse(a.observe(epoch), "phím đầu trong ô mới: AX có thể còn là ô cũ")
+        XCTAssertTrue(a.observe(epoch), "từ phím thứ hai trong ô mới: như cũ")
+    }
+
+    /// Ca chính của re-edit giữ nguyên: click ở cuối một từ TRONG ô đang focus
+    /// (không activateServer) rồi gõ dấu.
+    func testClickInsideSameFieldStaysStable() {
+        var a = FocusAnchor()
+        _ = a.observe(3)                        // phím trước
+        _ = a.observe(3)                        // click cuối từ, không đổi focus
+        XCTAssertTrue(a.observe(3))
+    }
+
+    /// Click sang ô khác (activateServer tới SAU click) rồi click lần nữa trong ô
+    /// đó: click sau neo lại → re-edit mở.
+    func testSecondClickAfterFocusChangeReArms() {
+        var a = FocusAnchor()
+        _ = a.observe(1)                        // click đổi ô
+        _ = a.observe(2)                        // click lại trong ô mới (sau activate)
+        XCTAssertTrue(a.observe(2))
+    }
+
+    /// Chưa từng neo (phím đầu tiên từ khi chạy tap) → không tin.
+    func testNeverAnchoredIsNotStable() {
+        var a = FocusAnchor()
+        XCTAssertFalse(a.observe(0))
+    }
+
+    func testClientFocusEpochAdvancesOnEveryActivation() {
+        let e0 = ClientFocus.epoch
+        ClientFocus.noteActivated(client: "com.vng.zalo")
+        ClientFocus.noteActivated(client: "com.vng.zalo")
+        XCTAssertEqual(ClientFocus.epoch, e0 &+ 2, "re-activate cùng app vẫn là đổi focus")
+    }
 
     /// Issue #62 (Zalo, 26/08/2026): ⌫ nhanh rồi gõ "s" → seed AX cũ → "asa".
     /// Seed bị cấm trong cooldown sau ⌫ vật lý và khi queue synthetic chưa drain.

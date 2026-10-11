@@ -105,7 +105,19 @@ public struct TelexEngine {
     /// Whether the PREVIOUS committed word was classified English (for `contextualEnglish`).
     /// Cross-word state: survives `reset()` (which runs per word), updated at each commit,
     /// wiped by `resetContext()` (caller: focus / app switch). Read-only to callers/tests.
+    /// Since 11/10/2026 this means "an English RUN is open": set by an English FUNCTION
+    /// word, or by the SECOND English word in a row — never by one content word alone
+    /// (see `EnglishContextWords.functionWords`).
     public private(set) var previousWordEnglish = false
+
+    /// The previous committed word was a lone English CONTENT word ("suggestion",
+    /// "commit") while no run was open: one more English word opens the run, a
+    /// Vietnamese word clears it. Same lifetime as `previousWordEnglish`.
+    private var englishCandidate = false
+
+    /// Which `EnglishContextWords.predecessorGates` rules the previous committed word
+    /// satisfies (bit i ⇔ rule i): "has" sets the bit that lets "been" restore.
+    private var previousGateBits: UInt8 = 0
 
     /// Force-restore top-frequency English words that collide with valid
     /// Vietnamese syllables ("his"→hí) at the word boundary. Default ON.
@@ -206,6 +218,14 @@ public struct TelexEngine {
     // the screen: ⌫ on "rese" showed "ress" (tester report 2026-07-24).
     private var pFoldTones = false
 
+    // True while the CURRENT parse was built with that fold (a pending tone key was
+    // turned back into its literal letter when live spell-check froze the word).
+    // The boundary needs it: the fold wipes the tone, so a mark-doubler cancel that
+    // left the tone floating ("cheese": chế + e → "chée", frozen → "chese") looks
+    // like a clean deliberate escape ("gooogle") to composedHasDiacritic(). It is
+    // not — the user never saw the literal s where it landed. Reset per word.
+    private var tonesFolded = false
+
     // Effective tone of the last render (after the stop-coda drop) — the composed
     // word's tone, used by the zero-alloc boundary validation.
     private var lastEffTone: Tone = .none
@@ -236,6 +256,8 @@ public struct TelexEngine {
     // puts the word back into the buffer, so the context it composes against must be
     // the one from the word BEFORE it, not the one it just produced.
     private var reopenPrevEnglish = false
+    private var reopenCandidate = false
+    private var reopenGateBits: UInt8 = 0
 
     public init() {
         raw = [UInt8](repeating: 0, count: Self.capacity)
@@ -271,7 +293,12 @@ public struct TelexEngine {
     ///   • non-Vietnamese text ("google" → keys "google" → composes "gôgle" ✗),
     ///   • a tone-placement style the current settings spell differently
     ///     ("hòa" on screen while `modernTone` produces "hoà" ✗),
-    ///   • anything with a character no keystroke can produce (digits, symbols, é/ñ…).
+    ///   • anything with a character no keystroke can produce (digits, symbols, é/ñ…),
+    ///   • DECOMPOSED (NFD) text ("ta\u{302}n"): the engine always composes NFC, and
+    ///     Swift's `String ==` / Character hashing are canonical-equivalence, so a plain
+    ///     `==` would ACCEPT it — then every later edit's ⌫ count (derived from the NFC
+    ///     buffer) would be short of what is really on screen, mangling the word.
+    ///     Hence the scalar-exact comparison below, not `==`.
     /// Refusing costs the user nothing (the word simply isn't re-editable); guessing
     /// would rewrite text they never asked to change.
     public mutating func seed(_ word: String) -> Bool {
@@ -280,7 +307,9 @@ public struct TelexEngine {
         guard let keys = Self.seedKeystrokes(for: word, vni: vniMode) else { return false }
         guard keys.count <= Self.capacity else { reset(); return false }
         for ch in keys { _ = feed(ch) }
-        guard composed == word else { reset(); return false }
+        guard composed.unicodeScalars.elementsEqual(word.unicodeScalars) else {
+            reset(); return false
+        }
         return true
     }
 
@@ -395,6 +424,7 @@ public struct TelexEngine {
         if disabledAtCount == Int.max, forceRestoreUpperTone {
             disabledAtCount = 0
             rebuildParseState()
+            tonesFolded = false
             newCount = render()
             markCancelled = pCancelled
         toneCancelAt = pToneCancelAt
@@ -422,6 +452,7 @@ public struct TelexEngine {
                 pFoldTones = true
                 rebuildParseState()
                 pFoldTones = false
+                tonesFolded = true
                 newCount = render()
                 // The fold rewrote the cancel bookkeeping (a tone key that used to
                 // float is now a literal letter), so the snapshots taken before the
@@ -524,7 +555,7 @@ public struct TelexEngine {
         // Overflowed: the 32-char view is stale vs. the screen, so `outCount`
         // backspaces would hit the wrong characters. No restore, no rewrite.
         if overflowed {
-            if contextualEnglish { previousWordEnglish = false }   // undetermined → Vietnamese
+            if contextualEnglish { clearEnglishContext() }   // undetermined → Vietnamese
             reopenRawCount = 0; reopenOutCount = 0                 // stale prefix: never re-open
             return .none
         }
@@ -565,6 +596,8 @@ public struct TelexEngine {
         reopenRawCount = rawCount
         reopenOutCount = outCount
         reopenPrevEnglish = previousWordEnglish
+        reopenCandidate = englishCandidate
+        reopenGateBits = previousGateBits
     }
 
     /// Discard the re-open snapshot: the boundary character the caller inserted after
@@ -597,8 +630,12 @@ public struct TelexEngine {
         let n = reopenRawCount
         let expected = reopenOutCount
         let prevEnglish = reopenPrevEnglish
+        let prevCandidate = reopenCandidate
+        let prevGateBits = reopenGateBits
         reset()                                   // consume the snapshot before replaying
         previousWordEnglish = prevEnglish         // compose against the word BEFORE this one
+        englishCandidate = prevCandidate
+        previousGateBits = prevGateBits
         for i in 0..<n { _ = feed(Character(Unicode.Scalar(reopenRaw[i]))) }
         guard rawCount == n, outCount == expected else { reset(); return nil }
         for i in 0..<outCount where out[i] != reopenOut[i] { reset(); return nil }
@@ -672,6 +709,13 @@ public struct TelexEngine {
             // a valid syllable plus the repeated tail, i.e. exactly what the user meant
             // — keep it even though a diacritic survived the cancel.
             if isTeencodeKeep() { return false }
+            // Mark doubler whose cancel left a TONE floating that live spell-check then
+            // folded back to a literal key at the freeze ("cheese": chế + e → "chée" →
+            // "chese", "geese"→"gese"): the cancel did not clean the word, the freeze
+            // did — and it lost a letter the user typed. Restore the raw keys, like the
+            // stuck-diacritic case below would have without the fold. A real escape
+            // ("gooogle", "aaa") has no pending tone, so it never folds.
+            if toneCancelAt < 0, tonesFolded { return true }
             // The deliberate literal-letter escape — keep the screen ("pas", "tessted"→
             // tested, "Deffault"→Default: field reports 2026-07-26 / 07-22). Unless
             // free-marking left a diacritic stuck before the cancel, i.e. the cancel
@@ -692,10 +736,35 @@ public struct TelexEngine {
         // keys spell an English word is restored to English ("he is" → "is", not "í").
         // Gated so vniMode/default typing pays nothing (the String build only runs when the
         // flag is on AND the previous word was English).
+        // A gated word ("been") additionally needs its required predecessor right
+        // before it ("has been"), or the Vietnamese composition stands ("bên").
         if contextualEnglish, previousWordEnglish,
            rawIsEnglishContextWord(includingRestoreOnly: true)
-               || (collisionPrefersVietnamese && rawIsEnglishCollision()) { return true }
+               || (collisionPrefersVietnamese && rawIsEnglishCollision()),
+           predecessorGateAllows() { return true }
         return false
+    }
+
+    /// `EnglishContextWords.predecessorGates`: true unless the raw word is gated and the
+    /// previous committed word is not one of its predecessors. NON-mutating, boundary-only.
+    private func predecessorGateAllows() -> Bool {
+        guard let w = rawLowerWord(), let i = EnglishContextWords.gateIndex(of: w) else { return true }
+        return previousGateBits & (UInt8(1) << UInt8(i)) != 0
+    }
+
+    /// Raw keystrokes as a lowercase ascii word (nil if empty, too long for any English
+    /// table, or containing a non-letter). Boundary-only (allocates one String).
+    private func rawLowerWord() -> String? {
+        guard rawCount > 0, rawCount <= EnglishContextWords.maxLength else { return nil }
+        var v = String.UnicodeScalarView()
+        v.reserveCapacity(rawCount)
+        for i in 0..<rawCount {
+            var b = raw[i]
+            if b >= UInt8(ascii: "A"), b <= UInt8(ascii: "Z") { b |= 0x20 }
+            guard b >= UInt8(ascii: "a"), b <= UInt8(ascii: "z") else { return nil }
+            v.append(Unicode.Scalar(b))
+        }
+        return String(v)
     }
 
     /// True if the current composition still carries any Vietnamese diacritic — a mark
@@ -723,15 +792,19 @@ public struct TelexEngine {
         return EnglishCollisions.words.contains(w) || EnglishContextWords.words.contains(w)
     }
 
-    /// How a committed word affects the NEXT word's context. THREE-way, not binary:
-    /// - `.english`   — a recognized English word (whitelist / collision / exception):
-    ///                   start or continue an English run (seed context = English).
+    /// How a committed word affects the NEXT word's context. FOUR-way, not binary:
+    /// - `.englishFunction` — an English function word (`EnglishContextWords.functionWords`:
+    ///                   the, is, he, of, and…): opens (or continues) an English run.
+    /// - `.english`   — any other English word (dictionary or structural: "suggestion",
+    ///                   "commit"): continues an open run; with no run open it only
+    ///                   becomes a CANDIDATE, and a second English word opens the run
+    ///                   (11/10/2026: one loanword in a Vietnamese sentence must not).
     /// - `.vietnamese`— a valid Vietnamese syllable: end the English run (context = VN).
     /// - `.neutral`   — a loanword / foreign / brand token that is neither (e.g. "email",
     ///                   "app", "wifi"): PRESERVE the current context. This is what makes
     ///                   "email bán" stay Vietnamese (email doesn't start an English run)
     ///                   while "the email is" keeps the English run "the" opened.
-    enum WordContext { case english, vietnamese, neutral }
+    enum WordContext { case englishFunction, english, vietnamese, neutral }
     /// Classify by what was ACTUALLY committed (so it never disagrees with the screen):
     /// - restored to raw ascii → English if it's a recognized English word, else `.neutral`
     ///   (a loanword/foreign token like "email" that was only restored because it isn't a
@@ -747,7 +820,9 @@ public struct TelexEngine {
         // ascii "this") also differs, and calling that Vietnamese is what made
         // "thiss is" come out "this í" (field report 2026-08-14).
         if !restored, compositionHasDiacritic() { return .vietnamese }
-        if isRecognizedEnglish() { return .english }            // "he", "the", collisions
+        if isRecognizedEnglish() {                              // "he", "the", collisions
+            return rawIsFunctionWord() ? .englishFunction : .english
+        }
         // Escape-typed English: the doubled key that cancels the transform leaves the
         // real word on screen while the RAW keys ("thiss", "gooogle") are in no
         // dictionary. Ask the same dictionaries about what the user actually SEES.
@@ -755,18 +830,29 @@ public struct TelexEngine {
            EnglishContextWords.words.contains(word)
             || EnglishCollisions.words.contains(word)
             || EnglishContextWords.neutralLoanwords.contains(word) {
-            return EnglishContextWords.neutralLoanwords.contains(word) ? .neutral : .english
+            if EnglishContextWords.neutralLoanwords.contains(word) { return .neutral }
+            return EnglishContextWords.functionWords.contains(word) ? .englishFunction : .english
         }
         // Neutral loanwords ("email", "app", "wifi") and restore-only interjections
         // ("ok", "wow", "hi" — designed to never OPEN a run, see restoreOnly):
         // Vietnamese sentences use them constantly — preserve the context (neither
         // open nor end a run), or "email bans" would keep "bans" instead of "bán"
         // and "ok cams" would keep "cams" instead of "cám".
-        if rawIsNeutralLoanword() || rawIsEnglishContextWord(includingRestoreOnly: true) {
+        // Contraction tails ("I've" → "ve") likewise: toneless "ve"/"re" would otherwise
+        // read as Vietnamese and end the run right before "been".
+        if rawIsNeutralLoanword() || rawIsEnglishContextWord(includingRestoreOnly: true)
+            || rawIsContractionTail() {
             return .neutral
         }
         // Toneless-Vietnamese typing ("sao", "khong") keeps the context Vietnamese.
         if !restored, SyllableValidator.isValidSyllable(composed.lowercased()) { return .vietnamese }
+        // 1–2 letter tokens that no dictionary knows are chat abbreviations, not
+        // English ("b" = bạn, "c" = chị, "k", "mn", "dc", "ng", "vk", "ae"… — issue
+        // #93, 25/09/2026: "b is" kept "is" instead of "í"). Every real 1–2 letter
+        // English word (is, it, he, on, to, of, my, we, up…) is in the dictionaries
+        // and was classified above, so the structural English fallback below only
+        // ever caught abbreviations here. Neutral: preserve context, never open a run.
+        if rawCount <= 2 { return .neutral }
         // Everything left is a word NO Vietnamese syllable can be — untouched
         // ("github") or restored-to-raw ("position", whose restore is a textual
         // no-op) — and that structure is as strong an English-run signal as a
@@ -793,14 +879,36 @@ public struct TelexEngine {
         return EnglishContextWords.neutralLoanwords.contains(String(v))
     }
 
+    private func rawIsFunctionWord() -> Bool {
+        guard let w = rawLowerWord() else { return false }
+        return EnglishContextWords.functionWords.contains(w)
+    }
+
+    private func rawIsContractionTail() -> Bool {
+        guard rawCount <= 2, let w = rawLowerWord() else { return false }
+        return EnglishContextWords.contractionTails.contains(w)
+    }
+
     /// Fold the just-committed word into the cross-word context (only when the feature is on).
+    /// Run state machine: function word → open; content word → continue an open run,
+    /// else candidate, else (second English word in a row) open; Vietnamese → close
+    /// everything; neutral → preserve run AND candidate.
     private mutating func updateContext(restored: Bool) {
         guard contextualEnglish, rawCount > 0 else { return }
         switch classifyWordContext(restored: restored) {
-        case .english:    previousWordEnglish = true
-        case .vietnamese: previousWordEnglish = false
-        case .neutral:    break                       // loanword/foreign: preserve
+        case .englishFunction: previousWordEnglish = true; englishCandidate = false
+        case .english:         foldEnglishContentWord()
+        case .vietnamese:      clearEnglishContext(); return
+        case .neutral:         break                  // loanword/foreign: preserve
         }
+        previousGateBits = rawLowerWord().map(EnglishContextWords.predecessorBits(of:)) ?? 0
+    }
+
+    /// An English CONTENT word was committed: continue an open run; otherwise the second
+    /// one in a row opens it ("fix bug"), the first only marks a candidate ("suggestion").
+    private mutating func foldEnglishContentWord() {
+        if previousWordEnglish { return }
+        if englishCandidate { previousWordEnglish = true; englishCandidate = false } else { englishCandidate = true }
     }
 
     /// Raw keystrokes spell a common English word (see EnglishContextWords). NON-mutating.
@@ -825,7 +933,14 @@ public struct TelexEngine {
 
     /// Clear the cross-word English context (caller: focus change / app switch), so a new
     /// typing context doesn't inherit the previous field's last word.
-    public mutating func resetContext() { previousWordEnglish = false }
+    public mutating func resetContext() { clearEnglishContext() }
+
+    /// Previous word unknown / Vietnamese: no run, no pending content word, no gate.
+    private mutating func clearEnglishContext() {
+        previousWordEnglish = false
+        englishCandidate = false
+        previousGateBits = 0
+    }
 
     /// Final text to commit at a word boundary, with auto-restore applied
     /// (non-Vietnamese syllables fall back to the raw keystrokes). Resets the engine.
@@ -835,7 +950,7 @@ public struct TelexEngine {
         // Overflowed: never restore to `rawKeystrokes` (only the first 32 keys) —
         // return the composed prefix unchanged; the caller keeps the rest on screen.
         if overflowed {
-            if contextualEnglish { previousWordEnglish = false }
+            if contextualEnglish { clearEnglishContext() }
             reopenRawCount = 0; reopenOutCount = 0                 // stale prefix: never re-open
             return composed
         }
@@ -1219,7 +1334,7 @@ public struct TelexEngine {
         // "done rồi as" → "rồi" dropped between its last key and the space → "as"
         // decided on "done" → restored to English. Previous word is now unknown →
         // Vietnamese default, same call the ⌫-into-committed-text path makes.
-        if rawCount > 0 { previousWordEnglish = false }
+        if rawCount > 0 { clearEnglishContext() }
         resetWord()
         reopenRawCount = 0
         reopenOutCount = 0
@@ -1237,6 +1352,7 @@ public struct TelexEngine {
         upperToneKey = false
         overflowed = false
         disabledAtCount = Int.max
+        tonesFolded = false
         pCount = 0
         pTone = .none
         pToneKeyCount = 0
@@ -1398,10 +1514,25 @@ public struct TelexEngine {
     /// freeze site. One-pass for the common cases; the second pass is ⌫-only cost.
     private mutating func rebuildFrozenAware() {
         rebuildParseState()
+        tonesFolded = false
         if disabledAtCount != Int.max, pTone != .none {
             pFoldTones = true
             rebuildParseState()
             pFoldTones = false
+            tonesFolded = true
+        }
+    }
+
+    /// Circumflex the doubler's target letter. An `o` target inside the ươ cluster
+    /// (a u right before it that carries the horn — typed "uwo", "uwow" or reached
+    /// through render's ươ mirroring) takes the u's horn off too: ươ → uô, never the
+    /// invalid "ưô" ("lươn" + o → "luôn", "lượn" + o → "luộn": the tone stays, on ô).
+    /// That is UniKey's behaviour for the hat key on ươ.
+    private mutating func setCircumflex(_ k: Int) {
+        letters[k].mark = .circumflex
+        if letters[k].base == UInt8(ascii: "o"), k >= 1,
+           letters[k - 1].base == UInt8(ascii: "u"), letters[k - 1].mark == .horn {
+            letters[k - 1].mark = .none
         }
     }
 
@@ -1718,7 +1849,13 @@ public struct TelexEngine {
                 let pIdx = pCount - 1
                 let p = letters[pIdx]
                 if p.base == lower && p.mark == .none {
-                    letters[pIdx].mark = .circumflex; rawLetter[at] = pIdx; return
+                    setCircumflex(pIdx); rawLetter[at] = pIdx; return
+                }
+                // `o` on a HORNED o (ơ, the ươ cluster): hook → hat, UniKey-style —
+                // "mơ"+o → mô, "luwowo" → luô (the ư loses its horn with it, see
+                // setCircumflex). A horned o is otherwise never an o-doubler target.
+                if lower == UInt8(ascii: "o"), p.base == lower, p.mark == .horn {
+                    setCircumflex(pIdx); rawLetter[at] = pIdx; return
                 }
                 if p.base == lower && p.mark == .circumflex {
                     letters[pIdx].mark = .none
@@ -1740,7 +1877,12 @@ public struct TelexEngine {
                 while k >= 0 && !isVowelAscii(letters[k].base) { k -= 1 }   // skip coda
                 let nucleusEnd = k
                 while k >= 0, isVowelAscii(letters[k].base) {               // walk nucleus
-                    if letters[k].base == lower, letters[k].mark == .none {
+                    // "lươn" + o → "luôn" (UniKey): the reach-back also turns a
+                    // horned o into ô — same hook→hat retarget as the adjacent case
+                    // (and the same oeo/oao guard below).
+                    if letters[k].base == lower,
+                       letters[k].mark == .none
+                           || (lower == UInt8(ascii: "o") && letters[k].mark == .horn) {
                         // "oeo"/"oao" are REAL rimes (ngoèo, khoèo, ngoáo): an `o`
                         // that would fold ACROSS the middle bare e/a is the user
                         // typing the rime's last vowel, not a circumflex — issue
@@ -1755,7 +1897,7 @@ public struct TelexEngine {
                                || letters[k + 1].base == UInt8(ascii: "a") {
                             break                                    // → literal o
                         }
-                        letters[k].mark = .circumflex; rawLetter[at] = k; return
+                        setCircumflex(k); rawLetter[at] = k; return
                     }
                     // Cancel mirror of the reach-back (tester bug 2026-07-23):
                     // "theme"→thêm, then a third e must UNDO the mark and go
