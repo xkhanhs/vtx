@@ -1,12 +1,17 @@
-# Keymap Corne ba tầng, 36 phím, QWERTY, không trễ
+# Keymap Corne ba tầng, 36 phím, Colemak DH-Việt, không trễ
 
 Bàn phím là Corne v4 bản Bluetooth (ZMK, có ZMK Studio), thay cho Sofle v2 có dây.
 Firmware nằm ở repo [xkhanhs/zmk-config-corne](https://github.com/xkhanhs/zmk-config-corne),
 fork từ `shopcntech/corne1` của shop bán; keymap là file `config/corne.keymap` ở đó.
 
-**Trạng thái.** Phương án chốt ngày 10/10/2026: chữ về QWERTY để gõ quen tay trong lúc
-còn tập DH-Việt ở bàn phím MacBook, vì học cùng lúc cả bàn phím mới lẫn layout mới thì
-không kịp. Phương án 36 phím DH-Việt trước đó nằm trong lịch sử git của file này.
+**Trạng thái.** Chốt ngày 11/10/2026: gõ Colemak DH-Việt trên Corne, và phần dịch chữ do
+VTX làm trên máy. Firmware vẫn gửi mã phím QWERTY như bản nạp ngày 10/10/2026, chỉ sửa
+đúng một ô (`⌃C`, xem cuối trang). Không có tầng Colemak trong firmware và không có phím
+chuyển layout.
+
+Hệ quả: cắm Corne vào một máy không có VTX thì nó gõ QWERTY. Trên máy nhà, VTX phải ở
+chế độ **Colemak**; chuyển sang chế độ Telex thì Corne gõ QWERTY ngay, không cần đụng
+firmware.
 
 Bản xem được: [corne-layout.html](corne-layout.html). Phần 1 vẽ ba tầng. Phần 2 liệt kê
 các tổ hợp hay dùng, bấm vào một tổ hợp thì sơ đồ tô các phím cần bấm. Bản để in ra
@@ -17,10 +22,13 @@ một trang A4: [corne-layout-print.html](corne-layout-print.html).
 - **Mỗi phím chỉ một chức năng.** Không có mod-tap, không phím dính, và phím layer chỉ để
   giữ, không kiêm Space hay Enter. Firmware không phải đoán bấm hay giữ nên không có trễ.
 - **Chỉ dùng 36 phím.** Hai cột ngoài cùng không gán gì, ngón út không phải với ra.
-- **Base là QWERTY nguyên vẹn.** Cả 26 chữ và bốn dấu `;` `,` `.` `/` ở đúng chỗ của bàn
-  phím thường, nên `?` `:` `<` `>` vẫn là ⇧ cộng phím gốc.
+- **Base là DH-Việt y như trên MacBook.** Chữ nào ở ô nào của bàn phím MacBook thì ở đúng
+  ô ấy trên Corne, vì cả hai cùng đi qua một bộ dịch của VTX. Ba dấu `,` `.` `/` không
+  dời. `;` nằm ở hàng trên, cột trong của tay phải, nên `:` là ⇧ cộng ô đó.
 - **⌘ ở ngón cái trái, ⇧ ở ngón cái phải.** Tay phải cầm chuột chọn chữ thì tay trái vẫn
   tự copy được, và ⌘⇧ là hai ngón cái.
+- **Phím tắt đi theo chữ DH-Việt.** VTX đổi địa chỉ mọi tổ hợp ⌘, ⌃, ⌥ sang ô mang chữ đó
+  trên DH-Việt. ⌘C, ⌘V, ⌘Z vẫn nằm hàng dưới tay trái; ⌘X sang ngón út phải hàng trên.
 - **Tầng NAV gánh gần hết:** tay trái di chuyển, tay phải là numpad. Ký hiệu là ⇧ ngón cái
   phải cộng phím số, như bàn phím thường.
 - **Tầng thứ ba (FN) dùng ít nên không có phím riêng ở Base.** Giữ NAV rồi giữ thêm ngón
@@ -32,9 +40,9 @@ một trang A4: [corne-layout-print.html](corne-layout-print.html).
 
 **Tầng 0: Base**
 ```
- q     w     e     r     t     │   y     u     i     o     p
- a     s     d     f     g     │   h     j     k     l     ;
- z     x     c     v     b     │   n     m     ,     .     /
+ q     w     f     g     b     │   ;     l     u     y     x
+ a     h     s     t     p     │   m     n     e     o     i
+ j     v     r     c     z     │   k     d     ,     .     /
              ⌘    [NAV] Space  │  Bksp   ⇧    Enter
 ```
 
@@ -73,8 +81,10 @@ một trang A4: [corne-layout-print.html](corne-layout-print.html).
 |---|---|
 | Viết hoa | Cái phải giữ ⇧, gõ chữ bằng tay nào cũng được |
 | ⌘⇧ đổi bộ gõ | Cái trái ⌘, cái phải ⇧ |
-| ⌘⇧C, ⌘⇧V | Hai ngón cái giữ ⌘ và ⇧, tay trái bấm c hoặc v |
-| ⌘C, ⌘V, ⌘X, ⌘Z một tay | Cái trái ⌘, tay trái bấm chữ |
+| ⌘⇧C, ⌘⇧V | Hai ngón cái giữ ⌘ và ⇧, trỏ trái bấm c hoặc áp út trái bấm v, đều ở hàng dưới |
+| ⌘C, ⌘V, ⌘Z một tay | Cái trái ⌘, tay trái bấm chữ ở hàng dưới: v áp út, c trỏ, z trỏ vươn vào trong |
+| ⌘X | Cái trái ⌘, út phải bấm x ở hàng trên |
+| `:` | Cái phải ⇧, trỏ phải bấm `;` ở hàng trên phía trong |
 | ⌘Tab một tay | Giữ NAV, út trái giữ ⌘, trỏ trái bấm Tab; bấm Tab tiếp để đi qua từng app |
 | ⌘Enter | Cái trái ⌘, cái phải Enter |
 | Số | Giữ NAV, tay phải bấm numpad |
@@ -90,17 +100,31 @@ phím không còn phím ⌃ hay ⌥ trần. Gõ `10/10/2026` phải nhả NAV đ
 
 ## Chi tiết cần nhớ khi viết firmware
 
-- **Firmware gửi mã phím QWERTY, nên macOS phải ở một bộ gõ QWERTY.** Với VTX là chế độ
-  Telex. Nếu chuyển sang chế độ Colemak thì macOS dịch tiếp sang DH-Việt: chữ ra sai chỗ,
-  và ô `⌃C` thành ⌃ cộng một chữ khác.
+- **Firmware gửi mã phím QWERTY, VTX chế độ Colemak dịch sang DH-Việt.** Tầng Base trong
+  `corne.keymap` và trong ZMK Studio vì vậy vẫn hiện QWERTY, khác với hình vẽ ở trang này.
+  Bảng dưới cho biết ô nào trong firmware ra chữ nào.
+- **Ô `⌃C` phải là `&kp LC(V)`, không phải `&kp LC(C)`.** VTX đổi địa chỉ cả tổ hợp ⌃ theo
+  DH-Việt, mà mã phím `C` trên DH-Việt là chữ `r`, nên `LC(C)` ra ⌃R. Mã phím `V` mới là
+  chữ `c`. Đây là ô duy nhất của firmware phụ thuộc layout chữ; khi VTX ở chế độ Telex
+  hoặc khi cắm máy khác thì ô này ra ⌃V.
 - Ô ra thẳng một tổ hợp là phím gốc kèm modifier: `+` là `&kp PLUS`, nhảy từ là
-  `&kp LA(LEFT)`, ⌃C là `&kp LC(C)`, chụp màn hình là `&kp LG(LS(N2))` đến
-  `&kp LG(LS(N5))`. ZMK Studio gán được kiểu này bằng cách chọn phím rồi tích thêm
+  `&kp LA(LEFT)`, chụp màn hình là `&kp LG(LS(N2))` đến `&kp LG(LS(N5))`. ZMK Studio gán được kiểu này bằng cách chọn phím rồi tích thêm
   modifier.
 - Phím FN là `&mo 2` đặt trong tầng NAV, không có ở Base. Hai cột ngoài và các ô trống
   của tầng FN là `&none`, để lỡ chạm không ra số của tầng NAV.
 - Corne không có hàng số, và macOS không tự đổi F1–F12 của bàn phím rời thành phím
   media. Vì vậy độ sáng, âm lượng và play phải là keycode riêng ở tầng FN.
+
+### Mã phím firmware và chữ ra trên DH-Việt
+
+Hàng trên của mỗi cặp là mã phím trong firmware, hàng dưới là chữ VTX cho ra.
+
+```
+ Q W E R T │ Y U I O P        A S D F G │ H J K L ;        Z X C V B │ N M , . /
+ q w f g b │ ; l u y x        a h s t p │ m n e o i        j v r c z │ k d , . /
+```
+
+Các ký hiệu, số và mũi tên của tầng NAV không đổi: DH-Việt chỉ dời chữ và dấu `;`.
 
 ## Sửa keymap và nạp lại
 

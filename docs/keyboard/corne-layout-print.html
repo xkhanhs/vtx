@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Corne 36 phím QWERTY – bản in</title>
+<title>Corne 36 phím Colemak DH-Việt – bản in</title>
 <style>
   @page { size: A4 portrait; margin: 10mm; }
   * { box-sizing: border-box; }
@@ -40,8 +40,8 @@
 </style>
 </head>
 <body>
-<h1>Corne 36 phím – QWERTY</h1>
-<p class="note">Keymap đang chạy trên bàn phím, nạp ngày 10/10/2026. Hàng phím vẽ thẳng cột, bỏ hai cột ngoài cùng. macOS phải ở bộ gõ QWERTY (VTX chế độ Telex).</p>
+<h1>Corne 36 phím – Colemak DH-Việt</h1>
+<p class="note">Chốt ngày 11/10/2026. Hàng phím vẽ thẳng cột, bỏ hai cột ngoài cùng. Chữ là DH-Việt do VTX chế độ Colemak dịch; firmware vẫn gửi mã phím QWERTY, nên máy không có VTX sẽ gõ QWERTY.</p>
 <div class="legend">
   <span><i style="background:#111"></i>Phím đang giữ để vào tầng</span>
   <span><i style="background:#e4e4e4"></i>Phím bổ trợ, phím tầng</span>
@@ -55,6 +55,7 @@
   <div class="rows" id="base"></div>
   <ul class="tips">
     <li>⌘ ở ngón cái trái, ⇧ ở ngón cái phải. ⌘⇧C và ⌘⇧V là hai ngón cái cộng một chữ.</li>
+    <li>Phím tắt đi theo chữ: ⌘V, ⌘C, ⌘Z ở hàng dưới tay trái, ⌘X ở ngón út phải hàng trên.</li>
   </ul>
 </section>
 
@@ -80,9 +81,9 @@
 // "nhãn|chữ nhỏ ⇧|lớp|chú thích dưới"; lớp: m bổ trợ, h đang giữ, t như Base, e trống, w nhãn dài
 const layers = {
   base: [
-    ['q','w','e','r','t', 'y','u','i','o','p'],
-    ['a','s','d','f','g', 'h','j','k','l',';|:'],
-    ['z','x','c','v','b', 'n','m',',|<','.|>','/|?'],
+    ['q','w','f','g','b', ';|:','l','u','y','x'],
+    ['a','h','s','t','p', 'm','n','e','o','i'],
+    ['j','v','r','c','z', 'k','d',',|<','.|>','/|?'],
     [null,null,'⌘||m','NAV||m w','Space||w', 'Bksp||w','⇧||m','Enter||w',null,null],
   ],
   nav: [
