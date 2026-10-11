@@ -703,7 +703,7 @@ final class TapHandoffTests: XCTestCase {
         var f = AppState.EngineFlags()
         f.freeMarking = true; f.modernTone = false; f.liveSpellCheck = true
         f.simpleTelex = false; f.quickTelex = false; f.vniMode = false
-        f.contextualEnglish = true; f.collisionPrefersVietnamese = true; f.teencode = true
+        f.contextualEnglish = true; f.collisionPrefersVietnamese = true
         var e = TelexEngine()
         e.apply(f)
         return e

@@ -34,9 +34,6 @@ final class MemoryFootprintTests: XCTestCase {
     func testPrintFootprintBreakdown() {
         log("0 test host start")
         _ = AppState.shared.engineFlags()
-        _ = TypoFixLogic.isKnown("the")
-        _ = TypoFixLogic.lexiconCorrection(raw: "tooi", flags: AppState.shared.engineFlags())
-        _ = TypoFixLogic.lexiconCorrection(raw: "nhuwng", flags: AppState.shared.engineFlags())
         log("1 typing data warm")
         // Không giữ biến local tới window/model qua lúc đóng — giữ thì graph sống lâu hơn
         // đường thật (controller là chủ duy nhất) và số đo sai.
@@ -46,7 +43,7 @@ final class MemoryFootprintTests: XCTestCase {
             c.currentWindow?.alphaValue = 0
             c.currentWindow?.ignoresMouseEvents = true
             c.currentWindow?.orderFrontRegardless()
-            for tab in [SettingsTab.general, .shortcuts, .modeTable, .experimental, .about] {
+            for tab in [SettingsTab.general, .modeTable, .experimental, .about] {
                 c.currentModel?.selectedTab = tab
                 spin(0.3)
                 c.currentWindow?.displayIfNeeded()
@@ -89,7 +86,7 @@ final class MemoryFootprintTests: XCTestCase {
     /// Chi phí từng tab (cửa sổ mới cho mỗi tab, relief giữa các lần) — chỉ in, không assert.
     func testPrintPerTabCost() {
         let c = SettingsWindowController()
-        for tab in [SettingsTab.general, .shortcuts, .modeTable, .experimental, .about, .general] {
+        for tab in [SettingsTab.general, .modeTable, .experimental, .about, .general] {
             malloc_zone_pressure_relief(nil, 0)
             let before = MemoryFootprint.sample().current, liveBefore = mallocInUse().inUse
             var open: UInt64 = 0, liveOpen = 0
@@ -117,7 +114,7 @@ final class MemoryFootprintTests: XCTestCase {
     }
 
     func testEachTabDeallocatesOnClose() {
-        for tab in [SettingsTab.shortcuts, .modeTable, .experimental, .about] {
+        for tab in [SettingsTab.modeTable, .experimental, .about] {
             assertDeallocates(tab: tab)
         }
     }
@@ -141,7 +138,7 @@ final class MemoryFootprintTests: XCTestCase {
             c.currentWindow?.orderFrontRegardless()
             spin(0.3)
             if visitAll {
-                for t in [SettingsTab.shortcuts, .modeTable, .experimental, .about, .general] {
+                for t in [SettingsTab.modeTable, .experimental, .about, .general] {
                     c.currentModel?.selectedTab = t
                     spin(0.3)
                     c.currentWindow?.displayIfNeeded()

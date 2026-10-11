@@ -2853,12 +2853,12 @@ final class TerminalTapController {
                 MachineTypingLog.noteBurst(id, path: "tap")
                 DebugLog.log("machine typing (tap): \(id ?? "?") — keys pass verbatim")
             }
-            engine.reset(); shortcutTail.reset(); return pass
+            engine.reset(); return pass
         }
         // Stall breaker (#118): an app that made recent keys stall is passthrough for a
         // cooldown — raw key, no AX, no synthetic burst, nothing that can wait on it.
         if ClientStallBreaker.shared.isDegraded(id) {
-            engine.reset(); shortcutTail.reset(); return pass
+            engine.reset(); return pass
         }
         // Spotlight is IN-PLACE by default (builtInInPlaceApps) — the tap engages
         // only for an explicit tap-family manual pick. Manual pin consulted FIRST:
