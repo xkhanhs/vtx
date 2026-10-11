@@ -129,6 +129,15 @@ Changing bundle id or input-mode metadata in `Info.plist` needs a logout/login o
   `84T567KMYD`: a cherry-picked guard compared the running team against it, so on VTX
   (`CT94G6J3TH`) the "Sửa tự động" button deleted the Accessibility grant and never
   re-prompted (2026-10-05, `docs/MACOS_IME_NOTES.md`).
+- Upstream code assumes ONE input mode. `7d51cc77` (1.7.9) narrows
+  `inputSourceIsOurs` to exactly `<id>` or `<id>.vi`, which drops `vi-colemak`; it was
+  left out of the 1.8.15 sync for that reason. Keep the prefix match, and read any
+  upstream change to input-source identity against both modes. That commit is also
+  where upstream declares `bundleID` in `main.swift`; later picks that use it take
+  `OwnBundle.id` here.
+- A stray copy now yields by itself: `SingleInstance` (from upstream, 1.8.15 sync)
+  makes a VTX outside `Input Methods` exit when another instance is running, before it
+  registers the IMKServer or the tap. The LaunchServices cleanup above still applies.
 - Settings live in the `com.viettelex.settings` defaults suite, deliberately: it carries
   the user's existing shortcuts and preferences over from upstream.
 - The DH-Việt layout is settled (26/09/2026, `docs/LAYOUT-TYPING-DATA.md`): no more
