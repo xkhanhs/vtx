@@ -164,7 +164,6 @@ final class LayerHUDController {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
-        panel.isMovableByWindowBackground = true
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
         return panel
@@ -181,10 +180,20 @@ final class LayerHUDController {
     }
 }
 
-/// SwiftUI content không tự cho kéo cửa sổ; bảng không có control nào nên cả mặt bảng
-/// là tay nắm.
+/// Cả mặt bảng là tay nắm. `isMovableByWindowBackground` không đủ: SwiftUI dựng view con
+/// riêng cho nền và chữ, chuột rơi vào chúng chứ không vào nền cửa sổ, nên bảng nhận
+/// click mà đứng yên (12/10/2026). Vì vậy mọi click được gom về view này và tự bắt đầu
+/// phiên kéo.
 private final class DraggableHostingView<Content: View>: NSHostingView<Content> {
-    override var mouseDownCanMoveWindow: Bool { true }
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        super.hitTest(point) == nil ? nil : self
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func mouseDown(with event: NSEvent) {
+        window?.performDrag(with: event)
+    }
 }
 
 private struct LayerHUDView: View {
