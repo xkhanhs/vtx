@@ -2090,6 +2090,8 @@ final class TerminalTapController {
     /// Máy nhận diện chord hotkey chuyển bộ gõ — TAP-thread confined (mọi note/disarm
     /// đều từ callback), không cần lock. Xem SwitchHotkey.swift.
     private var chordRecognizer = ModifierChordRecognizer()
+    /// Nhấn/nhả modifier cho KeyUsageLog — TAP-thread confined like chordRecognizer.
+    private var modifierPresses = KeyUsageLog.ModifierPressTracker()
     /// Machine-speed key bursts (#118) — TAP-thread confined like chordRecognizer.
     private var machineTyping = MachineTypingDetector()
 
@@ -2670,6 +2672,13 @@ final class TerminalTapController {
         // TAP-thread confined recognizer; toggle chạy trên MAIN (TIS không an toàn
         // ngoài main). Sự kiện flagsChanged luôn pass — mình chỉ quan sát, không sửa.
         if type == .flagsChanged {
+            if AppState.shared.logKeyUsage,
+               event.getIntegerValueField(.eventSourceUnixProcessID) == 0 {
+                let code = UInt16(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeycode))
+                if modifierPresses.isPress(keyCode: code, flags: event.flags) {
+                    KeyUsageLog.shared.noteModifierPress(keyCode: code)
+                }
+            }
             if let target = SwitchHotkey.targetFlags(for: AppState.shared.switchHotkey),
                chordRecognizer.note(flags: event.flags, target: target) {
                 DispatchQueue.main.async { SwitchHotkey.toggle() }
@@ -2724,6 +2733,10 @@ final class TerminalTapController {
         // Phím thường (đã lọc synthetic ở trên) giữa lúc giữ chord = một shortcut
         // thật, không phải toggle bộ gõ — disarm. Tap-thread confined, plain store.
         chordRecognizer.disarm()
+
+        // Đếm phím (thử nghiệm). Trước ⌃1…⌃4 bên dưới để các phím bị nuốt ở đó cũng
+        // được tính — chúng là phím tắt người dùng bấm thật.
+        if AppState.shared.logKeyUsage { KeyUsageLog.shared.noteKeyDown(event, vtxActive: active) }
 
         // ⌃1…⌃4 chọn thẳng input source (SwitchHotkey.directSources). Chạy với MỌI
         // source đang chọn — trước gate imeActive — vì chiều ABC → VTX cần nó nhất.
