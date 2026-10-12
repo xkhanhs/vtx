@@ -9,19 +9,23 @@ VTX làm trên máy. Firmware vẫn gửi mã phím QWERTY như bản nạp ngà
 đúng một ô (`⌃C`, xem cuối trang). Không có tầng Colemak trong firmware và không có phím
 chuyển layout.
 
+Keymap đang chạy được sửa trong ZMK Studio ngày 12/10/2026 và trang này vẽ theo bản đó,
+đọc lại từ bàn phím. File `corne.keymap` trong repo firmware chưa theo kịp.
+
 Hệ quả: cắm Corne vào một máy không có VTX thì nó gõ QWERTY. Trên máy nhà, VTX phải ở
 chế độ **Colemak**; chuyển sang chế độ Telex thì Corne gõ QWERTY ngay, không cần đụng
 firmware.
 
-Bản xem được: [corne-layout.html](corne-layout.html). Phần 1 vẽ ba tầng. Phần 2 liệt kê
-các tổ hợp hay dùng, bấm vào một tổ hợp thì sơ đồ tô các phím cần bấm. Bản để in ra
-một trang A4: [corne-layout-print.html](corne-layout-print.html).
+Bản xem được: [corne-layout.html](corne-layout.html) và bản in một trang A4
+[corne-layout-print.html](corne-layout-print.html). Cả hai vẽ keymap ngày 11/10/2026 và
+chưa cập nhật theo các thay đổi ngày 12/10/2026 ở trang này.
 
 ## Nguyên tắc
 
 - **Mỗi phím chỉ một chức năng.** Không có mod-tap, không phím dính, và phím layer chỉ để
   giữ, không kiêm Space hay Enter. Firmware không phải đoán bấm hay giữ nên không có trễ.
-- **Chỉ dùng 36 phím.** Hai cột ngoài cùng không gán gì, ngón út không phải với ra.
+- **Chỉ dùng 36 phím.** Hai cột ngoài cùng không gán gì, ngón út không phải với ra. Ngoại
+  lệ duy nhất là hai ô cột ngoài bên trái của Base, gửi `⌃4` và `⌃3` để chọn thẳng bộ gõ.
 - **Base là DH-Việt y như trên MacBook.** Chữ nào ở ô nào của bàn phím MacBook thì ở đúng
   ô ấy trên Corne, vì cả hai cùng đi qua một bộ dịch của VTX. Ba dấu `,` `.` `/` không
   dời. `;` nằm ở hàng trên, cột trong của tay phải, nên `:` là ⇧ cộng ô đó.
@@ -32,7 +36,7 @@ một trang A4: [corne-layout-print.html](corne-layout-print.html).
 - **Tầng NAV gánh gần hết:** tay trái di chuyển, tay phải là numpad. Ký hiệu là ⇧ ngón cái
   phải cộng phím số, như bàn phím thường.
 - **Tầng thứ ba (FN) dùng ít nên không có phím riêng ở Base.** Giữ NAV rồi giữ thêm ngón
-  cái phải ngoài cùng.
+  trỏ trái ở hàng dưới, cột trong.
 
 ## Ba tầng
 
@@ -45,35 +49,39 @@ một trang A4: [corne-layout-print.html](corne-layout-print.html).
  j     v     r     c     z     │   k     d     ,     .     /
              ⌘    [NAV] Space  │  Bksp   ⇧    Enter
 ```
+Cột ngoài bên trái có thêm `⌃4` (hàng trên) và `⌃3` (hàng chủ).
 
 **Tầng 1: NAV** (giữ bằng ngón cái trái)
 ```
- Esc   [     ↑     ]     `     │   +     7     8     9     '
- ⌘     ←     ↓     →     Tab   │   -     4     5     6     0
- ⇧     ⌥←    \     ⌥→    ⌃C    │   =     1     2     3     .
-             ·    [giữ]  ·     │  XoáTừ  ·    [FN]
+ Esc   [     ↑     ]     Tab   │   /     7     8     9     -
+ ⌘     ←     ↓     →     ⌘Tab  │   *     4     5     6     +
+ ⇧     ⌘⇧2   ⌘⇧3   ⌘⇧4   [FN]  │   =     1     2     3     .
+             ·    [giữ]  ·     │  XoáTừ  0    ⇧Enter
 ```
-- Tay phải là numpad, `4 5 6` nằm ngay hàng chủ, `0` ở ngón út. Cột phía trong là phép
-  tính `+` `-` `=`, dấu chấm thập phân ở dưới số 0.
-- Ký hiệu là giữ thêm ⇧ ngón cái phải: `! @ # $ % ^ & * ( )` từ phím số, `_` từ `-`,
-  `"` từ `'`, `{ }` từ `[ ]`, `|` từ `\`, `~` từ `` ` ``. Riêng `+` có ô riêng.
+- Tay phải là numpad, `4 5 6` nằm ngay hàng chủ, `0` ở ngón cái phải. Cột phía trong là
+  `/` `*` `=`, cột ngón út là `-` `+` và dấu chấm thập phân.
+- Ký hiệu trên phím số cần ⇧, mà ⇧ ngón cái phải đang là số `0` ở tầng này, nên dùng ⇧
+  ngón út trái: `! @ # $ % ^ & ( )` từ phím số, `_` từ `-`, `{ }` từ `[ ]`. `*` và `+`
+  có ô riêng.
+- `⌘Tab` là một ô gửi thẳng tổ hợp, để quay về app vừa dùng bằng một nhịp. Tab trần nằm
+  ngay phía trên.
 - ⌘ và ⇧ ở ngón út trái là phím thường, dùng khi ngón cái đang bận giữ NAV: ⌘ cộng Tab
-  để chuyển app, ⌘ cộng `←` `→` về đầu và cuối dòng, ⇧ cộng mũi tên để bôi chọn.
-- `⌥←` và `⌥→` nhảy từng từ, nằm ngay dưới `←` và `→`. Thêm ⇧ ngón út là bôi theo từ.
-- `⌃C` là một ô gửi thẳng ⌃C để ngắt lệnh trong terminal.
-- Xoá từ (⌥⌫) nằm đúng chỗ Bksp. Muốn xoá một chữ số thì nhả NAV trước.
+  để đi qua từng app, ⌘ cộng `←` `→` về đầu và cuối dòng, ⇧ cộng mũi tên để bôi chọn.
+- Ba ô `⌘⇧2` `⌘⇧3` `⌘⇧4` là nút chụp màn hình một chạm.
+- `⇧Enter` nằm đúng chỗ Enter và Xoá từ (⌥⌫) nằm đúng chỗ Bksp. Muốn xoá một chữ số thì
+  nhả NAV trước.
 - Esc và Tab chỉ có ở tầng này.
 
-**Tầng 2: FN** (giữ NAV, rồi giữ thêm ngón cái phải ngoài cùng)
+**Tầng 2: FN** (giữ NAV, rồi giữ thêm ngón trỏ trái ở hàng dưới, cột trong)
 ```
- BT1   BT2   BT3   BT4   BT5   │  BTxoá Sáng− Sáng+  □     □
+ □     □     □     □     □     │   □    Sáng− Sáng+  □     □
  □     □     □     □     □     │   □    Mute  Vol−  Vol+  Play
- □     ⌘⇧2   ⌘⇧3   ⌘⇧4   ⌘⇧5   │   □     □     □     □     □
-             ·     ·     ·     │   ·     ·    [giữ]
+ □     □     □     □    [giữ]  │   □    ⌃C     □     □     □
+             ·     ·     ·     │   ·     ·     ·
 ```
-- Bốn ô ⌘⇧2 đến ⌘⇧5 là nút chụp màn hình một chạm.
-- BT1 đến BT5 chọn máy đang ghép qua Bluetooth, BT xoá gỡ ghép nối của ô đang chọn.
-  Hướng dẫn xử lý sự cố kết nối của shop đều bắt đầu bằng BT xoá.
+- Mọi ô dùng được đều ở tay phải, vì tay trái đang giữ hai phím tầng.
+- `⌃C` là một ô gửi thẳng ⌃C để ngắt lệnh trong terminal.
+- Không còn ô Bluetooth nào trên keymap.
 
 ## Các tổ hợp hay dùng
 
@@ -85,18 +93,21 @@ một trang A4: [corne-layout-print.html](corne-layout-print.html).
 | ⌘C, ⌘V, ⌘Z một tay | Cái trái ⌘, tay trái bấm chữ ở hàng dưới: v áp út, c trỏ, z trỏ vươn vào trong |
 | ⌘X | Cái trái ⌘, út phải bấm x ở hàng trên |
 | `:` | Cái phải ⇧, trỏ phải bấm `;` ở hàng trên phía trong |
-| ⌘Tab một tay | Giữ NAV, út trái giữ ⌘, trỏ trái bấm Tab; bấm Tab tiếp để đi qua từng app |
+| ⌘Tab một nhịp | Giữ NAV, trỏ trái bấm ô `⌘Tab` ở hàng chủ |
+| ⌘Tab qua nhiều app | Giữ NAV, út trái giữ ⌘, trỏ trái bấm Tab ở hàng trên nhiều lần |
+| ⇧Enter | Giữ NAV, cái phải bấm Enter |
 | ⌘Enter | Cái trái ⌘, cái phải Enter |
 | Số | Giữ NAV, tay phải bấm numpad |
-| Ký hiệu trên phím số | Giữ NAV và ⇧ bằng hai ngón cái, bấm số |
-| `+` `-` `=` | Giữ NAV, trỏ phải bấm cột phía trong |
-| Nhảy từ | Giữ NAV, bấm ô dưới `←` hoặc `→` |
+| Ký hiệu trên phím số | Giữ NAV, út trái giữ ⇧, bấm số |
+| `/` `*` `=` và `-` `+` | Giữ NAV, trỏ phải bấm cột phía trong, út phải bấm cột ngoài |
+| Chụp màn hình | Giữ NAV, bấm một trong ba ô hàng dưới tay trái |
 | Xoá từ | NAV + Bksp |
-| ⌃C | NAV + trỏ trái hàng dưới phía trong |
-| Âm lượng, độ sáng, chụp màn hình | Giữ NAV và FN bằng hai ngón cái, bấm một ô |
+| Âm lượng, độ sáng | Giữ NAV và FN bằng tay trái, tay phải bấm một ô |
+| ⌃C | Giữ NAV và FN bằng tay trái, trỏ phải bấm hàng dưới |
 
-Chưa có chỗ: ⌃ và ⌥ cộng một chữ (trừ ⌃C), và ⌃ cộng mũi tên để đổi desktop, vì bàn
-phím không còn phím ⌃ hay ⌥ trần. Gõ `10/10/2026` phải nhả NAV để bấm `/`.
+Chưa có chỗ: `'` và `"`, `` ` `` và `~`, `\` và `|`, nhảy từng từ (⌥ cộng mũi tên), ⌃ và
+⌥ cộng một chữ (trừ ⌃C), và ⌃ cộng mũi tên để đổi desktop, vì bàn phím không còn phím ⌃
+hay ⌥ trần.
 
 ## Chi tiết cần nhớ khi viết firmware
 
@@ -107,11 +118,13 @@ phím không còn phím ⌃ hay ⌥ trần. Gõ `10/10/2026` phải nhả NAV đ
   DH-Việt, mà mã phím `C` trên DH-Việt là chữ `r`, nên `LC(C)` ra ⌃R. Mã phím `V` mới là
   chữ `c`. Đây là ô duy nhất của firmware phụ thuộc layout chữ; khi VTX ở chế độ Telex
   hoặc khi cắm máy khác thì ô này ra ⌃V.
-- Ô ra thẳng một tổ hợp là phím gốc kèm modifier: `+` là `&kp PLUS`, nhảy từ là
-  `&kp LA(LEFT)`, chụp màn hình là `&kp LG(LS(N2))` đến `&kp LG(LS(N5))`. ZMK Studio gán được kiểu này bằng cách chọn phím rồi tích thêm
-  modifier.
-- Phím FN là `&mo 2` đặt trong tầng NAV, không có ở Base. Hai cột ngoài và các ô trống
-  của tầng FN là `&none`, để lỡ chạm không ra số của tầng NAV.
+- Ô ra thẳng một tổ hợp là phím gốc kèm modifier: `+` là `&kp LS(EQUAL)`, `*` là
+  `&kp LS(N8)`, `⌘Tab` là `&kp LG(TAB)`, `⇧Enter` là `&kp LS(RET)`, chụp màn hình là
+  `&kp LG(LS(N2))` đến `&kp LG(LS(N4))`. ZMK Studio gán được kiểu này bằng cách chọn phím
+  rồi tích thêm modifier, nhưng mặt phím trong Studio chỉ hiện phím gốc: hai ô Tab trông
+  giống nhau, và ô `⌃C` hiện chữ `V`.
+- Phím FN là `&mo 2` đặt trong tầng NAV, không có ở Base. Các ô trống của tầng FN là
+  `&none`, để lỡ chạm không ra số của tầng NAV.
 - Corne không có hàng số, và macOS không tự đổi F1–F12 của bàn phím rời thành phím
   media. Vì vậy độ sáng, âm lượng và play phải là keycode riêng ở tầng FN.
 
@@ -150,23 +163,17 @@ mỗi ngày.
   DH-Việt chứ không phải chữ in trên phím.
 - Chỉ lưu số lần theo ngày, không lưu thứ tự hay nội dung gõ. Phím gõ trong ô mật khẩu
   không được đếm. Phím do phần mềm phát ra (PasteMe dán, remote desktop) cũng không.
-- Một ô gửi cả tổ hợp trên Corne (`⌘⇧4` ở tầng FN, `⌥←` ở NAV) được đếm như tổ hợp đó.
+- Một ô gửi cả tổ hợp trên Corne (`⌘⇧4`, `⌘Tab` ở NAV) được đếm như tổ hợp đó.
 - Số liệu nằm ở `~/Library/Application Support/VietTelex/key-usage.json`. Muốn xoá thì
   dùng nút Xoá trong Cài đặt; xoá file bằng tay thì VTX ghi lại từ bộ nhớ.
 
-## Đề xuất cho tầng NAV (12/10/2026, chưa áp dụng)
+## Thay đổi ngày 12/10/2026 và số liệu dẫn tới nó
 
-Đây là đề xuất đang thử, chưa nạp vào bàn phím và chưa chốt. Nó dựa trên một ngày số liệu
-(12/10/2026, 21.849 lần nhấn trên MacBook); cần thêm vài ngày trước khi quyết.
+Dựa trên một ngày số liệu (12/10/2026, 21.849 lần nhấn trên MacBook). Đang dùng thử, sẽ
+xem lại khi có thêm vài ngày đo.
 
-Sơ đồ ở mục [Ba tầng](#ba-tầng) cũng đã cũ so với bàn phím thật: số `0` của NAV đã về
-ngón cái phải (ô ⇧), và các ô chụp màn hình đã về NAV. Hai thay đổi đó chưa được vẽ lại
-ở trên, nên các ô nêu dưới đây cần đối chiếu với ZMK Studio trước khi sửa.
-
-**Số liệu dẫn tới đề xuất**
-
-| Phím | Lần/ngày | Trên Corne hiện tại |
-|------|---------:|---------------------|
+| Phím | Lần/ngày | Trên Corne trước khi đổi |
+|------|---------:|--------------------------|
 | Tab (201 trong `⌘Tab`, 50 trần) | 251 | Chỉ có ở NAV; `⌘Tab` là ba phím |
 | Enter trần | 249 | Ngón cái phải |
 | `⇧Enter` | 63 | ⇧ và Enter cùng ở ngón cái phải, không bấm được |
@@ -176,22 +183,11 @@ ngón cái phải (ô ⇧), và các ô chụp màn hình đã về NAV. Hai tha
 một phím. `⌘Tab` vì vậy hầu hết là một nhịp để quay về app vừa dùng, và một ô gửi thẳng
 `⌘Tab` phủ được gần hết.
 
-**Tầng NAV đề xuất** (nửa trái và hàng ngón cái; nửa phải không đổi)
-```
- Esc   [     ↑     ]     Tab        ← Tab trần dời lên, thay `
- ⌘     ←     ↓     →     ⌘Tab       ← ô mới, một chạm
- ⇧     ⌥←    \     ⌥→    [FN]       ← phím vào FN dời về đây, thay ⌃C
-             ·    [giữ]  ·     │  XoáTừ  0    ⇧Enter
-```
+Đã đổi trên bàn phím:
 
-- `⌘Tab` là giữ NAV rồi ngón trỏ trái ở hàng chủ: hai phím thay vì ba. Khi cần chọn giữa
-  nhiều app thì vẫn bấm kiểu cũ, NAV rồi ⌘ ngón út cộng ô Tab.
-- `⇧Enter` nằm đúng chỗ Enter, cùng logic với Xoá từ nằm đúng chỗ Bksp.
-- Cả hai là gán lại ô (`LG(TAB)`, `LS(RET)`) nên làm được trong ZMK Studio.
+- Ô Tab ở hàng chủ của NAV thành `⌘Tab`; Tab trần dời lên ô phía trên, thay `` ` ``.
+- Ô ngón cái phải ngoài cùng của NAV thành `⇧Enter`, thay phím vào FN.
+- Phím vào FN dời về ô `⌃C` cũ (hàng dưới, cột trong tay trái).
+- `⌃C` sang tầng FN, ngón trỏ phải hàng dưới.
 
-**Còn phải quyết**
-
-- `` ` `` mất chỗ. Một ngày chỉ bấm 1 lần, có thể đưa sang FN.
-- `⌃C` mất chỗ. Ngày đo không dùng terminal nên số 0 lần chưa nói lên gì; nếu vẫn cần nó
-  một chạm thì đặt phím vào FN ở ô `\` thay vì ô này.
-- Không đổi `;` ở Base lấy Tab dù số liệu ủng hộ: Base phải giống MacBook.
+Không đổi `;` ở Base lấy Tab dù số liệu ủng hộ: Base phải giống MacBook.
