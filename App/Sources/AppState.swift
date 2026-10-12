@@ -296,6 +296,19 @@ final class AppState: @unchecked Sendable {
         set { defaults.set(newValue, forKey: "stickyInputSource") }
     }
 
+    /// Bảng tầng phím Corne ghim ở góc màn hình (LayerHUD) — EXPERIMENTAL, default OFF.
+    /// Chỉ đọc trên MAIN (khởi động, Cài đặt) → defaults-backed, không cache.
+    var layerHUD: Bool {
+        get { defaults.object(forKey: "layerHUD") as? Bool ?? false }
+        set { defaults.set(newValue, forKey: "layerHUD") }
+    }
+
+    /// Chỗ người dùng kéo bảng tầng phím tới (NSStringFromPoint), nil = góc mặc định.
+    var layerHUDOrigin: String? {
+        get { defaults.string(forKey: "layerHUDOrigin") }
+        set { defaults.set(newValue, forKey: "layerHUDOrigin") }
+    }
+
     /// `[` types ơ and `]` types ư (UniKey / macOS Simple Telex habit), `{`/`}` their
     /// uppercase — EXPERIMENTAL, default OFF. Requested on Facebook 2026-08-14 by a
     /// 15-year UniKey typist; opt-in because with it on the brackets are word KEYS and
