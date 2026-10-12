@@ -153,3 +153,45 @@ mỗi ngày.
 - Một ô gửi cả tổ hợp trên Corne (`⌘⇧4` ở tầng FN, `⌥←` ở NAV) được đếm như tổ hợp đó.
 - Số liệu nằm ở `~/Library/Application Support/VietTelex/key-usage.json`. Muốn xoá thì
   dùng nút Xoá trong Cài đặt; xoá file bằng tay thì VTX ghi lại từ bộ nhớ.
+
+## Đề xuất cho tầng NAV (12/10/2026, chưa áp dụng)
+
+Đây là đề xuất đang thử, chưa nạp vào bàn phím và chưa chốt. Nó dựa trên một ngày số liệu
+(12/10/2026, 21.849 lần nhấn trên MacBook); cần thêm vài ngày trước khi quyết.
+
+Sơ đồ ở mục [Ba tầng](#ba-tầng) cũng đã cũ so với bàn phím thật: số `0` của NAV đã về
+ngón cái phải (ô ⇧), và các ô chụp màn hình đã về NAV. Hai thay đổi đó chưa được vẽ lại
+ở trên, nên các ô nêu dưới đây cần đối chiếu với ZMK Studio trước khi sửa.
+
+**Số liệu dẫn tới đề xuất**
+
+| Phím | Lần/ngày | Trên Corne hiện tại |
+|------|---------:|---------------------|
+| Tab (201 trong `⌘Tab`, 50 trần) | 251 | Chỉ có ở NAV; `⌘Tab` là ba phím |
+| Enter trần | 249 | Ngón cái phải |
+| `⇧Enter` | 63 | ⇧ và Enter cùng ở ngón cái phải, không bấm được |
+| `;` và `:` | 20 | Một ô ở tầng Base |
+
+⌘ trái được nhấn 473 lần và có 468 phím bấm kèm ⌘, tức mỗi lần giữ ⌘ gần như chỉ đi với
+một phím. `⌘Tab` vì vậy hầu hết là một nhịp để quay về app vừa dùng, và một ô gửi thẳng
+`⌘Tab` phủ được gần hết.
+
+**Tầng NAV đề xuất** (nửa trái và hàng ngón cái; nửa phải không đổi)
+```
+ Esc   [     ↑     ]     Tab        ← Tab trần dời lên, thay `
+ ⌘     ←     ↓     →     ⌘Tab       ← ô mới, một chạm
+ ⇧     ⌥←    \     ⌥→    [FN]       ← phím vào FN dời về đây, thay ⌃C
+             ·    [giữ]  ·     │  XoáTừ  0    ⇧Enter
+```
+
+- `⌘Tab` là giữ NAV rồi ngón trỏ trái ở hàng chủ: hai phím thay vì ba. Khi cần chọn giữa
+  nhiều app thì vẫn bấm kiểu cũ, NAV rồi ⌘ ngón út cộng ô Tab.
+- `⇧Enter` nằm đúng chỗ Enter, cùng logic với Xoá từ nằm đúng chỗ Bksp.
+- Cả hai là gán lại ô (`LG(TAB)`, `LS(RET)`) nên làm được trong ZMK Studio.
+
+**Còn phải quyết**
+
+- `` ` `` mất chỗ. Một ngày chỉ bấm 1 lần, có thể đưa sang FN.
+- `⌃C` mất chỗ. Ngày đo không dùng terminal nên số 0 lần chưa nói lên gì; nếu vẫn cần nó
+  một chạm thì đặt phím vào FN ở ô `\` thay vì ô này.
+- Không đổi `;` ở Base lấy Tab dù số liệu ủng hộ: Base phải giống MacBook.
