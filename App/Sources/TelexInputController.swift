@@ -1938,6 +1938,14 @@ final class TelexInputController: IMKInputController {
         strategy.toolTip = VTLocalized("Click: open the Typing modes table + copy debug info")
         menu.addItem(strategy)
 
+        // Bảng tầng phím: bật tắt nhiều lần trong ngày nên có lối tắt ở đây, không phải
+        // vào Cài đặt → Thử nghiệm mỗi lần.
+        let layerHUD = NSMenuItem(title: VTLocalized("Keyboard layer HUD"),
+                                  action: #selector(toggleLayerHUD(_:)), keyEquivalent: "")
+        layerHUD.target = self
+        layerHUD.state = AppState.shared.layerHUD ? .on : .off
+        menu.addItem(layerHUD)
+
         // Everything else lives in the Settings window. The menu
         // stays minimal: status + Settings.
         let settings = NSMenuItem(title: VTLocalized("Settings…"), action: #selector(openSettings(_:)), keyEquivalent: "")
@@ -1952,6 +1960,13 @@ final class TelexInputController: IMKInputController {
         menu.addItem(sysSettings)
 
         return menu
+    }
+
+    @objc private func toggleLayerHUD(_ sender: Any?) {
+        let enabled = !AppState.shared.layerHUD
+        AppState.shared.layerHUD = enabled
+        // Async: menu input-method còn đang đóng (cùng lý do đã ghi ở showStatus).
+        DispatchQueue.main.async { LayerHUDController.shared.apply(enabled: enabled) }
     }
 
     @objc private func openSystemKeyboardSettings(_ sender: Any?) {

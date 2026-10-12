@@ -95,6 +95,9 @@ axChangeObserver = DistributedNotificationCenter.default().addObserver(
     TerminalTapController.shared.trustChangedExternally()
 }
 
+// Bảng tầng phím Corne (experimental, default OFF) — xem LayerHUD.swift.
+if AppState.shared.layerHUD { LayerHUDController.shared.apply(enabled: true) }
+
 }  // end !isTestHost
 
 // Standard editing key equivalents (⌘A/⌘C/⌘V/⌘X/⌘Z, ⌘W) inside our OWN Settings

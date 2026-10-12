@@ -79,6 +79,10 @@
 "Safety" = "An toàn";
 "Cascade circuit breaker" = "Bộ ngắt chống tràn sự kiện";
 "Keep this ON. Stops the terminal tap if it ever floods the keyboard with synthetic events, so a bug can’t freeze typing." = "Nên để BẬT. Tự ngắt tap terminal nếu nó phát quá nhiều sự kiện phím, để lỗi không thể làm treo bàn phím.";
+"Keyboard layers" = "Tầng phím";
+"Keyboard layer HUD" = "Bảng tầng phím";
+"Show the keyboard layer HUD (experimental)" = "Hiện bảng tầng phím ở góc màn hình (thử nghiệm)";
+"Pins a small diagram of the split keyboard's layers (NAV, FN) on screen, bottom-right by default — drag it anywhere. It stays visible — the layer key never reaches the Mac, so VTX can't tell when it is held. The diagram is a hand-kept copy: edit %@, then turn this off and on." = "Ghim một sơ đồ nhỏ các tầng của bàn phím tách đôi (NAV, FN) trên màn hình, mặc định ở góc dưới phải, kéo đi đâu cũng được. Bảng luôn hiện, vì phím tầng không gửi gì về máy nên VTX không biết lúc nào bạn đang giữ. Sơ đồ là bản chép tay: sửa %@ rồi tắt và bật lại mục này.";
 "Key usage" = "Đếm phím";
 "Count key and shortcut presses (experimental)" = "Đếm số lần nhấn phím và phím tắt (thử nghiệm)";
 "Counts how often each key and shortcut is pressed (⌘Tab, ⌘⇧4, ⇧;, Enter, ⌫…) and each modifier, per day, in every app and input source. Counters only — no order, no timing, no text. Stored in %@." = "Đếm số lần nhấn từng phím và tổ hợp (⌘Tab, ⌘⇧4, ⇧;, Enter, ⌫…) cùng từng modifier, theo ngày, ở mọi app và mọi bộ gõ. Chỉ có bộ đếm: không ghi thứ tự, thời điểm hay nội dung gõ. Lưu ở %@.";

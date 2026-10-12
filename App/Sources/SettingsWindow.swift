@@ -135,6 +135,12 @@ final class SettingsModel: ObservableObject {
     @Published var safeUnknownApps: Bool { didSet { AppState.shared.safeUnknownApps = safeUnknownApps } }
     @Published var collisionPrefersVietnamese: Bool { didSet { AppState.shared.collisionPrefersVietnamese = collisionPrefersVietnamese } }
     @Published var stickyInputSource: Bool { didSet { AppState.shared.stickyInputSource = stickyInputSource } }
+    @Published var layerHUD: Bool {
+        didSet {
+            AppState.shared.layerHUD = layerHUD
+            LayerHUDController.shared.apply(enabled: layerHUD)
+        }
+    }
     @Published var logKeyUsage: Bool {
         didSet {
             AppState.shared.logKeyUsage = logKeyUsage
@@ -224,6 +230,7 @@ final class SettingsModel: ObservableObject {
         collisionPrefersVietnamese = AppState.shared.collisionPrefersVietnamese
         stickyInputSource = AppState.shared.stickyInputSource
         logKeyUsage = AppState.shared.logKeyUsage
+        layerHUD = AppState.shared.layerHUD
         switchHotkey = AppState.shared.switchHotkey
         bracketVowels = AppState.shared.bracketVowels
         // A layout uninstalled since it was chosen (system update, removed third-party
@@ -943,6 +950,11 @@ struct ExperimentalTab: View {
                 if let keyUsageStatus {
                     Text(keyUsageStatus).font(.caption).foregroundStyle(.secondary)
                 }
+            }
+            Section(header: Label(model.loc("Keyboard layers"), systemImage: "square.stack.3d.up")) {
+                Toggle(model.loc("Show the keyboard layer HUD (experimental)"), isOn: $model.layerHUD)
+                Text(String(format: model.loc("Pins a small diagram of the split keyboard's layers (NAV, FN) on screen, bottom-right by default — drag it anywhere. It stays visible — the layer key never reaches the Mac, so VTX can't tell when it is held. The diagram is a hand-kept copy: edit %@, then turn this off and on."), LayerHUDLayout.storeDisplayPath))
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section(header: Label(model.loc("Input method"), systemImage: "character.textbox")) {
                 Toggle(model.loc("VNI typing (experimental)"), isOn: $model.vniMode)

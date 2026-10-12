@@ -167,6 +167,21 @@ mỗi ngày.
 - Số liệu nằm ở `~/Library/Application Support/VietTelex/key-usage.json`. Muốn xoá thì
   dùng nút Xoá trong Cài đặt; xoá file bằng tay thì VTX ghi lại từ bộ nhớ.
 
+## Bảng tầng phím trên màn hình
+
+Trong lúc chưa thuộc NAV và FN, VTX ghim được một sơ đồ nhỏ của hai tầng ở góc dưới phải
+màn hình: Cài đặt → Thử nghiệm → **Tầng phím** (mặc định tắt). Bật tắt nhanh thì dùng dòng
+**Bảng tầng phím** trong menu VTX trên menu bar. Bảng kéo đi chỗ khác được và nhớ chỗ đã kéo; nó
+không lấy focus của app đang gõ, nhưng che chuột với thứ nằm bên dưới.
+
+- Bảng luôn hiện chứ không bật theo phím NAV. Phím tầng (`&mo`) được xử lý trong firmware
+  và không gửi gì về máy, nên VTX không biết lúc nào nó đang được giữ. Muốn bảng chỉ hiện
+  lúc giữ NAV thì firmware phải gửi kèm một phím báo hiệu, việc đó cần build lại firmware.
+- Sơ đồ là bản chép tay ở `~/Library/Application Support/VietTelex/layer-hud.json`, VTX tạo
+  file này lần đầu bật. Đổi ô trong ZMK Studio thì sửa file rồi tắt và bật lại mục Tầng
+  phím. Mỗi tầng có ba hàng 10 ô và một hàng 6 ô ngón cái; file lệch số ô thì VTX vẽ sơ đồ
+  dựng sẵn và để nguyên file.
+
 ## Thay đổi ngày 12/10/2026 và số liệu dẫn tới nó
 
 Dựa trên một ngày số liệu (12/10/2026, 21.849 lần nhấn trên MacBook). Đang dùng thử, sẽ
