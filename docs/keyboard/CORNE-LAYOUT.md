@@ -137,3 +137,19 @@ Các ký hiệu, số và mũi tên của tầng NAV không đổi: DH-Việt ch
   hai lần liền nhau, hoặc gán tạm hành vi Bootloader cho một phím **nửa trái** trong
   Studio, không Save, rồi bấm phím đó: ổ đĩa `NICENANO` hiện ra. Phím Bootloader chỉ đưa
   đúng nửa chứa nó vào chế độ nạp.
+
+## Đo phím nào dùng nhiều
+
+Trước khi dời một phím hay một tổ hợp sang chỗ khác, xem nó được bấm bao nhiêu lần. VTX có
+bộ đếm ở Cài đặt → Thử nghiệm → **Đếm phím** (mặc định tắt). Bật lên, dùng máy vài ngày,
+rồi bấm **Chép bảng thống kê**: bảng liệt kê phím tắt có ⌘ ⌃ ⌥, các phím riêng và ký hiệu
+(Enter, ⌫, `⇧;`, `⇧/`…), và số lần nhấn từng modifier bên trái, bên phải, kèm trung bình
+mỗi ngày.
+
+- Bộ đếm thấy phím của mọi app và mọi bộ gõ, kể cả ABC. Ở chế độ VTX Colemak, nhãn là chữ
+  DH-Việt chứ không phải chữ in trên phím.
+- Chỉ lưu số lần theo ngày, không lưu thứ tự hay nội dung gõ. Phím gõ trong ô mật khẩu
+  không được đếm. Phím do phần mềm phát ra (PasteMe dán, remote desktop) cũng không.
+- Một ô gửi cả tổ hợp trên Corne (`⌘⇧4` ở tầng FN, `⌥←` ở NAV) được đếm như tổ hợp đó.
+- Số liệu nằm ở `~/Library/Application Support/VietTelex/key-usage.json`. Muốn xoá thì
+  dùng nút Xoá trong Cài đặt; xoá file bằng tay thì VTX ghi lại từ bộ nhớ.

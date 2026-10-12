@@ -79,6 +79,12 @@
 "Safety" = "An toàn";
 "Cascade circuit breaker" = "Bộ ngắt chống tràn sự kiện";
 "Keep this ON. Stops the terminal tap if it ever floods the keyboard with synthetic events, so a bug can’t freeze typing." = "Nên để BẬT. Tự ngắt tap terminal nếu nó phát quá nhiều sự kiện phím, để lỗi không thể làm treo bàn phím.";
+"Key usage" = "Đếm phím";
+"Count key and shortcut presses (experimental)" = "Đếm số lần nhấn phím và phím tắt (thử nghiệm)";
+"Counts how often each key and shortcut is pressed (⌘Tab, ⌘⇧4, ⇧;, Enter, ⌫…) and each modifier, per day, in every app and input source. Counters only — no order, no timing, no text. Stored in %@." = "Đếm số lần nhấn từng phím và tổ hợp (⌘Tab, ⌘⇧4, ⇧;, Enter, ⌫…) cùng từng modifier, theo ngày, ở mọi app và mọi bộ gõ. Chỉ có bộ đếm: không ghi thứ tự, thời điểm hay nội dung gõ. Lưu ở %@.";
+"Copy key usage report" = "Chép bảng thống kê";
+"Key usage data cleared." = "Đã xoá số liệu đếm phím.";
+"Copied — %d presses over %d days." = "Đã chép — %d lần nhấn trong %d ngày.";
 "Diagnostics" = "Chẩn đoán";
 "Record debug log" = "Ghi nhật ký gỡ lỗi";
 "Records tap health events in memory (never the text you type). Turn it on, reproduce the problem, then Copy debug log and paste it into your report — or save it as a file." = "Ghi lại các sự kiện của tap trong bộ nhớ (không ghi nội dung bạn gõ). Bật lên, tái hiện lỗi, rồi bấm Chép nhật ký và dán vào báo cáo — hoặc lưu thành file.";

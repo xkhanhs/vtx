@@ -114,6 +114,7 @@ final class AppState: @unchecked Sendable {
         _axSelectionReplace = (defaults.object(forKey: "axSelectionReplace") as? Bool) ?? true
         _tapCascadeBreaker = (defaults.object(forKey: "tapCascadeBreaker") as? Bool) ?? true
         _debugLogging = (defaults.object(forKey: "debugLogging") as? Bool) ?? false
+        _logKeyUsage = (defaults.object(forKey: "logKeyUsage") as? Bool) ?? false
         _safeUnknownApps = (defaults.object(forKey: "safeUnknownApps") as? Bool) ?? true
         _keyboardLayoutID = (defaults.object(forKey: Key.keyboardLayout) as? String) ?? ""
         _altKeyboardLayoutID = (defaults.object(forKey: Key.altKeyboardLayout) as? String) ?? ""
@@ -457,6 +458,15 @@ final class AppState: @unchecked Sendable {
         get { lock.withLock { _debugLogging } }
         set { lock.withLock { _debugLogging = newValue }
               defaults.set(newValue, forKey: "debugLogging") }
+    }
+
+    /// Đếm số lần nhấn mỗi phím / tổ hợp (KeyUsageLog) — EXPERIMENTAL, default OFF.
+    /// Cached + locked vì TAP THREAD đọc ở mỗi keyDown và mỗi flagsChanged.
+    private var _logKeyUsage: Bool
+    var logKeyUsage: Bool {
+        get { lock.withLock { _logKeyUsage } }
+        set { lock.withLock { _logKeyUsage = newValue }
+              defaults.set(newValue, forKey: "logKeyUsage") }
     }
 
     /// Which ASCII keyboard layout Telex composes on — a kTISPropertyInputSourceID

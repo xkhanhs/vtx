@@ -135,6 +135,12 @@ final class SettingsModel: ObservableObject {
     @Published var safeUnknownApps: Bool { didSet { AppState.shared.safeUnknownApps = safeUnknownApps } }
     @Published var collisionPrefersVietnamese: Bool { didSet { AppState.shared.collisionPrefersVietnamese = collisionPrefersVietnamese } }
     @Published var stickyInputSource: Bool { didSet { AppState.shared.stickyInputSource = stickyInputSource } }
+    @Published var logKeyUsage: Bool {
+        didSet {
+            AppState.shared.logKeyUsage = logKeyUsage
+            if !logKeyUsage { KeyUsageLog.shared.flush() }
+        }
+    }
     @Published var switchHotkey: String { didSet { AppState.shared.switchHotkey = switchHotkey } }
     @Published var bracketVowels: Bool { didSet { AppState.shared.bracketVowels = bracketVowels } }
     /// ASCII keyboard layout Telex composes on ("" = inherit macOS's). Applied
@@ -217,6 +223,7 @@ final class SettingsModel: ObservableObject {
         safeUnknownApps = AppState.shared.safeUnknownApps
         collisionPrefersVietnamese = AppState.shared.collisionPrefersVietnamese
         stickyInputSource = AppState.shared.stickyInputSource
+        logKeyUsage = AppState.shared.logKeyUsage
         switchHotkey = AppState.shared.switchHotkey
         bracketVowels = AppState.shared.bracketVowels
         // A layout uninstalled since it was chosen (system update, removed third-party
@@ -919,9 +926,24 @@ struct ModeTableTab: View {
 struct ExperimentalTab: View {
     @EnvironmentObject var model: SettingsModel
     @State private var saveResult: String?
+    @State private var keyUsageStatus: String?
 
     var body: some View {
         Form {
+            Section(header: Label(model.loc("Key usage"), systemImage: "chart.bar")) {
+                Toggle(model.loc("Count key and shortcut presses (experimental)"), isOn: $model.logKeyUsage)
+                Text(String(format: model.loc("Counts how often each key and shortcut is pressed (⌘Tab, ⌘⇧4, ⇧;, Enter, ⌫…) and each modifier, per day, in every app and input source. Counters only — no order, no timing, no text. Stored in %@."), KeyUsageLog.storeDisplayPath))
+                    .font(.caption).foregroundStyle(.secondary)
+                HStack {
+                    Button { copyKeyUsage() } label: { Label(model.loc("Copy key usage report"), systemImage: "doc.on.doc") }
+                    Button { KeyUsageLog.shared.reset(); keyUsageStatus = model.loc("Key usage data cleared.") } label: {
+                        Label(model.loc("Clear"), systemImage: "trash")
+                    }
+                }
+                if let keyUsageStatus {
+                    Text(keyUsageStatus).font(.caption).foregroundStyle(.secondary)
+                }
+            }
             Section(header: Label(model.loc("Input method"), systemImage: "character.textbox")) {
                 Toggle(model.loc("VNI typing (experimental)"), isOn: $model.vniMode)
                 Text(model.loc("Type diacritics with digits instead of Telex letters: 1-5 = sắc/huyền/hỏi/ngã/nặng, 6 = â/ê/ô, 7 = ơ/ư, 8 = ă, 9 = đ, 0 = clear tone. Letters stay literal. Keep Live spell-check on so numbers like “mp3” aren’t turned into tones."))
@@ -997,6 +1019,15 @@ struct ExperimentalTab: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
         saveResult = model.loc("Copied — paste it into your bug report.")
+    }
+
+    private func copyKeyUsage() {
+        let days = KeyUsageLog.shared.snapshot()
+        let summary = KeyUsageLog.summarize(days)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(KeyUsageLog.report(days), forType: .string)
+        keyUsageStatus = String(format: model.loc("Copied — %d presses over %d days."),
+                                summary.total, summary.dayCount)
     }
 
     private func saveLog() {
