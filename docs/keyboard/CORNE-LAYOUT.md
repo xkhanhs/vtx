@@ -9,8 +9,8 @@ VTX làm trên máy. Firmware vẫn gửi mã phím QWERTY như bản nạp ngà
 đúng một ô (`⌃C`, xem cuối trang). Không có tầng Colemak trong firmware và không có phím
 chuyển layout.
 
-Keymap đang chạy được sửa trong ZMK Studio ngày 12/10/2026 và trang này vẽ theo bản đó,
-đọc lại từ bàn phím. File `corne.keymap` trong repo firmware chưa theo kịp.
+Keymap đang chạy được sửa trong ZMK Studio ngày 12/10/2026 và 13/10/2026, và trang này vẽ
+theo bản đó, đọc lại từ bàn phím. File `corne.keymap` trong repo firmware chưa theo kịp.
 
 Hệ quả: cắm Corne vào một máy không có VTX thì nó gõ QWERTY. Trên máy nhà, VTX phải ở
 chế độ **Colemak**; chuyển sang chế độ Telex thì Corne gõ QWERTY ngay, không cần đụng
@@ -18,7 +18,7 @@ firmware.
 
 Bản xem được: [corne-layout.html](corne-layout.html) và bản in một trang A4
 [corne-layout-print.html](corne-layout-print.html). Cả hai vẽ keymap ngày 11/10/2026 và
-chưa cập nhật theo các thay đổi ngày 12/10/2026 ở trang này.
+chưa cập nhật theo các thay đổi ngày 12/10/2026 và 13/10/2026 ở trang này.
 
 ## Nguyên tắc
 
@@ -74,14 +74,19 @@ Cột ngoài bên trái có thêm `⌃4` (hàng trên) và `⌃3` (hàng chủ).
 
 **Tầng 2: FN** (giữ NAV, rồi giữ thêm ngón trỏ trái ở hàng dưới, cột trong)
 ```
- □     □     □     □     □     │   □    Sáng− Sáng+  □     □
+ □     □     □     □     □     │   :    Sáng− Sáng+  □    BTxoá
  □     □     □     □     □     │   □    Mute  Vol−  Vol+  Play
- □     □     □     □    [giữ]  │   □    ⌃C     □     □     □
+ □     □     □     □    [giữ]  │   □    ⌃C     '     "     □
              ·     ·     ·     │   ·     ·     ·
 ```
 - Mọi ô dùng được đều ở tay phải, vì tay trái đang giữ hai phím tầng.
 - `⌃C` là một ô gửi thẳng ⌃C để ngắt lệnh trong terminal.
-- Không còn ô Bluetooth nào trên keymap.
+- `'` và `"` là hai ô riêng vì ở tầng này không với được ⇧ nào: ⇧ ngón cái phải rơi xuống
+  thành số `0` của NAV, còn ⇧ ngón út trái là ô trống.
+- `:` nằm đúng ô của `;` ở Base, cho lúc tay trái đang giữ sẵn hai phím tầng. Cách thường
+  dùng vẫn là ⇧ cộng `;` ở Base.
+- `BTxoá` (Bluetooth, Clear Selected Profile) xoá ghép nối của profile đang dùng. Đây là ô
+  Bluetooth duy nhất còn lại; nó nằm ở ngón út hàng trên cho khó chạm nhầm.
 
 ## Các tổ hợp hay dùng
 
@@ -92,7 +97,8 @@ Cột ngoài bên trái có thêm `⌃4` (hàng trên) và `⌃3` (hàng chủ).
 | ⌘⇧C, ⌘⇧V | Hai ngón cái giữ ⌘ và ⇧, trỏ trái bấm c hoặc áp út trái bấm v, đều ở hàng dưới |
 | ⌘C, ⌘V, ⌘Z một tay | Cái trái ⌘, tay trái bấm chữ ở hàng dưới: v áp út, c trỏ, z trỏ vươn vào trong |
 | ⌘X | Cái trái ⌘, út phải bấm x ở hàng trên |
-| `:` | Cái phải ⇧, trỏ phải bấm `;` ở hàng trên phía trong |
+| `:` | Nhả NAV, cái phải ⇧, trỏ phải bấm `;` ở hàng trên phía trong. Đang giữ NAV thì ô đó là `/`, nên NAV cộng ⇧ ra `?` |
+| `'` `"` `:` qua FN | Giữ NAV và FN bằng tay trái; giữa và áp út phải bấm hàng dưới ra `'` `"`, trỏ phải bấm hàng trên phía trong ra `:` |
 | ⌘Tab một nhịp | Giữ NAV, trỏ trái bấm ô `⌘Tab` ở hàng chủ |
 | ⌘Tab qua nhiều app | Giữ NAV, út trái giữ ⌘, trỏ trái bấm Tab ở hàng trên nhiều lần |
 | ⇧Enter | Giữ NAV, cái phải bấm Enter |
@@ -105,7 +111,7 @@ Cột ngoài bên trái có thêm `⌃4` (hàng trên) và `⌃3` (hàng chủ).
 | Âm lượng, độ sáng | Giữ NAV và FN bằng tay trái, tay phải bấm một ô |
 | ⌃C | Giữ NAV và FN bằng tay trái, trỏ phải bấm hàng dưới |
 
-Chưa có chỗ: `'` và `"`, `` ` `` và `~`, `\` và `|`, nhảy từng từ (⌥ cộng mũi tên), ⌃ và
+Chưa có chỗ: `` ` `` và `~`, `\` và `|`, nhảy từng từ (⌥ cộng mũi tên), ⌃ và
 ⌥ cộng một chữ (trừ ⌃C), và ⌃ cộng mũi tên để đổi desktop, vì bàn phím không còn phím ⌃
 hay ⌥ trần.
 
@@ -116,8 +122,12 @@ hay ⌥ trần.
   Bảng dưới cho biết ô nào trong firmware ra chữ nào.
 - **Ô `⌃C` phải là `&kp LC(V)`, không phải `&kp LC(C)`.** VTX đổi địa chỉ cả tổ hợp ⌃ theo
   DH-Việt, mà mã phím `C` trên DH-Việt là chữ `r`, nên `LC(C)` ra ⌃R. Mã phím `V` mới là
-  chữ `c`. Đây là ô duy nhất của firmware phụ thuộc layout chữ; khi VTX ở chế độ Telex
+  chữ `c`. Khi VTX ở chế độ Telex
   hoặc khi cắm máy khác thì ô này ra ⌃V.
+- **Ô `:` ở tầng FN phải là `&kp LS(Y)`, không phải `&kp COLON`,** cùng lý do: `;` của
+  DH-Việt nằm ở mã phím `Y`, còn mã phím `;` là chữ `i`, nên `COLON` ra chữ `I` hoa. Ở chế
+  độ Telex hoặc trên máy khác ô này ra `Y`. Hai ô `'` và `"` là `&kp SQT` và `&kp DQT`,
+  không phụ thuộc layout.
 - Ô ra thẳng một tổ hợp là phím gốc kèm modifier: `+` là `&kp LS(EQUAL)`, `*` là
   `&kp LS(N8)`, `⌘Tab` là `&kp LG(TAB)`, `⇧Enter` là `&kp LS(RET)`, chụp màn hình là
   `&kp LG(LS(N2))` đến `&kp LG(LS(N4))`. ZMK Studio gán được kiểu này bằng cách chọn phím
