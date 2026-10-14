@@ -74,13 +74,15 @@ Cột ngoài bên trái có thêm `⌃4` (hàng trên) và `⌃3` (hàng chủ).
 
 **Tầng 2: FN** (giữ NAV, rồi giữ thêm ngón trỏ trái ở hàng dưới, cột trong)
 ```
- □     □     □     □     □     │   :    Sáng− Sáng+  □    BTxoá
+ □     □     □     □     □     │   :     □    Sáng− Sáng+ BTxoá
  □     □     □     □     □     │   □    Mute  Vol−  Vol+  Play
- □     □     □     □    [giữ]  │   □    ⌃C     '     "     □
+ □     □     □     □    [giữ]  │  ⌃C     ?     '     "     □
              ·     ·     ·     │   ·     ·     ·
 ```
 - Mọi ô dùng được đều ở tay phải, vì tay trái đang giữ hai phím tầng.
 - `⌃C` là một ô gửi thẳng ⌃C để ngắt lệnh trong terminal.
+- `?` có ô riêng (`&kp LS(SLASH)`) vì ở Base nó là ⇧ ngón cái phải cộng út phải, cùng một
+  tay, mà được gõ hơn 100 lần mỗi ngày.
 - `'` và `"` là hai ô riêng vì ở tầng này không với được ⇧ nào: ⇧ ngón cái phải rơi xuống
   thành số `0` của NAV, còn ⇧ ngón út trái là ô trống.
 - `:` nằm đúng ô của `;` ở Base, cho lúc tay trái đang giữ sẵn hai phím tầng. Cách thường
@@ -109,7 +111,8 @@ Cột ngoài bên trái có thêm `⌃4` (hàng trên) và `⌃3` (hàng chủ).
 | Chụp màn hình | Giữ NAV, bấm một trong ba ô hàng dưới tay trái |
 | Xoá từ | NAV + Bksp |
 | Âm lượng, độ sáng | Giữ NAV và FN bằng tay trái, tay phải bấm một ô |
-| ⌃C | Giữ NAV và FN bằng tay trái, trỏ phải bấm hàng dưới |
+| ⌃C | Giữ NAV và FN bằng tay trái, trỏ phải vươn vào cột trong ở hàng dưới |
+| `?` | Giữ NAV và FN bằng tay trái, trỏ phải bấm hàng dưới; hoặc ở Base, ⇧ cộng `/` |
 
 Chưa có chỗ: `` ` `` và `~`, `\` và `|`, nhảy từng từ (⌥ cộng mũi tên), ⌃ và
 ⌥ cộng một chữ (trừ ⌃C), và ⌃ cộng mũi tên để đổi desktop, vì bàn phím không còn phím ⌃
