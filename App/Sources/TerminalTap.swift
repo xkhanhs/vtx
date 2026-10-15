@@ -2695,6 +2695,7 @@ final class TerminalTapController {
             // Sticky-source: click trong dải menu bar = user có thể đang tự đổi input
             // source bằng menu — dấu vết để KHÔNG giành lại (StickyInputSource).
             StickyInputSource.shared.noteClick(at: event.location)
+            if AppState.shared.logWordPractice { WordPracticeLog.shared.noteBreak() }
             if imeActive { NotificationCenter.default.post(name: .telexResetComposition, object: nil) }
             return pass
         }
@@ -2737,6 +2738,7 @@ final class TerminalTapController {
         // Đếm phím (thử nghiệm). Trước ⌃1…⌃4 bên dưới để các phím bị nuốt ở đó cũng
         // được tính — chúng là phím tắt người dùng bấm thật.
         if AppState.shared.logKeyUsage { KeyUsageLog.shared.noteKeyDown(event, vtxActive: active) }
+        if AppState.shared.logWordPractice { WordPracticeLog.shared.noteKeyDown(event, vtxActive: active) }
 
         // ⌃1…⌃4 chọn thẳng input source (SwitchHotkey.directSources). Chạy với MỌI
         // source đang chọn — trước gate imeActive — vì chiều ABC → VTX cần nó nhất.

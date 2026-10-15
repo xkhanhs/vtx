@@ -147,6 +147,12 @@ final class SettingsModel: ObservableObject {
             if !logKeyUsage { KeyUsageLog.shared.flush() }
         }
     }
+    @Published var logWordPractice: Bool {
+        didSet {
+            AppState.shared.logWordPractice = logWordPractice
+            if !logWordPractice { WordPracticeLog.shared.flush() }
+        }
+    }
     @Published var switchHotkey: String { didSet { AppState.shared.switchHotkey = switchHotkey } }
     @Published var bracketVowels: Bool { didSet { AppState.shared.bracketVowels = bracketVowels } }
     /// ASCII keyboard layout Telex composes on ("" = inherit macOS's). Applied
@@ -230,6 +236,7 @@ final class SettingsModel: ObservableObject {
         collisionPrefersVietnamese = AppState.shared.collisionPrefersVietnamese
         stickyInputSource = AppState.shared.stickyInputSource
         logKeyUsage = AppState.shared.logKeyUsage
+        logWordPractice = AppState.shared.logWordPractice
         layerHUD = AppState.shared.layerHUD
         switchHotkey = AppState.shared.switchHotkey
         bracketVowels = AppState.shared.bracketVowels
@@ -934,6 +941,7 @@ struct ExperimentalTab: View {
     @EnvironmentObject var model: SettingsModel
     @State private var saveResult: String?
     @State private var keyUsageStatus: String?
+    @State private var wordPracticeStatus: String?
 
     var body: some View {
         Form {
@@ -949,6 +957,20 @@ struct ExperimentalTab: View {
                 }
                 if let keyUsageStatus {
                     Text(keyUsageStatus).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Section(header: Label(model.loc("Word practice"), systemImage: "textformat.abc")) {
+                Toggle(model.loc("Record words typed with VTX Colemak (experimental)"), isOn: $model.logWordPractice)
+                Text(String(format: model.loc("Records each word you type in the VTX Colemak mode — Vietnamese and English — with how often you type it, how often you had to fix it (and what you mistyped) and how fast you type it, so you know which words to practise. This file DOES contain words, but no order, no sentences, no apps and no times; tokens with digits are skipped. Stored in %@."), WordPracticeLog.storeDisplayPath))
+                    .font(.caption).foregroundStyle(.secondary)
+                HStack {
+                    Button { copyWordPractice() } label: { Label(model.loc("Copy word report"), systemImage: "doc.on.doc") }
+                    Button { WordPracticeLog.shared.reset(); wordPracticeStatus = model.loc("Word data cleared.") } label: {
+                        Label(model.loc("Clear"), systemImage: "trash")
+                    }
+                }
+                if let wordPracticeStatus {
+                    Text(wordPracticeStatus).font(.caption).foregroundStyle(.secondary)
                 }
             }
             Section(header: Label(model.loc("Keyboard layers"), systemImage: "square.stack.3d.up")) {
@@ -1040,6 +1062,15 @@ struct ExperimentalTab: View {
         NSPasteboard.general.setString(KeyUsageLog.report(days), forType: .string)
         keyUsageStatus = String(format: model.loc("Copied — %d presses over %d days."),
                                 summary.total, summary.dayCount)
+    }
+
+    private func copyWordPractice() {
+        WordPracticeLog.shared.flush()
+        let store = WordPracticeLog.shared.snapshot()
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(WordPracticeLog.report(store), forType: .string)
+        wordPracticeStatus = String(format: model.loc("Copied — %d words, %d distinct."),
+                                    store.words.values.reduce(0) { $0 + $1.count }, store.words.count)
     }
 
     private func saveLog() {
