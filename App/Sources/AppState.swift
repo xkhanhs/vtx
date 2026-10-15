@@ -115,6 +115,7 @@ final class AppState: @unchecked Sendable {
         _tapCascadeBreaker = (defaults.object(forKey: "tapCascadeBreaker") as? Bool) ?? true
         _debugLogging = (defaults.object(forKey: "debugLogging") as? Bool) ?? false
         _logKeyUsage = (defaults.object(forKey: "logKeyUsage") as? Bool) ?? false
+        _logWordPractice = (defaults.object(forKey: "logWordPractice") as? Bool) ?? false
         _safeUnknownApps = (defaults.object(forKey: "safeUnknownApps") as? Bool) ?? true
         _keyboardLayoutID = (defaults.object(forKey: Key.keyboardLayout) as? String) ?? ""
         _altKeyboardLayoutID = (defaults.object(forKey: Key.altKeyboardLayout) as? String) ?? ""
@@ -480,6 +481,15 @@ final class AppState: @unchecked Sendable {
         get { lock.withLock { _logKeyUsage } }
         set { lock.withLock { _logKeyUsage = newValue }
               defaults.set(newValue, forKey: "logKeyUsage") }
+    }
+
+    /// Ghi từ hay gõ / hay sai / gõ chậm khi dùng VTX Colemak (WordPracticeLog) —
+    /// EXPERIMENTAL, default OFF. Cached + locked vì TAP THREAD đọc ở mỗi keyDown.
+    private var _logWordPractice: Bool
+    var logWordPractice: Bool {
+        get { lock.withLock { _logWordPractice } }
+        set { lock.withLock { _logWordPractice = newValue }
+              defaults.set(newValue, forKey: "logWordPractice") }
     }
 
     /// Which ASCII keyboard layout Telex composes on — a kTISPropertyInputSourceID

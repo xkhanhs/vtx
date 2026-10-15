@@ -89,6 +89,12 @@
 "Copy key usage report" = "Chép bảng thống kê";
 "Key usage data cleared." = "Đã xoá số liệu đếm phím.";
 "Copied — %d presses over %d days." = "Đã chép — %d lần nhấn trong %d ngày.";
+"Word practice" = "Từ cần tập";
+"Record words typed with VTX Colemak (experimental)" = "Lưu từ gõ bằng VTX Colemak (thử nghiệm)";
+"Records each word you type in the VTX Colemak mode — Vietnamese and English — with how often you type it, how often you had to fix it (and what you mistyped) and how fast you type it, so you know which words to practise. This file DOES contain words, but no order, no sentences, no apps and no times; tokens with digits are skipped. Stored in %@." = "Ghi từng từ gõ ở chế độ VTX Colemak, cả tiếng Việt lẫn tiếng Anh: gõ bao nhiêu lần, bao nhiêu lần phải xoá sửa (và đã gõ nhầm thành gì), gõ nhanh hay chậm, để biết từ nào cần tập. File này CÓ chứa từ, nhưng không có thứ tự, câu, app hay giờ gõ; token có chữ số bị bỏ. Lưu ở %@.";
+"Copy word report" = "Chép bảng từ";
+"Word data cleared." = "Đã xoá số liệu từ.";
+"Copied — %d words, %d distinct." = "Đã chép — %d từ, %d từ khác nhau.";
 "Diagnostics" = "Chẩn đoán";
 "Record debug log" = "Ghi nhật ký gỡ lỗi";
 "Records tap health events in memory (never the text you type). Turn it on, reproduce the problem, then Copy debug log and paste it into your report — or save it as a file." = "Ghi lại các sự kiện của tap trong bộ nhớ (không ghi nội dung bạn gõ). Bật lên, tái hiện lỗi, rồi bấm Chép nhật ký và dán vào báo cáo — hoặc lưu thành file.";
