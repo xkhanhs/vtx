@@ -32,17 +32,17 @@ struct LayerHUDLayout: Codable, Equatable {
     static let columnsPerHand = 5
     static let thumbsPerHand = 3
 
-    /// Keymap đọc từ bàn phím ngày 12/10/2026 (docs/keyboard/CORNE-LAYOUT.md).
+    /// Keymap ngày 19/10/2026 (docs/keyboard/CORNE-LAYOUT.md).
     static let seed = LayerHUDLayout(layers: [
         Layer(name: "NAV",
               rows: [["Esc", "[", "↑", "]", "Tab", "/", "7", "8", "9", "-"],
                      ["⌘", "←", "↓", "→", "⌘Tab", "*", "4", "5", "6", "+"],
-                     ["⇧", "⇧⌘2", "⇧⌘3", "⇧⌘4", "FN", "=", "1", "2", "3", "."]],
+                     ["⇧", "(", ")", "⇧⌘4", "FN", "=", "1", "2", "3", "."]],
               thumbs: ["⌘", "NAV", "Space", "⌥⌫", "0", "⇧Enter"]),
         Layer(name: "FN",
-              rows: [["", "", "", "", "", "", "Sáng−", "Sáng+", "", ""],
+              rows: [["", "", "", "", "", ":", "", "Sáng−", "Sáng+", "BT xoá"],
                      ["", "", "", "", "", "", "Mute", "Vol−", "Vol+", "Play"],
-                     ["", "", "", "", "FN", "", "⌃C", "", "", ""]],
+                     ["", "", "", "", "FN", "⌃C", "?", "'", "\"", ""]],
               thumbs: ["", "NAV", "", "", "", ""]),
     ])
 
