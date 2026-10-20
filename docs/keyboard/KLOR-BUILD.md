@@ -14,24 +14,23 @@ hotswap, đường mạch, jack TRRS và encoder. Vì vậy build guide và iBOM
 LINH KIỆN
 - 2 bo SuperMini nRF52840 (tương thích nice!nano v2)
 - 36 socket hotswap Kailh MX, 36 diode 1N4148W SOD-123
-- 2 pin LiPo 301230, 2 jack JST PH2.0 nằm ngang, 2 công tắc MSK12C02
-  (jack: JST PH bước chân 2.0 mm, 2 chân, hàn xuyên lỗ, cắm ngang; mã S2B-PH-K-S
-  hoặc bản tương đương. Dây đực đã có.)
+- 2 pin LiPo 301230 (dây trần, hàn thẳng lên mạch), 2 công tắc MSK12C02
 - 14 đai ốc ép nhiệt M2 (ngoài 3.2, dài 3–4 mm), 14 ốc M2x12, 8 đệm cao su 10x2
 
 LƯU Ý KHI LẮP
 - Bẻ bỏ cột ngoài cùng và phím cái thứ 4 trước khi hàn.
-- Bo điều khiển và jack pin hàn ở MẶT TRÊN PCB, linh kiện của bo úp xuống,
-  nâng bo khoảng 6 mm để pin nằm bên dưới (khác build guide gốc).
-- Đo cực pin bằng đồng hồ trước khi cắm, rồi hàn chập jumper đúng phía.
+- Bo điều khiển hàn ở MẶT TRÊN PCB, linh kiện của bo úp xuống, nâng bo khoảng
+  6 mm để pin nằm bên dưới (khác build guide gốc).
+- Pin hàn thẳng vào hai lỗ BATT + và − (đỏ vào +, đen vào −), không dùng jack JST
+  nên không chập jumper BATT. Hàn pin SAU CÙNG: khi bo điều khiển đã hàn và đã cắm
+  USB thử đủ phím. Gạt công tắc nguồn về tắt, hàn từng dây một, không để hai đầu
+  dây trần chạm nhau, không cắt hai dây pin bằng một nhát kìm.
 - KHÔNG lắp: OLED, encoder, LED, loa, rung, TRRS, nút reset.
 
 VỊ TRÍ CẦN HÀN (mỗi nửa, theo tên trên iBOM rev 1.3)
 - Diode + socket: D/SW 1–10, 12–16, 20–22 (18 phím). Bỏ 11, 17, 19 (nằm trên
   hai tab bẻ đi) và 18 (encoder).
-- U1 (bo điều khiển), BT1 (jack pin JST), PSW1 (công tắc nguồn).
-- Hai jumper BATT sát jack (JP22–25 trên iBOM): chập ở cùng mặt với jack. Trước
-  khi cắm pin, kiểm dây đỏ nằm phía "+ RED".
+- U1 (bo điều khiển), PSW1 (công tắc nguồn), BT2 (hai lỗ BATT + và −, hàn dây pin).
 - Không chập "LOST THUMB?" (JP26): nó chỉ nối lại chuỗi LED, mà bản này không có LED.
-- Bỏ hết jumper còn lại (OLED, trackball, haptic) và BT2 (pad hàn pin trực tiếp;
-  chỉ dùng nếu bỏ jack JST, khi đó cũng không cần jumper BATT).
+- Bỏ BT1 (chỗ jack JST) và jumper BATT cạnh nó (JP22–25), cùng mọi jumper còn lại
+  (OLED, trackball, haptic).
