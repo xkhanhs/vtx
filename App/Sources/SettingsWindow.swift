@@ -1068,7 +1068,11 @@ struct ExperimentalTab: View {
         WordPracticeLog.shared.flush()
         let store = WordPracticeLog.shared.snapshot()
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(WordPracticeLog.report(store), forType: .string)
+        // Words are only recorded in VTX Colemak, so the key-confusion table is read
+        // against that mode's layout, not whichever mode is active now.
+        let layout = KeyboardLayoutOverride.translator(for: InputMode.altLayout.pinnedLayoutID)
+            .flatMap(WordPracticeLog.letters(of:))
+        NSPasteboard.general.setString(WordPracticeLog.report(store, layout: layout), forType: .string)
         wordPracticeStatus = String(format: model.loc("Copied — %d words, %d distinct."),
                                     store.words.values.reduce(0) { $0 + $1.count }, store.words.count)
     }

@@ -238,6 +238,13 @@ enum KeyboardLayoutOverride {
         id == systemDefault || source(for: id) != nil
     }
 
+    /// A fresh table for `id`, whether or not it is the layout pinned right now — the
+    /// word-practice report needs the Colemak mode's layout while the user may sit in
+    /// Telex mode. nil when the layout is not installed or carries no `uchr` data.
+    static func translator(for id: String) -> KeyboardLayoutTranslator? {
+        source(for: id).flatMap { KeyboardLayoutTranslator(layoutID: id, source: $0) }
+    }
+
     // MARK: - Private
 
     private static func source(for id: String) -> TISInputSource? {
