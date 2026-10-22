@@ -242,7 +242,9 @@ final class WordPracticeLog {
 
     /// Ngưỡng để một từ được xếp hạng — dưới mức này một lần trượt tay đã đủ đẩy từ lên đầu.
     static let minErrors = 2
-    static let minTimed = 3
+    /// 3 lần đo để lọt cả mẩu như `tp`, `hh`, `gg` lên đầu bảng từ chậm (số liệu 15–22/10/2026);
+    /// từ 8 lần trở lên chỉ còn từ thật như claude, lark, merge.
+    static let minTimed = 8
 
     /// Nhịp trung bình ms/phím trên mọi lần đo được.
     static func baselineMsPerKey(_ store: Store) -> Double? {
@@ -280,7 +282,83 @@ final class WordPracticeLog {
         return Array(out.prefix(limit))
     }
 
-    static func report(_ store: Store, top: Int = 40) -> String {
+    // MARK: - Cặp phím hay nhầm (thuần)
+
+    /// Keycode của ba hàng chữ bàn phím ANSI, mỗi hàng 10 ô từ trái sang phải.
+    static let letterKeyCodes: [UInt16] = [
+        12, 13, 14, 15, 17, 16, 32, 34, 31, 35,   // Q W E R T Y U I O P
+        0, 1, 2, 3, 5, 4, 38, 40, 37, 41,         // A S D F G H J K L ;
+        6, 7, 8, 9, 11, 45, 46, 43, 47, 44,       // Z X C V B N M , . /
+    ]
+    /// Chữ in trên 30 ô đó theo QWERTY: nơi tay quen tìm tới.
+    static let qwertyLetters = Array("qwertyuiopasdfghjkl;zxcvbnm,./")
+
+    /// 30 chữ một layout sinh ra trên 30 ô đó, nil nếu thiếu ô nào.
+    static func letters(of translator: KeyboardLayoutTranslator) -> [Character]? {
+        let out = letterKeyCodes.compactMap { translator.character(keyCode: $0, shift: false) }
+        return out.count == letterKeyCodes.count ? out.map { Character($0.lowercased()) } : nil
+    }
+
+    enum Confusion: String {
+        /// Ngón tìm về ô của chữ đó trên QWERTY.
+        case qwertyHabit = "thói QWERTY"
+        /// Ngón bên cạnh, cùng hàng, cùng tay.
+        case neighbour = "ngón kề"
+        /// Cùng một ngón, lệch ô.
+        case sameFinger = "cùng ngón"
+    }
+
+    struct ConfusionRow: Equatable {
+        let wanted: Character
+        let typed: Character
+        let kind: Confusion
+        let count: Int
+    }
+
+    /// Phím sai đầu tiên của mỗi lần gõ nhầm, xếp loại theo vị trí trên `layout` (30 chữ
+    /// theo `letterKeyCodes`). So trên chữ đã bỏ dấu, nên "có" gõ nhầm thành "cho" là muốn
+    /// `o` mà gõ `h`. Lần nhầm chỉ dừng sớm (gõ đúng nhưng chưa xong) thì không có phím
+    /// sai; lần bỏ sót một phím và lần nhầm không thuộc ba loại trên thì không xếp.
+    static func confusions(_ store: Store, layout: [Character]) -> [ConfusionRow] {
+        guard layout.count == 30 else { return [] }
+        var slot: [Character: Int] = [:]
+        for (i, ch) in layout.enumerated() where slot[ch] == nil { slot[ch] = i }
+        // Ngón theo cột: hai cột giữa thuộc ngón trỏ của tay bên đó.
+        func finger(_ col: Int) -> Int { col == 4 ? 3 : col == 5 ? 6 : col }
+        func kind(_ wanted: Character, _ typed: Character) -> Confusion? {
+            guard let w = slot[wanted], let t = slot[typed] else { return nil }
+            if let q = qwertyLetters.firstIndex(of: wanted), layout[q] == typed { return .qwertyHabit }
+            let (fw, ft) = (finger(w % 10), finger(t % 10))
+            if fw == ft { return .sameFinger }
+            if w / 10 == t / 10, (fw < 5) == (ft < 5), abs(fw - ft) == 1 { return .neighbour }
+            return nil
+        }
+        var counts: [String: (Character, Character, Confusion, Int)] = [:]
+        for (word, stat) in store.words {
+            let want = Array(plainLetters(word))
+            for (mistake, n) in stat.mistakes {
+                let got = Array(plainLetters(mistake))
+                guard let i = want.indices.first(where: { $0 < got.count && want[$0] != got[$0] }),
+                      // Phím sau bị gõ sớm = bỏ sót một phím, không phải nhầm ô.
+                      !(i + 1 < want.count && got[i] == want[i + 1]),
+                      let k = kind(want[i], got[i]) else { continue }
+                let key = String([want[i], got[i]])
+                counts[key, default: (want[i], got[i], k, 0)].3 += n
+            }
+        }
+        return counts.values.map { ConfusionRow(wanted: $0.0, typed: $0.1, kind: $0.2, count: $0.3) }
+            .sorted { ($0.count, String([$1.wanted, $1.typed])) > ($1.count, String([$0.wanted, $0.typed])) }
+    }
+
+    /// "rồi" → "roi", "được" → "duoc": chữ cái gốc, như phím đã bấm.
+    static func plainLetters(_ text: String) -> String {
+        String(text.replacingOccurrences(of: "đ", with: "d")
+            .decomposedStringWithCanonicalMapping.unicodeScalars
+            .filter { !(0x300...0x36F).contains($0.value) }
+            .map(Character.init))
+    }
+
+    static func report(_ store: Store, top: Int = 40, layout: [Character]? = nil) -> String {
         let total = store.words.values.reduce(0) { $0 + $1.count }
         guard total > 0 else { return "Chưa có số liệu." }
         let days = store.days.keys.sorted()
@@ -318,6 +396,21 @@ final class WordPracticeLog {
         }
         table("TỪ GÕ NHIỀU NHẤT", "   lần  ms/phím   sai", frequentRows(store)) { row in
             row.stat.count.padded(6) + ms(row).leftPadded(9) + row.stat.errors.padded(6)
+        }
+
+        if let layout {
+            let rows = confusions(store, layout: layout)
+            if !rows.isEmpty {
+                let byKind = [Confusion.qwertyHabit, .neighbour, .sameFinger].map { kind in
+                    "\(kind.rawValue) \(rows.filter { $0.kind == kind }.reduce(0) { $0 + $1.count })"
+                }
+                lines.append("")
+                lines.append("CẶP PHÍM HAY NHẦM (muốn → gõ): " + byKind.joined(separator: " · "))
+                for row in rows.prefix(top / 2) {
+                    lines.append("\(row.wanted) → \(row.typed)".padding(toLength: 24, withPad: " ", startingAt: 0)
+                        + row.count.padded(6) + "  " + row.kind.rawValue)
+                }
+            }
         }
 
         let practice = practiceWords(store)

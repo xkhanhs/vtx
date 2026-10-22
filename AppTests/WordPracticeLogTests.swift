@@ -149,13 +149,60 @@ final class WordPracticeLogTests: XCTestCase {
     }
 
     func testReportListsErrorsAndAPracticeLine() {
-        let s = store("teh <<<<the teh <<<<the merge merge merge ")
+        let s = store("teh <<<<the teh <<<<the " + String(repeating: "merge ", count: WordPracticeLog.minTimed))
         let report = WordPracticeLog.report(s)
         XCTAssertTrue(report.contains("TỪ HAY SAI"), report)
         XCTAssertTrue(report.contains("teh×2"), report)
         XCTAssertTrue(report.contains("TỪ CHẬM"), report)
         XCTAssertTrue(report.contains("DÒNG TẬP"), report)
         XCTAssertEqual(WordPracticeLog.practiceWords(s).first, "the")
+    }
+
+    // MARK: - Cặp phím hay nhầm
+
+    private static let dhViet = Array("qwfgb;luyxahstpmneoijvrczkd,./")
+
+    private func confusionStore(_ words: [String: [String: Int]]) -> WordPracticeLog.Store {
+        var s = WordPracticeLog.Store()
+        for (word, mistakes) in words {
+            s.words[word] = .init(count: 10, errors: mistakes.values.reduce(0, +), mistakes: mistakes)
+        }
+        return s
+    }
+
+    func testConfusionsAreClassifiedByKeyPosition() {
+        let s = confusionStore([
+            "ra": ["va": 3],     // r, v: giữa và áp út, hàng dưới
+            "dev": ["s": 2],     // ô D của QWERTY ra s trên DH-Việt
+            "tạo": ["cao": 1],   // t hàng chủ, c hàng dưới, cùng ngón trỏ trái
+        ])
+        XCTAssertEqual(WordPracticeLog.confusions(s, layout: Self.dhViet), [
+            .init(wanted: "r", typed: "v", kind: .neighbour, count: 3),
+            .init(wanted: "d", typed: "s", kind: .qwertyHabit, count: 2),
+            .init(wanted: "t", typed: "c", kind: .sameFinger, count: 1),
+        ])
+    }
+
+    func testSkippedKeysEarlyStopsAndOtherSlipsAreNotPaired() {
+        let s = confusionStore([
+            "theo": ["tho": 4],  // bỏ sót e
+            "rồi": ["ro": 2],    // dừng sớm, chưa có phím sai
+            "có": ["cho": 5],    // o và h: hai tay, không thuộc ba loại
+        ])
+        XCTAssertEqual(WordPracticeLog.confusions(s, layout: Self.dhViet), [])
+    }
+
+    func testDiacriticsAreStrippedBeforeComparing() {
+        XCTAssertEqual(WordPracticeLog.plainLetters("được"), "duoc")
+        XCTAssertEqual(WordPracticeLog.plainLetters("uế"), "ue")
+    }
+
+    func testReportShowsTheConfusionTableOnlyWithALayout() {
+        let s = confusionStore(["ra": ["va": 3]])
+        XCTAssertFalse(WordPracticeLog.report(s).contains("CẶP PHÍM"))
+        let report = WordPracticeLog.report(s, layout: Self.dhViet)
+        XCTAssertTrue(report.contains("CẶP PHÍM HAY NHẦM"), report)
+        XCTAssertTrue(report.contains("r → v"), report)
     }
 
     func testEmptyReport() {
