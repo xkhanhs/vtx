@@ -39,3 +39,27 @@ VỊ TRÍ CẦN HÀN (mỗi nửa, theo tên trên iBOM rev 1.3)
 - Không chập "LOST THUMB?" (JP26): nó chỉ nối lại chuỗi LED, mà bản này không có LED.
 - Bỏ BT1 (chỗ jack JST) và jumper BATT cạnh nó (JP22–25), cùng mọi jumper còn lại
   (OLED, trackball, haptic).
+
+FIRMWARE
+- Repo [xkhanhs/zmk-config-klor](https://github.com/xkhanhs/zmk-config-klor): ZMK v0.3,
+  shield `klor_left` / `klor_right` trên `nice_nano_v2` (SuperMini chạy firmware này).
+  Keymap là keymap Corne 36 phím; ZMK Studio bật ở nửa trái (sửa phím ở zmk.studio,
+  Chrome, cắm USB nửa trái). Build bằng GitHub Actions khi đẩy lên repo.
+- Ngón cái trái (ngoài → trong): ⌘ · NAV · Space. Phải (trong → ngoài): Bksp · ⇧ · Enter.
+- Khớp chân bo: RAW vào BATT+, GND vào GND, RST vào RST; chân B+ và B− trên cùng của
+  SuperMini không có lỗ, bỏ trống.
+- Không có nút reset. Vào bootloader: giữ NAV, giữ B (FN), rồi bấm phím góc trên trái
+  (nạp nửa trái) hoặc góc dưới phải (nạp nửa phải). Không ăn thì nhíp chạm RST–GND
+  hai lần. Ổ NICENANO hiện ra thì chép file `.uf2` của đúng nửa vào.
+- Đổi keymap: chỉ nạp nửa trái. Đổi ma trận hay cấu hình bo: nạp cả hai, nửa phải
+  trước. Nửa phải không gõ thẳng vào máy được; muốn thử phải có nửa trái đang chạy.
+- Chép vào nửa phải macOS hay báo `Input/output error` dù bo vẫn khởi động lại; gõ thử
+  để biết đã nạp chưa.
+
+KIỂM TRA KHI LẮP (đã gặp)
+- Phím không ra gì: rút switch, chạm nhíp hai lỗ socket. Ra phím là lỗi switch (chân
+  cong); không ra thì so chiều diode với phím bên cạnh (phím W bị diode ngược), rồi
+  nung lại pad socket.
+- Ngón cái giữa là NAV: chạm một mình thành Shift dính, nên chạm rồi gõ "a" ra "A" là
+  phím chạy. Đừng thử bằng firmware mẫu của fork: ở đó phím này là LOWER, chạm không ra
+  gì, nên switch hỏng ở đây đã lọt qua lần thử đầu.
