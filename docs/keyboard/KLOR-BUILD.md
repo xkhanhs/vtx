@@ -43,8 +43,8 @@ VỊ TRÍ CẦN HÀN (mỗi nửa, theo tên trên iBOM rev 1.3)
 FIRMWARE
 - Repo [xkhanhs/zmk-config-klor](https://github.com/xkhanhs/zmk-config-klor): ZMK v0.3,
   shield `klor_left` / `klor_right` trên `nice_nano_v2` (SuperMini chạy firmware này).
-  Keymap là keymap Corne 36 phím; ZMK Studio bật ở nửa trái (sửa phím ở zmk.studio,
-  Chrome, cắm USB nửa trái). Build bằng GitHub Actions khi đẩy lên repo.
+  Keymap đi từ keymap Corne 36 phím, khác vài ô: xem [KLOR-LAYOUT.md](KLOR-LAYOUT.md).
+  ZMK Studio bật ở nửa trái (sửa phím ở zmk.studio, Chrome, cắm USB nửa trái). Build bằng GitHub Actions khi đẩy lên repo.
 - Ngón cái trái (ngoài → trong): ⌘ · NAV · Space. Phải (trong → ngoài): Bksp · ⇧ · Enter.
 - Khớp chân bo: RAW vào BATT+, GND vào GND, RST vào RST; chân B+ và B− trên cùng của
   SuperMini không có lỗ, bỏ trống.
