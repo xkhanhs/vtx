@@ -189,6 +189,9 @@ final class AppState: @unchecked Sendable {
         var simpleTelex = false, quickTelex = false, vniMode = false
         var bracketVowels = false, contextualEnglish = true
         var collisionPrefersVietnamese = true
+        /// Ambiguous words follow the user's own vocabulary (PersonalLexicon, filled by
+        /// WordPracticeLog). No setting: with no data it changes nothing.
+        var personalLexicon = true
     }
 
     func engineFlags() -> EngineFlags {
@@ -203,7 +206,7 @@ final class AppState: @unchecked Sendable {
 
     /// Sanity net for the snapshot above: every engine toggle must be carried, or a
     /// setting silently stops reaching the engine. Bump when adding a flag.
-    static let engineFlagCount = 9
+    static let engineFlagCount = 10
 
     /// Tone-placement style. false (default) = old style (hòa, thủy); true = modern
     /// (hoà, thuý). See `TelexEngine.modernTone`.
@@ -1190,5 +1193,6 @@ extension TelexEngine {
         bracketVowels = f.bracketVowels
         contextualEnglish = f.contextualEnglish
         collisionPrefersVietnamese = f.collisionPrefersVietnamese
+        personalLexicon = f.personalLexicon
     }
 }

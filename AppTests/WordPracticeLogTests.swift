@@ -69,6 +69,15 @@ final class WordPracticeLogTests: XCTestCase {
         XCTAssertEqual(done[0].mistake, "teh")
     }
 
+    /// "best ⌫ ": the boundary restored English, ⌫ undid it to "bét" and the user kept
+    /// it. The counter records the word kept, so PersonalLexicon learns "bét".
+    func testUndoneRestoreRecordsTheVietnameseWordKept() {
+        let done = words("best < ")
+        XCTAssertEqual(done.map(\.text), ["bét"])
+        XCTAssertTrue(done[0].errored)
+        XCTAssertEqual(done[0].mistake, "best")
+    }
+
     func testBackspacingOnlyTheSpaceThenRetypingItIsStillOneWord() {
         let done = words("chaof < ")
         XCTAssertEqual(done.map(\.text), ["chào"])

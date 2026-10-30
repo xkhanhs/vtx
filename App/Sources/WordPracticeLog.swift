@@ -5,6 +5,10 @@
 // beartype, cả tiếng Việt lẫn tiếng Anh (merge, commit, files…). Bật trong tab Thử
 // Nghiệm, đủ số liệu thì tắt.
 //
+// Số lần mỗi từ cũng là vốn từ cá nhân của engine (`PersonalLexicon`): nạp lúc khởi
+// động, cộng thêm mỗi từ ghi được. Từ mơ hồ Anh–Việt ("best"/"bét") theo cách đọc người
+// dùng gõ nhiều hơn. Vẫn chỉ ở máy, không mạng.
+//
 // PRIVACY: khác KeyUsageLog, file này CÓ chứa chữ: mỗi từ là một khoá kèm bộ đếm. Không
 // ghi thứ tự từ, không ghi câu, không ghi app, không ghi giờ — chỉ `{từ: số lần, số lần
 // sai, tổng ms}` — nên không dựng lại được đoạn văn đã gõ, nhưng đọc được vốn từ. Opt-in,
@@ -135,6 +139,7 @@ final class WordPracticeLog {
     private func feed(_ input: WordTracker.Input, ns: UInt64) {
         if tracker.needsFlags { tracker.flags = AppState.shared.engineFlags() }
         tracker.autoRestore = AppState.shared.autoRestore
+        tracker.reEdit = AppState.shared.reEditWord
         record(tracker.handle(input, ns: ns))
     }
 
@@ -144,6 +149,7 @@ final class WordPracticeLog {
         let day = KeyUsageLog.dayKey(Self.now())
         for word in done {
             Self.add(word, to: &store)
+            PersonalLexicon.shared.add(word.text)
             store.days[day, default: 0] += 1
             unflushed += 1
         }
@@ -180,6 +186,13 @@ final class WordPracticeLog {
         guard let data = try? Data(contentsOf: Self.storeURL),
               let stored = try? JSONDecoder().decode(Store.self, from: data) else { return }
         store = stored
+        PersonalLexicon.shared.replace(stored.words.mapValues(\.count))
+    }
+
+    /// Load the stored words into `PersonalLexicon` at launch, so the engine decides
+    /// ambiguous words by them from the first key — whether or not the counter is on.
+    func loadLexicon() {
+        io.async { self.loadIfNeeded() }
     }
 
     private func save() {
@@ -216,6 +229,7 @@ final class WordPracticeLog {
             store = Store()
             tracker = WordTracker()
             unflushed = 0
+            PersonalLexicon.shared.replace([:])
             try? FileManager.default.removeItem(at: Self.storeURL)
         }
     }
@@ -457,6 +471,9 @@ struct WordTracker {
 
     var flags = AppState.EngineFlags()
     var autoRestore = true
+    /// The ⌫ re-open / undo-restore toggle (`AppState.reEditWord`): mirrors the
+    /// controllers, so an undone restore is recorded as the word the user kept.
+    var reEdit = true
     /// true khi sắp bắt đầu một từ mới — lúc đó mới cần đọc cờ engine.
     var needsFlags: Bool { word.keys == 0 && !word.errored }
 
@@ -471,8 +488,9 @@ struct WordTracker {
     }
 
     private var word = Attempt()
-    /// Từ vừa chốt (trạng thái TRƯỚC khi chốt) + số ký tự chốt đã gõ sau nó.
-    private var pending: (attempt: Attempt, text: String, ms: Int?)?
+    /// Từ vừa chốt (trạng thái TRƯỚC khi chốt), engine SAU khi chốt (để ⌫ huỷ tự sửa
+    /// như controller) + số ký tự chốt đã gõ sau nó.
+    private var pending: (attempt: Attempt, committed: TelexEngine, text: String, ms: Int?)?
     private var separatorsAfter = 0
 
     mutating func handle(_ input: Input, ns: UInt64) -> [Finished] {
@@ -497,6 +515,12 @@ struct WordTracker {
                 if separatorsAfter == 0, let reopened = pending {
                     pending = nil
                     word = reopened.attempt
+                    // ⌫ right after a restore undoes it in the controllers ("best" →
+                    // "bét"): replay the same undo, so the word recorded is the one kept.
+                    var committed = reopened.committed
+                    if reEdit, committed.canUndoLastRestore, committed.undoLastRestore() != nil {
+                        word.engine = committed
+                    }
                     if !word.errored { word.mistake = reopened.text }
                     word.errored = true
                 }
@@ -508,7 +532,7 @@ struct WordTracker {
                 let text = engine.commitText(autoRestore: autoRestore).lowercased()
                 let timed = !word.errored && !word.stalled && word.keys >= 2
                     && ns &- word.lastNs <= Self.stallNs
-                pending = (word, text, timed ? Int((ns &- word.startNs) / 1_000_000) : nil)
+                pending = (word, engine, text, timed ? Int((ns &- word.startNs) / 1_000_000) : nil)
                 separatorsAfter = 1
                 word = Attempt()
             } else {

@@ -83,6 +83,38 @@ danh sách 10.000 từ tiếng Anh xếp theo tần suất):
 
 Bảng: 438 → **757 từ** (~vài chục KB, tra `Set<String>` ở boundary).
 
+## Đợt 2026-10-30: tiếng Anh theo tần suất, ⌫ huỷ tự sửa
+
+Với "Ưu tiên tiếng Việt" (mặc định), mọi từ trong bảng collision mà gõ ra âm tiết Việt
+hợp lệ đều thành tiếng Việt, kể cả khi từ Việt đó gần như không ai dùng: `best` → bét,
+`more` → mỏe, `test` → tét. Bảng mới `EnglishDominant` (432 từ) chấm cả hai cách đọc
+bằng tần suất thật: điểm = 10·log10(số lần trên một triệu từ), lấy từ
+[FrequencyWords](https://github.com/hermitdave/FrequencyWords) (OpenSubtitles 2018,
+CC BY-SA 4.0). Từ tiếng Anh đã lọc bằng trình kiểm chính tả macOS. Một từ vào bảng khi
+từ Việt dưới 10 điểm và tiếng Anh hơn ít nhất 10 điểm (gấp 10 lần). Protect-list vẫn
+thắng tuyệt đối. Từ Việt thông dụng không bao giờ bị lật: `last` → lát, `there` → thể,
+`cos` → có.
+
+Thay đổi so với trước: `list`, `sons`, `moms` đứng một mình giờ ra tiếng Anh.
+
+⌫ ngay sau một lần khôi phục mà bản gõ là âm tiết Việt hợp lệ (`best` ␣ ⌫) sẽ huỷ lần
+khôi phục: xoá dấu cách, trả lại "bét" và để từ mở. Chốt lại nguyên như vậy thì giữ
+tiếng Việt, gõ thêm thì từ được xét lại. Cùng công tắc với mở lại từ (`reEditWord`).
+Khôi phục từ không phải âm tiết Việt (`google`) thì không huỷ được, vì không có gì để
+trả lại.
+
+Sinh lại: `swift run gen-english --frequency …` (xem đầu `GenEnglish/Frequency.swift`).
+Test: `FrequencyEnglishTests`.
+
+**Vốn từ của chính người dùng thắng trước bảng.** `PersonalLexicon` giữ số lần mỗi từ
+đã lên màn hình, nạp từ bộ đếm từ (`word-practice.json`) lúc khởi động và cộng thêm
+mỗi từ bộ đếm ghi, nên nó tự học khi bạn gõ. Với một từ mơ hồ (`best` / bét), cách đọc
+nào bạn gõ nhiều hơn sẽ thắng. Chưa có dữ liệu hoặc hai bên bằng nhau thì các bảng ở
+trên quyết định, nên một từ trong bảng mà bạn chưa từng gõ không đổi gì. Kết luận
+"tiếng Việt" của vốn từ chỉ bỏ qua bảng, mạch tiếng Anh vẫn khôi phục được
+("it has been"). Khi bạn bấm ⌫ huỷ một lần tự sửa, bộ đếm ghi bản tiếng Việt bạn giữ,
+nên lần sau từ đó ra tiếng Việt. Xoá dữ liệu bộ đếm thì vốn từ cũng xoá theo.
+
 ## Vì sao không 100%
 
 **`restore_raw` — 81/7.282 ca còn lại (1,1%), đều là "dictionary-only":**

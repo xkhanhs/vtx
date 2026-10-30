@@ -574,6 +574,9 @@ final class TelexInputController: IMKInputController {
                 // back at that word's end, and the user is going to keep editing it
                 // ("tháy" ␣ ⌫ then `a` → "thấy" — issue #40). Re-open it into the buffer
                 // so the next key modifies the word instead of starting a new one.
+                // ⌫ right after the boundary restored a Vietnamese syllable to English
+                // ("bét" → "best") undoes that restore instead.
+                if tryUndoLastRestore(client, id: id) { return true }
                 if tryReopenLastCommit(client, id: id) { return false }
                 // Backspacing with an empty buffer deletes previously-committed text: the
                 // "previous word" relationship is now unclear, so drop the English context
@@ -1166,6 +1169,49 @@ final class TelexInputController: IMKInputController {
         selToClear = 0
         edgeTapWord = false
         DebugLog.log("⌫ re-open \(id ?? "?"): \(wordLen) chars back in the buffer")
+        return true
+    }
+
+    /// The ⌫ about to be delivered deletes the boundary character right after a word the
+    /// boundary RESTORED to its raw keys while they composed a valid Vietnamese syllable
+    /// ("bét" → "best"). Undo that restore: replace the raw word and the boundary
+    /// character with the Vietnamese composition and keep it open in the buffer. Same
+    /// gate and screen check as `tryReopenLastCommit`. Returns true iff the ⌫ was
+    /// consumed by the undo.
+    private func tryUndoLastRestore(_ client: IMKTextInput, id: String?) -> Bool {
+        guard AppState.shared.reEditWord else { return false }
+        guard engine.canUndoLastRestore, !usesMarkedNow(id) else { return false }
+        if AppState.shared.usesAxDetect(id), FocusedFieldDetector.wantsSelection {
+            engine.forgetLastCommit()
+            DebugLog.log("⌫ undo-restore \(id ?? "?"): skipped (field resolves to selection-replace)")
+            return false
+        }
+        let sel = client.selectedRange()
+        guard sel.location != NSNotFound, sel.length == 0 else {
+            engine.forgetLastCommit()
+            return false
+        }
+        guard let undo = engine.undoLastRestore() else { return false }
+        let screenLen = (undo.screen as NSString).length
+        let start = sel.location - 1 - screenLen
+        guard start >= 0,
+              let sub = client.attributedSubstring(from: NSRange(location: start, length: screenLen)),
+              sub.string.utf16.elementsEqual(undo.screen.utf16)
+        else {
+            engine.reset()
+            DebugLog.log("⌫ undo-restore \(id ?? "?"): skipped (screen disagrees)")
+            return false
+        }
+        // Track the raw word plus the boundary character as the composing window, then
+        // replace all of it with the composition through the normal in-place write.
+        anchor = start
+        onLen = screenLen + 1
+        tracking = true
+        anchorVerified = true
+        selToClear = 0
+        edgeTapWord = false
+        applyInPlace(bs: screenLen + 1, insert: undo.composed, client)
+        DebugLog.log("⌫ undo-restore \(id ?? "?"): \(screenLen) chars back to Vietnamese")
         return true
     }
 

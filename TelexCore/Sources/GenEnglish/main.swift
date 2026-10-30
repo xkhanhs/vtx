@@ -113,6 +113,10 @@ let extraEnglish = ["mess", "boss", "kiss", "chess", "bless", "gross",
 // từ ≥6 chữ hầu như không trùng đúng chuỗi telex của một từ Việt phổ biến.
 // Vẫn đi qua đủ engine-check + junk + protect như mọi từ khác.
 let args = CommandLine.arguments
+if args.count >= 2, args[1] == "--frequency" {
+    runFrequency(args)
+    exit(0)
+}
 guard args.count >= 4,
       let content = try? String(contentsOfFile: args[1], encoding: .utf8),
       let maxWords = Int(args[2]) else {
