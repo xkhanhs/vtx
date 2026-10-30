@@ -41,12 +41,14 @@ final class PerfAuditTests: XCTestCase {
         flags.freeMarking = true; flags.modernTone = true; flags.liveSpellCheck = true
         flags.simpleTelex = true; flags.quickTelex = true; flags.vniMode = true
         flags.bracketVowels = true; flags.contextualEnglish = true
+        flags.personalLexicon = true
         var e = TelexEngine()
         e.apply(flags)
         XCTAssertTrue(e.freeMarking); XCTAssertTrue(e.modernTone)
         XCTAssertTrue(e.liveSpellCheck); XCTAssertTrue(e.simpleTelex)
         XCTAssertTrue(e.quickTelex); XCTAssertTrue(e.vniMode)
         XCTAssertTrue(e.bracketVowels); XCTAssertTrue(e.contextualEnglish)
+        XCTAssertTrue(e.personalLexicon)
 
         var allOff = AppState.EngineFlags()
         allOff.freeMarking = false; allOff.modernTone = false; allOff.liveSpellCheck = false

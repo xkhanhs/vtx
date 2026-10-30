@@ -21,8 +21,9 @@ final class CollisionPreferenceTests: XCTestCase {
 
     func testVietnameseWinsStandalone() {
         XCTAssertEqual(sentence("last", vietnamese: true), "lát")
-        XCTAssertEqual(sentence("list", vietnamese: true), "lít")
-        XCTAssertEqual(sentence("mootj list", vietnamese: true), "một lít")
+        XCTAssertEqual(sentence("mootj last", vietnamese: true), "một lát")
+        // "list" now goes English by frequency (EnglishDominant): "list" is ~10x more
+        // common than "lít" is rare. See FrequencyEnglishTests.
         // "his" nằm trong protect-list (his→hí là chính sách cũ) — Việt ở cả hai chế độ.
         XCTAssertEqual(sentence("his", vietnamese: true), "hí")
         XCTAssertEqual(sentence("his", vietnamese: false), "hí")

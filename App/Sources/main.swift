@@ -98,6 +98,9 @@ axChangeObserver = DistributedNotificationCenter.default().addObserver(
 // Bảng tầng phím Corne (experimental, default OFF) — xem LayerHUD.swift.
 if AppState.shared.layerHUD { LayerHUDController.shared.apply(enabled: true) }
 
+// Vốn từ của chính người dùng (bộ đếm từ) quyết định từ mơ hồ Anh–Việt — xem PersonalLexicon.
+WordPracticeLog.shared.loadLexicon()
+
 }  // end !isTestHost
 
 // Standard editing key equivalents (⌘A/⌘C/⌘V/⌘X/⌘Z, ⌘W) inside our OWN Settings

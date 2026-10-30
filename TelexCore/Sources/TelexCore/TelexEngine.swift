@@ -131,6 +131,10 @@ public struct TelexEngine {
     /// âm tiết không hợp lệ vẫn về raw, cử chỉ gõ đúp không đổi. Engine default
     /// false để golden cũ nguyên; AppState default TRUE (maintainer 12/09/2026).
     public var collisionPrefersVietnamese = false
+    /// Decide ambiguous words ("best" / "bét") by the user's own vocabulary
+    /// (`PersonalLexicon.shared`) before the built-in tables. Off by default; the app
+    /// turns it on.
+    public var personalLexicon = false
 
     static let capacity = 32
 
@@ -258,6 +262,14 @@ public struct TelexEngine {
     private var reopenPrevEnglish = false
     private var reopenCandidate = false
     private var reopenGateBits: UInt8 = 0
+    // The snapshot is of a word the boundary RESTORED to its raw keys while the
+    // composition was a valid Vietnamese syllable ("best" over "bét"). The screen then
+    // shows the raw keys, so it is not re-openable as typed — but a ⌫ on the boundary
+    // character undoes the restore (`undoLastRestore`).
+    private var reopenIsRestore = false
+    // The current word is the composition of an undone restore: its boundary keeps it
+    // Vietnamese. Any key typed after the undo clears it, and the word is judged again.
+    private var restoreUndone = false
 
     public init() {
         raw = [UInt8](repeating: 0, count: Self.capacity)
@@ -385,6 +397,7 @@ public struct TelexEngine {
         // edits away from the caret, so a later ⌫ must not re-open it (typing then
         // backspacing all the way back would otherwise resurrect the wrong word).
         if rawCount == 0 { reopenRawCount = 0; reopenOutCount = 0 }
+        restoreUndone = false
 
         raw[rawCount] = ascii
         rawCount += 1
@@ -501,6 +514,7 @@ public struct TelexEngine {
     /// produced the last displayed letter (tracked via `rawLetter` provenance).
     public mutating func backspace() -> TelexAction {
         guard rawCount > 0 else { return .passthrough }
+        restoreUndone = false
         // Overflowed: the engine's 32-char view is a stale prefix of the screen, so
         // any rebuild/diff would rewrite the whole range with the short composition
         // and drop the overflow. Let the app delete the last char natively instead.
@@ -565,7 +579,9 @@ public struct TelexEngine {
         // word's context; previousWordEnglish is refreshed for the NEXT word after.
         let wantsRestore = autoRestore && outCount > 0 && shouldRestoreRaw()
         var action: TelexAction = .none
+        var undoable = false
         if wantsRestore, compositionDiffersFromRaw() {
+            undoable = composedIsValidSyllable()
             // Strip the shared leading run, exactly like diff() does per keystroke:
             // an unchanged prefix (the "g" in "gôgle"→"google") must NOT be
             // deleted+retyped. Re-typing a still-correct leading char surfaces as a
@@ -580,7 +596,7 @@ public struct TelexEngine {
             for i in lcp..<rawCount { s.append(Unicode.Scalar(raw[i])) }
             action = .replace(backspaces: backspaces, insert: String(s))
         }
-        captureReopen(restored: wantsRestore)
+        captureReopen(restored: wantsRestore, undoable: undoable)
         updateContext(restored: wantsRestore)
         return action
     }
@@ -588,9 +604,11 @@ public struct TelexEngine {
     /// Remember the just-committed word so a ⌫ on the boundary character can put it
     /// back (see `reopenLastCommit`). Only when the screen ends up showing `composed`:
     /// a restore-to-raw ("google") or a caller-side rewrite leaves other text there,
-    /// and re-opening would desync the buffer from the screen. Allocation-free.
-    private mutating func captureReopen(restored: Bool) {
-        guard !restored, rawCount > 0 else { reopenRawCount = 0; reopenOutCount = 0; return }
+    /// and re-opening would desync the buffer from the screen. A restore of a valid
+    /// Vietnamese syllable is captured too, for `undoLastRestore`. Allocation-free.
+    private mutating func captureReopen(restored: Bool, undoable: Bool = false) {
+        guard rawCount > 0, !restored || undoable else { reopenRawCount = 0; reopenOutCount = 0; return }
+        reopenIsRestore = restored
         for i in 0..<rawCount { reopenRaw[i] = raw[i] }
         for i in 0..<outCount { reopenOut[i] = out[i] }
         reopenRawCount = rawCount
@@ -610,7 +628,40 @@ public struct TelexEngine {
     }
 
     /// True while `reopenLastCommit()` has something to put back.
-    public var canReopenLastCommit: Bool { rawCount == 0 && reopenRawCount > 0 }
+    public var canReopenLastCommit: Bool { rawCount == 0 && reopenRawCount > 0 && !reopenIsRestore }
+
+    /// True while `undoLastRestore()` has a restore to undo.
+    public var canUndoLastRestore: Bool { rawCount == 0 && reopenRawCount > 0 && reopenIsRestore }
+
+    /// UNDO the restore the last boundary made: the user typed keys that compose a valid
+    /// Vietnamese syllable, the boundary put the raw keys back because they read as
+    /// English ("bét" → "best"), and the user pressed ⌫ on the boundary character right
+    /// after. Puts the Vietnamese composition back in the buffer, the word still open,
+    /// and keeps it Vietnamese if the user ends it unchanged.
+    ///
+    /// Returns `screen`, the raw keys the screen shows before the boundary character,
+    /// and `composed`, the word in the buffer now. The caller verifies `screen` is on
+    /// screen, then replaces it AND the boundary character with `composed`. Like
+    /// `reopenLastCommit`, the replay is verified and the snapshot is consumed.
+    public mutating func undoLastRestore() -> (screen: String, composed: String)? {
+        guard canUndoLastRestore else { return nil }
+        let n = reopenRawCount
+        let expected = reopenOutCount
+        let prevEnglish = reopenPrevEnglish
+        let prevCandidate = reopenCandidate
+        let prevGateBits = reopenGateBits
+        var screen = String.UnicodeScalarView()
+        for i in 0..<n { screen.append(Unicode.Scalar(reopenRaw[i])) }
+        reset()                                   // consume the snapshot before replaying
+        previousWordEnglish = prevEnglish
+        englishCandidate = prevCandidate
+        previousGateBits = prevGateBits
+        for i in 0..<n { _ = feed(Character(Unicode.Scalar(reopenRaw[i]))) }
+        guard rawCount == n, outCount == expected else { reset(); return nil }
+        for i in 0..<outCount where out[i] != reopenOut[i] { reset(); return nil }
+        restoreUndone = true
+        return (String(screen), composed)
+    }
 
     /// RE-OPEN the word the last boundary committed — the ⌫ counterpart of `seed`.
     /// The user typed a word, ended it, then deleted the boundary character; the word
@@ -660,6 +711,8 @@ public struct TelexEngine {
     /// Only then do the standard validity/exception rules decide.
     /// NON-mutating (scratch-free) so `peekCommitText` can share it verbatim.
     private func shouldRestoreRaw() -> Bool {
+        // The user undid this word's restore with ⌫ (`undoLastRestore`): keep it.
+        if restoreUndone { return false }
         // ORDER IS THE POLICY. The cancel branch comes FIRST: a TRAILING escape
         // gesture (adjacent double modifier as the word's final keystroke — the user
         // is LOOKING at the screen and said "no diacritic, keep the letter") outranks
@@ -725,8 +778,20 @@ public struct TelexEngine {
         // Ưu tiên tiếng Việt khi trùng (collisionPrefersVietnamese): từ Việt hợp lệ
         // thắng bảng collision khi đứng một mình; trong mạch tiếng Anh xem nhánh
         // context bên dưới (bảng vẫn khôi phục ở đó).
-        if rawIsEnglishCollision(),
-           !(collisionPrefersVietnamese && composedIsValidSyllable()) { return true }
+        // The user's own vocabulary decides an ambiguous word first: whichever reading
+        // they have typed more often. A Vietnamese verdict only skips the built-in
+        // tables — an English run below can still restore ("has been").
+        let personal = personalPrefersEnglish()
+        if personal == true { return true }
+        if personal == nil {
+            if rawIsEnglishCollision(),
+               !(collisionPrefersVietnamese && composedIsValidSyllable()) { return true }
+            // Frequency: English is far more common and the Vietnamese word is rare
+            // ("best" over "bét", "more" over "mỏe") → English even under Vietnamese
+            // priority. Common Vietnamese words and the protect-list never enter this
+            // table (`gen-english --frequency`).
+            if rawIsEnglishDominant() { return true }
+        }
         // `isTeencodeKeep()` runs AFTER the English table above on purpose: the dictionary
         // still wins ("google" restores), and only a word that no dictionary claims gets
         // kept as "valid syllable + repeated tail" ("hôngggg", "vângggg", "đẹpppp").
@@ -957,7 +1022,8 @@ public struct TelexEngine {
         // Decide with the PREVIOUS word's context, then refresh it for the NEXT word
         // (reusing the restore decision — no repeated checks).
         let wantsRestore = autoRestore && outCount > 0 && shouldRestoreRaw()
-        captureReopen(restored: wantsRestore)
+        let undoable = wantsRestore && compositionDiffersFromRaw() && composedIsValidSyllable()
+        captureReopen(restored: wantsRestore, undoable: undoable)
         updateContext(restored: wantsRestore)
         return wantsRestore ? rawKeystrokes : composed
     }
@@ -991,25 +1057,46 @@ public struct TelexEngine {
     /// ("his"→hí, "this"→thí, "see"→sê). Boundary-only; the String is built only
     /// after cheap byte pre-filters, never on the per-key hot path.
     private func rawIsEnglishCollision() -> Bool {
-        guard englishWordRestore else { return false }
-        guard rawCount >= 2, rawCount <= 12 else { return false }
-        guard compositionDiffersFromRaw() else { return false }   // untouched words can't collide
+        guard let w = rawEnglishTableKey() else { return false }
+        return EnglishCollisions.words.contains(w)
+    }
+
+    /// `PersonalLexicon` verdict for an ambiguous word: true = English, false =
+    /// Vietnamese, nil = not ambiguous, no evidence, or a tie. Boundary-only.
+    private func personalPrefersEnglish() -> Bool? {
+        guard personalLexicon, let key = rawEnglishTableKey(), composedIsValidSyllable()
+        else { return nil }
+        let (en, vn) = PersonalLexicon.shared.counts(english: key, vietnamese: composed.lowercased())
+        return en == vn ? nil : en > vn
+    }
+
+    private func rawIsEnglishDominant() -> Bool {
+        guard let w = rawEnglishTableKey() else { return false }
+        return EnglishDominant.words.contains(w)
+    }
+
+    /// The raw keys as the lowercase key of the boundary English tables, or nil when no
+    /// table applies to this word. Boundary-only (allocates one String).
+    private func rawEnglishTableKey() -> String? {
+        guard englishWordRestore else { return nil }
+        guard rawCount >= 2, rawCount <= 12 else { return nil }
+        guard compositionDiffersFromRaw() else { return nil }   // untouched words can't collide
         // w-entries count only when the w actually BECAME ư (full Telex) — in
         // Simple Telex the literal-w teencode forms ("wá" = quá) must survive.
         if (raw[0] | 0x20) == UInt8(ascii: "w") {
             let wTransformed = pCount > 0 && renderLetters[0].base == UInt8(ascii: "u")
                 && renderLetters[0].mark == .horn
-            if !wTransformed { return false }
+            if !wTransformed { return nil }
         }
         var v = String.UnicodeScalarView()
         v.reserveCapacity(rawCount)
         for i in 0..<rawCount {
             var b = raw[i]
             if b >= UInt8(ascii: "A"), b <= UInt8(ascii: "Z") { b |= 0x20 }
-            guard b >= UInt8(ascii: "a"), b <= UInt8(ascii: "z") else { return false }
+            guard b >= UInt8(ascii: "a"), b <= UInt8(ascii: "z") else { return nil }
             v.append(Unicode.Scalar(b))
         }
-        return EnglishCollisions.words.contains(String(v))
+        return String(v)
     }
 
     private func rawIsEnglishException() -> Bool {

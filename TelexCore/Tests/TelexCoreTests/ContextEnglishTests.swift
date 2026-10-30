@@ -153,8 +153,8 @@ final class ContextEnglishTests: XCTestCase {
 
     // Hand-vetted ambiguous words: English inside an English run, Vietnamese otherwise.
     func testHandVettedContextWords() {
-        let pairs = [("runs", "rún"), ("songs", "sóng"), ("sons", "són"),
-                     ("moms", "móm"), ("cams", "cám"), ("lens", "lén"), ("rays", "ráy"),
+        // sons/moms left this list: English by frequency even alone (són, móm are rare).
+        let pairs = [("runs", "rún"), ("songs", "sóng"), ("cams", "cám"), ("lens", "lén"), ("rays", "ráy"),
                      ("vans", "ván"), ("bans", "bán"), ("tins", "tín"), ("tans", "tán"),
                      ("dams", "dám"), ("hams", "hám"), ("thus", "thú")]
         for (en, vn) in pairs {
@@ -221,9 +221,10 @@ final class ContextEnglishTests: XCTestCase {
     func testSpecPhrases() {
         XCTAssertEqual(sentence("she thus", context: true), "she thus")
         XCTAssertEqual(sentence("their moms", context: true), "their moms")
-        // …and each stays Vietnamese with the feature OFF.
+        // …and "thus" stays Vietnamese with the feature OFF. "moms" is English by
+        // frequency either way (EnglishDominant).
         XCTAssertEqual(sentence("she thus", context: false), "she thú")
-        XCTAssertEqual(sentence("their moms", context: false), "their móm")
+        XCTAssertEqual(sentence("their moms", context: false), "their moms")
     }
 
     // Clearly-Vietnamese words are NEVER flipped, even mid English run (no ambiguity).

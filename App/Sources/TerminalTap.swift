@@ -2973,6 +2973,9 @@ final class TerminalTapController {
                 // ⌫ on the boundary character the last word ended with re-opens that
                 // word ("tháy" ␣ ⌫ then `a` → "thấy" — issue #40); the ⌫ still goes
                 // through and deletes the boundary character either way.
+                // ⌫ right after a restore of a Vietnamese syllable ("bét" → "best")
+                // undoes it: the undo consumes the ⌫ and rewrites word + boundary.
+                if tryUndoLastRestoreTap(id: id) { return nil }
                 if !tryReopenLastCommitTap(id: id) {
                     // Deleting previously-committed text: the "previous word" is now unclear,
                     // so drop the English context (undetermined → Vietnamese). In-word
@@ -3293,6 +3296,41 @@ final class TerminalTapController {
             return false
         }
         DebugLog.log("⌫ re-open(tap) \(id ?? "?"): \(wordLen) chars back in the buffer")
+        return true
+    }
+
+    /// TAP counterpart of `TelexInputController.tryUndoLastRestore`: replace the raw
+    /// word the boundary restored, and the boundary character after it, with the
+    /// Vietnamese composition. Same gate and AX screen check as the tap re-open.
+    /// Returns true iff the ⌫ was consumed by the undo.
+    private func tryUndoLastRestoreTap(id: String?) -> Bool {
+        guard AppState.shared.reEditWord, engine.canUndoLastRestore else { return false }
+        guard emitMode == .backspace else {
+            engine.forgetLastCommit()
+            DebugLog.log("⌫ undo-restore(tap) \(id ?? "?"): skipped (emitMode not backspace)")
+            return false
+        }
+        guard let caret = AXTextEdit.readCaret() else {
+            engine.forgetLastCommit()
+            DebugLog.log("⌫ undo-restore(tap) \(id ?? "?"): skipped (no AX caret)")
+            return false
+        }
+        guard let undo = engine.undoLastRestore() else {
+            DebugLog.log("⌫ undo-restore(tap) \(id ?? "?"): skipped (replay mismatch)")
+            return false
+        }
+        let screenLen = (undo.screen as NSString).length
+        let start = caret - 1 - screenLen               // this ⌫ removes the boundary char
+        guard start >= 0,
+              let text = AXTextEdit.readString(at: start, length: screenLen),
+              text.utf16.elementsEqual(undo.screen.utf16)
+        else {
+            engine.reset()
+            DebugLog.log("⌫ undo-restore(tap) \(id ?? "?"): skipped (screen disagrees)")
+            return false
+        }
+        SyntheticKeyboard.apply(backspaces: screenLen + 1, insert: undo.composed, mode: emitMode)
+        DebugLog.log("⌫ undo-restore(tap) \(id ?? "?"): \(screenLen) chars back to Vietnamese")
         return true
     }
 
