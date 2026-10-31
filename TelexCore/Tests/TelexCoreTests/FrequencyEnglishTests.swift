@@ -89,6 +89,14 @@ final class FrequencyEnglishTests: XCTestCase {
         XCTAssertEqual(sentence("lats", personal: true), "lát")
     }
 
+    func testSingleLetterVietnameseIgnoresPersonalVocabulary() {
+        // The word counter skips one-letter words, so "à" is never counted while "af"
+        // can be: its English count would always win and "af" could never become "à".
+        PersonalLexicon.shared.replace(["af": 22, "as": 3])
+        XCTAssertEqual(sentence("af", personal: true), "à")
+        XCTAssertEqual(sentence("as", personal: true), "á")
+    }
+
     func testEnglishRunStillRestoresOverPersonalVietnamese() {
         PersonalLexicon.shared.replace(["bên": 50])
         XCTAssertEqual(sentence("been", personal: true), "bên")

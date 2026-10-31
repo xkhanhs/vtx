@@ -115,6 +115,10 @@ trên quyết định, nên một từ trong bảng mà bạn chưa từng gõ k
 ("it has been"). Khi bạn bấm ⌫ huỷ một lần tự sửa, bộ đếm ghi bản tiếng Việt bạn giữ,
 nên lần sau từ đó ra tiếng Việt. Xoá dữ liệu bộ đếm thì vốn từ cũng xoá theo.
 
+Từ Việt một chữ (`af` → à, `as` → á) không đi qua vốn từ. Bộ đếm bỏ qua từ một chữ, nên
+phía tiếng Việt luôn là 0 và một `af` từng được đếm sẽ thắng mãi. Ngày 2026-10-31 máy
+thật có `af` = 22, `à` = 0, và gõ `af` ra "af". Các từ này để bảng quyết định như trước.
+
 ## Vì sao không 100%
 
 **`restore_raw` — 81/7.282 ca còn lại (1,1%), đều là "dictionary-only":**
