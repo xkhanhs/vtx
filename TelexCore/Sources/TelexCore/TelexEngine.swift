@@ -1063,10 +1063,16 @@ public struct TelexEngine {
 
     /// `PersonalLexicon` verdict for an ambiguous word: true = English, false =
     /// Vietnamese, nil = not ambiguous, no evidence, or a tie. Boundary-only.
+    ///
+    /// A one-letter composition ("à", "á", "ỏ") has no verdict: the word counter only
+    /// records words of two or more letters, so its Vietnamese side is always 0 and any
+    /// counted "af" would win forever.
     private func personalPrefersEnglish() -> Bool? {
         guard personalLexicon, let key = rawEnglishTableKey(), composedIsValidSyllable()
         else { return nil }
-        let (en, vn) = PersonalLexicon.shared.counts(english: key, vietnamese: composed.lowercased())
+        let word = composed.lowercased()
+        guard word.count >= 2 else { return nil }
+        let (en, vn) = PersonalLexicon.shared.counts(english: key, vietnamese: word)
         return en == vn ? nil : en > vn
     }
 
