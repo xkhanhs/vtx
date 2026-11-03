@@ -38,10 +38,11 @@ Studio hiện QWERTY.
  Esc   [     ↑     ]     Tab   │   /     7     8     9     -
  ⌘     ←     ↓     →     ⌘Tab  │   *     4     5     6     +
  ⇧     (     )     ⌘⇧4   [FN]  │   =     1     2     3     .
-             ·    [giữ]  ·     │  Bksp   0    ⇧Enter
+             ·    [giữ]  ·     │ Xoá từ  0    ⇧Enter
 ```
-- Giống Corne, trừ ô Bksp: ở đây là Bksp thường chứ không phải Xoá từ, vì gõ sai một số
-  thì chỉ nên mất một ký tự.
+- Giống Corne. Ô Xoá từ là ⌥⌫ (`&kp LA(BSPC)`). Từ 25/10 tới 03/11/2026 ô này là Bksp
+  thường, vì hồi đó NAV bật bằng chạm và có thể ở lại lâu, gõ sai một số thì không nên
+  mất cả dãy. NAV giờ chỉ bật khi giữ nên đổi về giống Corne.
 - Bôi chọn: giữ NAV, giữ ⇧/Tab ngón cái phải, rồi bấm mũi tên.
 
 **Tầng 2: FN** (giữ NAV, giữ thêm ngón trỏ trái ở hàng dưới, cột trong)
