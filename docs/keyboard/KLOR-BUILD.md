@@ -60,5 +60,6 @@ KIỂM TRA KHI LẮP (đã gặp)
 - Phím không ra gì: rút switch, chạm nhíp hai lỗ socket. Ra phím là lỗi switch (chân
   cong); không ra thì so chiều diode với phím bên cạnh (phím W bị diode ngược), rồi
   nung lại pad socket.
-- Ngón cái giữa là ⇧/NAV: giữ nó rồi gõ "a" ra "A" là phím chạy. Đừng thử bằng firmware mẫu của fork: ở đó phím này là LOWER, chạm không ra
-  gì, nên switch hỏng ở đây đã lọt qua lần thử đầu.
+- Ngón cái giữa trái là NAV: giữ nó rồi gõ phím "m" của QWERTY (ô "d" của DH-Việt) ra
+  "1" là phím chạy. Phím chỉ đổi tầng thì chạm một mình không ra gì, nên switch hỏng ở
+  đây đã lọt qua lần thử đầu (lúc đó là firmware mẫu của fork, phím này là LOWER).
