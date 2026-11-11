@@ -134,12 +134,46 @@ final class KeyUsageLogTests: XCTestCase {
         KeyUsageLog.shared.noteModifierPress(keyCode: 54)
 
         let live = KeyUsageLog.shared.snapshot()
-        XCTAssertEqual(live["2026-10-12"]?.modifiers, ["⇧ trái": 2])
-        XCTAssertEqual(live["2026-10-13"]?.modifiers, ["⌘ phải": 1])
+        XCTAssertEqual(live["2026-10-12"]?.external, ["⇧ trái": 2])
+        XCTAssertEqual(live["2026-10-13"]?.external, ["⌘ phải": 1])
 
         KeyUsageLog.shared.flush()
         KeyUsageLog.shared.resetForTestingByReloadingStore()
         XCTAssertEqual(KeyUsageLog.shared.snapshot(), live)
+    }
+
+    func testBuiltInKeyboardTypesAreRecognised() {
+        XCTAssertTrue(KeyUsageLog.isBuiltInKeyboard(91))
+        XCTAssertTrue(KeyUsageLog.isBuiltInKeyboard(93))
+        XCTAssertFalse(KeyUsageLog.isBuiltInKeyboard(40))
+    }
+
+    func testBuiltInKeyboardModifierPressIsNotCounted() {
+        KeyUsageLog.shared.noteModifierPress(keyCode: 56, keyboardType: 91)
+        KeyUsageLog.shared.noteModifierPress(keyCode: 55, keyboardType: 40)
+        let day = KeyUsageLog.shared.snapshot().values.first
+        XCTAssertEqual(day?.external, ["⌘ trái": 1])
+        XCTAssertEqual(day?.modifiers, [:])
+    }
+
+    func testOldStoreWithoutExternalStillLoads() throws {
+        let old = #"{"days":{"2026-10-12":{"combos":{"A":3},"modifiers":{}}}}"#
+        try old.write(to: storeURL, atomically: true, encoding: .utf8)
+        let days = KeyUsageLog.shared.snapshot()
+        XCTAssertEqual(days["2026-10-12"]?.combos, ["A": 3])
+        XCTAssertEqual(days["2026-10-12"]?.external, [:])
+    }
+
+    func testKlorReportListsRareAndNeverPressedKeys() {
+        let days: [String: KeyUsageLog.Day] = [
+            "2026-11-05": .init(external: ["A": 50, "⇧A": 5, "Space": 100, "⌘Tab": 2, "key105": 1]),
+        ]
+        let report = KeyUsageLog.klorReport(days)
+        XCTAssertTrue(report.contains("A           55"), report)       // ⇧A gộp vào A
+        XCTAssertTrue(report.contains("CHƯA BẤM LẦN NÀO:"))
+        XCTAssertFalse(report.split(separator: "\n").first { $0.hasPrefix("CHƯA") }!.contains(" Space"))
+        XCTAssertTrue(report.contains("key105 1"))
+        XCTAssertEqual(KeyUsageLog.klorReport([:]), "Chưa có số liệu từ Klor.")
     }
 
     func testResetClearsMemoryAndFile() {
