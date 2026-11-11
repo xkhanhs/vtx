@@ -187,9 +187,12 @@ Các ký hiệu, số và mũi tên của tầng NAV không đổi: DH-Việt ch
 
 Trước khi dời một phím hay một tổ hợp sang chỗ khác, xem nó được bấm bao nhiêu lần. VTX có
 bộ đếm ở Cài đặt → Thử nghiệm → **Đếm phím** (mặc định tắt). Bật lên, dùng máy vài ngày,
-rồi bấm **Chép bảng thống kê**: bảng liệt kê phím tắt có ⌘ ⌃ ⌥, các phím riêng và ký hiệu
-(Enter, ⌫, `⇧;`, `⇧/`…), và số lần nhấn từng modifier bên trái, bên phải, kèm trung bình
-mỗi ngày.
+rồi bấm **Chép bảng thống kê**.
+
+Từ 05/11/2026 bộ đếm chỉ tính bàn phím rời (Klor), bỏ qua phím gắn liền MacBook, và bảng
+là báo cáo Klor: 20 ô ít bấm nhất, các ô chưa bấm lần nào, và phím nằm ngoài sơ đồ
+[KLOR-LAYOUT.md](KLOR-LAYOUT.md). Số liệu phím tắt MacBook 12/10 → 04/11/2026 vẫn nằm
+trong file nhưng không được ghi thêm.
 
 - Bộ đếm thấy phím của mọi app và mọi bộ gõ, kể cả ABC. Ở chế độ VTX Colemak, nhãn là chữ
   DH-Việt chứ không phải chữ in trên phím.

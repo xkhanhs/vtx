@@ -2676,7 +2676,9 @@ final class TerminalTapController {
                event.getIntegerValueField(.eventSourceUnixProcessID) == 0 {
                 let code = UInt16(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeycode))
                 if modifierPresses.isPress(keyCode: code, flags: event.flags) {
-                    KeyUsageLog.shared.noteModifierPress(keyCode: code)
+                    KeyUsageLog.shared.noteModifierPress(
+                        keyCode: code,
+                        keyboardType: event.getIntegerValueField(.keyboardEventKeyboardType))
                 }
             }
             if let target = SwitchHotkey.targetFlags(for: AppState.shared.switchHotkey),

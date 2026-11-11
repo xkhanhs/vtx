@@ -947,7 +947,7 @@ struct ExperimentalTab: View {
         Form {
             Section(header: Label(model.loc("Key usage"), systemImage: "chart.bar")) {
                 Toggle(model.loc("Count key and shortcut presses (experimental)"), isOn: $model.logKeyUsage)
-                Text(String(format: model.loc("Counts how often each key and shortcut is pressed (⌘Tab, ⌘⇧4, ⇧;, Enter, ⌫…) and each modifier, per day, in every app and input source. Counters only — no order, no timing, no text. Stored in %@."), KeyUsageLog.storeDisplayPath))
+                Text(String(format: model.loc("Counts how often each key of an external keyboard (not the MacBook's own) is pressed, per day, to show which keys you rarely or never use. Counters only — no order, no timing, no text. Stored in %@."), KeyUsageLog.storeDisplayPath))
                     .font(.caption).foregroundStyle(.secondary)
                 HStack {
                     Button { copyKeyUsage() } label: { Label(model.loc("Copy key usage report"), systemImage: "doc.on.doc") }
@@ -1057,11 +1057,11 @@ struct ExperimentalTab: View {
 
     private func copyKeyUsage() {
         let days = KeyUsageLog.shared.snapshot()
-        let summary = KeyUsageLog.summarize(days)
+        let external = days.values.filter { !$0.external.isEmpty }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(KeyUsageLog.report(days), forType: .string)
+        NSPasteboard.general.setString(KeyUsageLog.klorReport(days), forType: .string)
         keyUsageStatus = String(format: model.loc("Copied — %d presses over %d days."),
-                                summary.total, summary.dayCount)
+                                external.flatMap { $0.external.values }.reduce(0, +), external.count)
     }
 
     private func copyWordPractice() {

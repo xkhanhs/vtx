@@ -3,6 +3,8 @@
 // Đếm số lần NHẤN mỗi phím và mỗi tổ hợp (⌘Tab, ⌘⇧4, ⇧;, Enter, ⌫…) cùng số lần nhấn
 // từng modifier trái/phải, gom theo ngày. Mục đích: sau vài ngày biết phím nào dùng
 // nhiều để dành cho nó chỗ tốt trên Corne 36 phím (docs/keyboard/CORNE-LAYOUT.md).
+// Từ 05/11/2026 chỉ đếm bàn phím RỜI (Klor) để biết ô nào ít dùng; phím gắn liền
+// MacBook bị bỏ qua (xem `isBuiltInKeyboard`).
 //
 // PRIVACY: chỉ có BỘ ĐẾM — `{tổ hợp: số lần}` mỗi ngày. Không ghi thứ tự, không ghi
 // thời điểm từng phím, không ghi app, nên không dựng lại được nội dung đã gõ. Opt-in,
@@ -43,7 +45,30 @@ final class KeyUsageLog {
         var combos: [String: Int] = [:]
         /// "⇧ trái" → số lần nhấn xuống. Khoá là nhãn của `modifierLabel`.
         var modifiers: [String: Int] = [:]
+        /// Từ 05/11/2026: mọi phím và modifier nhấn trên bàn phím RỜI (Klor), cùng khoá
+        /// nhãn như hai bảng trên, gộp một bảng vì nhãn modifier ("⇧ trái") không đụng
+        /// nhãn phím. `combos` và `modifiers` là số liệu cũ, đo trên mọi bàn phím lẫn
+        /// MacBook, và không còn được ghi thêm.
+        var external: [String: Int] = [:]
+
+        init(combos: [String: Int] = [:], modifiers: [String: Int] = [:],
+             external: [String: Int] = [:]) {
+            self.combos = combos
+            self.modifiers = modifiers
+            self.external = external
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            combos = try c.decodeIfPresent([String: Int].self, forKey: .combos) ?? [:]
+            modifiers = try c.decodeIfPresent([String: Int].self, forKey: .modifiers) ?? [:]
+            external = try c.decodeIfPresent([String: Int].self, forKey: .external) ?? [:]
+        }
     }
+
+    /// Loại bàn phím macOS báo (`keyboardEventKeyboardType`): 91/92/93 là phím gắn liền
+    /// MacBook (ANSI/ISO/JIS); bàn phím rời như Klor báo 40 (ioreg: HIDSubinterfaceID).
+    static func isBuiltInKeyboard(_ type: Int64) -> Bool { (91...93).contains(type) }
 
     private init() {}
 
@@ -174,20 +199,23 @@ final class KeyUsageLog {
     func noteKeyDown(_ event: CGEvent, vtxActive: Bool) {
         guard event.getIntegerValueField(.keyboardEventAutorepeat) == 0,
               event.getIntegerValueField(.eventSourceUnixProcessID) == 0 else { return }
+        // Bàn phím gắn liền MacBook là QWERTY thường, không cần đo nữa.
+        guard !Self.isBuiltInKeyboard(event.getIntegerValueField(.keyboardEventKeyboardType)) else { return }
         let keyCode = UInt16(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeycode))
         let flags = event.flags
         io.async {
             let pinned = vtxActive
                 ? KeyboardLayoutOverride.translator?.ascii(keyCode: keyCode, shift: false) : nil
             let label = Self.comboLabel(keyCode: keyCode, flags: flags, pinned: pinned)
-            self.record { $0.combos[label, default: 0] += 1 }
+            self.record { $0.external[label, default: 0] += 1 }
         }
     }
 
     /// Một phím modifier vừa đi xuống (đã qua `ModifierPressTracker`).
-    func noteModifierPress(keyCode: UInt16) {
-        guard let label = Self.modifierLabel(keyCode: keyCode) else { return }
-        io.async { self.record { $0.modifiers[label, default: 0] += 1 } }
+    func noteModifierPress(keyCode: UInt16, keyboardType: Int64 = 40) {
+        guard !Self.isBuiltInKeyboard(keyboardType),
+              let label = Self.modifierLabel(keyCode: keyCode) else { return }
+        io.async { self.record { $0.external[label, default: 0] += 1 } }
     }
 
     // MARK: - Lưu trữ (io queue)
@@ -370,6 +398,62 @@ final class KeyUsageLog {
         return lines.joined(separator: "\n")
     }
 }
+
+// MARK: - Báo cáo Klor (phím nào ít bấm, phím nào chưa từng bấm)
+
+extension KeyUsageLog {
+    /// Đầu ra mỗi ô trên Klor (docs/keyboard/KLOR-LAYOUT.md), theo nhãn `comboLabel`
+    /// trên DH-Việt: chữ cái viết hoa, ⇧ ngón cái là modifier riêng. Phím media của FN
+    /// (Mute, Vol, Sáng) không sinh keyDown nên không đo được và không có ở đây.
+    static let klorOutputs: [String] = {
+        let letters = "QWFGBLUYXAHSTPMNEOIJVRCZKD".map(String.init)
+        let base = [",", ".", "/", "⇧;", "Space", "⌫", "Enter", "Tab"]
+        let nav = ["Esc", "[", "]", "↑", "←", "↓", "→", "⌘Tab", "⇧⌘4", "⇧9", "⇧0",
+                   "7", "8", "9", "⇧8", "4", "5", "6", "⇧=", "1", "2", "3", "0", "-", "=",
+                   "⌥⌫", "⇧Enter"]
+        let fn = [";", "⇧2", "⇧'", "⇧/", "⌃C", "⌃4", "⌃3"]
+        return letters + base + nav + fn + ["⌘ trái", "⇧ trái"]
+    }()
+
+    /// Bỏ ⇧ đứng trước chữ cái ("⇧A" → "A"): trên Klor ⇧ là phím ngón cái, còn ô chữ
+    /// vẫn là ô đó.
+    static func foldShiftedLetter(_ label: String) -> String {
+        guard label.count == 2, label.first == "⇧", let last = label.last, last.isLetter else { return label }
+        return String(last)
+    }
+
+    static func klorReport(_ days: [String: Day]) -> String {
+        var counts: [String: Int] = [:]
+        var dayCount = 0
+        for day in days.values where !day.external.isEmpty {
+            dayCount += 1
+            for (label, count) in day.external { counts[foldShiftedLetter(label), default: 0] += count }
+        }
+        guard dayCount > 0 else { return "Chưa có số liệu từ Klor." }
+        let total = counts.values.reduce(0, +)
+        let known = Set(klorOutputs)
+        var lines = ["KLOR — \(dayCount) ngày có gõ, \(total) lần nhấn (không tính MacBook)"]
+        let perDay = { (n: Int) in String(format: "%.1f", Double(n) / Double(dayCount)) }
+        let used = klorOutputs.filter { counts[$0, default: 0] > 0 }
+            .sorted { counts[$0]! == counts[$1]! ? $0 < $1 : counts[$0]! < counts[$1]! }
+        lines.append("")
+        lines.append("ÍT BẤM NHẤT (tăng dần, lần · /ngày)")
+        for label in used.prefix(20) {
+            lines.append("\(annotated(label).padding(toLength: 12, withPad: " ", startingAt: 0))\(counts[label]!) · \(perDay(counts[label]!))")
+        }
+        let never = klorOutputs.filter { counts[$0, default: 0] == 0 }
+        lines.append("")
+        lines.append("CHƯA BẤM LẦN NÀO: " + (never.isEmpty ? "không có" : never.map(annotated).joined(separator: " ")))
+        let extra = counts.filter { !known.contains($0.key) }.sorted { $0.value > $1.value }
+        if !extra.isEmpty {
+            lines.append("")
+            lines.append("NGOÀI SƠ ĐỒ KLOR (kiểm tra có phải gõ nhầm hay keymap đã đổi): "
+                + extra.prefix(15).map { "\(annotated($0.key)) \($0.value)" }.joined(separator: ", "))
+        }
+        return lines.joined(separator: "\n")
+    }
+}
+
 
 private extension String {
     func leftPadded(to width: Int) -> String {
