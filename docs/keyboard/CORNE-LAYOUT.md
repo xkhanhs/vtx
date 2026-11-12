@@ -4,7 +4,14 @@ Bàn phím là Corne v4 bản Bluetooth (ZMK, có ZMK Studio), thay cho Sofle v2
 Firmware nằm ở repo [xkhanhs/zmk-config-corne](https://github.com/xkhanhs/zmk-config-corne),
 fork từ `shopcntech/corne1` của shop bán; keymap là file `config/corne.keymap` ở đó.
 
-**Trạng thái.** Chốt ngày 11/10/2026: gõ Colemak DH-Việt trên Corne, và phần dịch chữ do
+**Từ 12/11/2026 Corne chạy đúng bố cục của Klor**, xem [KLOR-LAYOUT.md](KLOR-LAYOUT.md).
+`corne.keymap` chép nguyên ba tầng của `klor.keymap`; cột ngoài mỗi bên là `&none` ở mọi
+tầng nên chỉ dùng 5 cột, `⌃4` và `⌃3` chuyển sang tầng FN như Klor. NAV chỉ giữ, ⇧ duy nhất
+là ngón cái giữa phải (giữ ⇧, chạm Tab). Corne không có nút reset dùng được: vào bootloader
+bằng FN (giữ NAV, giữ B) cộng ô trên cùng trái (nửa trái) hoặc ô dưới cùng phải (nửa phải).
+Phần còn lại của trang này là bố cục cũ, giữ làm lịch sử.
+
+**Trạng thái (bố cục cũ).** Chốt ngày 11/10/2026: gõ Colemak DH-Việt trên Corne, và phần dịch chữ do
 VTX làm trên máy. Firmware vẫn gửi mã phím QWERTY như bản nạp ngày 10/10/2026, chỉ sửa
 đúng một ô (`⌃C`, xem cuối trang). Không có tầng Colemak trong firmware và không có phím
 chuyển layout.
