@@ -1338,3 +1338,21 @@ method is entered WITH is remembered and re-enabled. VTX was not the cause (no
 third-party layout returned `noErr` and left it disabled (read back
 `IsEnabled = 0`), so enabling a layout has to be done by the user in System
 Settings. `TISDisableInputSource` on the unwanted one did work.
+
+## The pinned-layout remap broke other tools' synthetic paste — 2026-11-15
+
+With the Colemak mode pinned over macOS's ABC, a ⌘ + keycode 9 posted by another
+process (Mactimate, and the same shape Raycast, Alfred and Keyboard Maestro use for
+paste) did not paste in TextEdit: the tap's chord remap re-addressed it as if the
+user had pressed the key at keycode 9 on the pinned layout, which is C. The same
+event posted at `.cgAnnotatedSessionEventTap`, past VTX's session tap, pasted. The
+tap path's letter remap did the same to typed text: a tool posting keycode 0 with a
+unicode payload got Colemak's "a" in place of the character it sent.
+
+Telling a person's key from a process's: a session tap sees the poster's pid in
+`.eventSourceUnixProcessID` on every posted event, including one posted at
+`.cghidEventTap` from a `.hidSystemState` source (measured with a listen-only tap:
+pid read back equal to the poster's). Keyboards, Karabiner-style virtual HID
+included, arrive with 0. So both remaps now run only on pid 0, and a synthetic
+⌘ + keycode 9 pasted in TextEdit after the change. Not usable on the IMKit path:
+Chromium/Electron hand real keys to the input method stamped with VTX's own pid.
