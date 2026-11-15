@@ -57,4 +57,21 @@ final class SyntheticRecognizerTests: XCTestCase {
         XCTAssertFalse(SyntheticKeyboard.isSyntheticMagic(e))
         XCTAssertFalse(SyntheticKeyboard.isSynthetic(e))
     }
+
+    /// The pinned-layout remap (chords and typed letters) applies to keyboard input
+    /// only. Another process's synthetic ⌘ + keycode 9 means ⌘V on macOS's layout;
+    /// re-addressing it as a pinned-Colemak key turned automation tools' paste into
+    /// copy. Real HID input — Karabiner-style virtual devices too — carries pid 0.
+    func testOnlyPidZeroIsHardware() {
+        let e = keyEvent()
+        e.setIntegerValueField(.eventSourceUnixProcessID, value: 0)
+        XCTAssertTrue(SyntheticKeyboard.isHardware(e), "pid 0 = a key someone pressed")
+
+        e.setIntegerValueField(.eventSourceUnixProcessID, value: Int64(getpid()) + 1)
+        XCTAssertFalse(SyntheticKeyboard.isHardware(e),
+                       "another process's synthetic key must pass as posted, never re-addressed")
+
+        e.setIntegerValueField(.eventSourceUnixProcessID, value: Int64(getpid()))
+        XCTAssertFalse(SyntheticKeyboard.isHardware(e))
+    }
 }

@@ -1422,6 +1422,22 @@ enum SyntheticKeyboard {
         event.cgEvent.map(isSynthetic) ?? false
     }
 
+    /// True if `event` came from a keyboard, not from a process. The window server
+    /// stamps the poster's pid on every posted event, wherever it is posted (measured
+    /// 2026-11-15: a keyDown posted at `.cghidEventTap` from a `.hidSystemState`
+    /// source still reached a session tap carrying the poster's pid), and leaves 0 on
+    /// real HID input — Karabiner-style virtual HID devices included.
+    ///
+    /// The pinned-layout re-addressing (chords and typed letters) is for keys a
+    /// person pressed on the pinned layout. A process that posts ⌘ + keycode 9
+    /// already chose the key it means — ⌘V on macOS's layout — so re-addressing it
+    /// turned every automation tool's paste into a copy on the pinned Colemak.
+    /// TAP path only: the IMKit path cannot use this, since Chromium/Electron hand
+    /// real keys to the input method stamped with OUR pid (see isSyntheticMagic).
+    static func isHardware(_ event: CGEvent) -> Bool {
+        event.getIntegerValueField(.eventSourceUnixProcessID) == 0
+    }
+
     /// Health-probe key: keycode 90 = kVK_F20, which no physical Apple keyboard has.
     /// (It was keycode 127 originally — the OS FILTERS that one, so the probe never
     /// re-entered the tap and every tick read as a miss.) The watchdog posts one per
@@ -2555,10 +2571,15 @@ final class TerminalTapController {
     ///  • keyboardSetUnicodeString(length 0) — CLEARING the payload — forces the system
     ///    to re-derive it from the (new) keycode, and matching works.
     ///
+    /// Hardware chords only (`SyntheticKeyboard.isHardware`): another process's
+    /// synthetic chord passes as posted, and touches neither half of the pair table —
+    /// a physical ⌘V held across a tool's synthetic ⌘V still gets its keyUp remapped.
+    ///
     /// TAP THREAD. `KeyboardLayoutOverride.chordRemap` is lock-guarded for exactly this.
     /// Returns true if the event was rewritten.
     @discardableResult
     private func remapChord(_ event: CGEvent, keyDown: Bool) -> Bool {
+        guard SyntheticKeyboard.isHardware(event) else { return false }
         let code = event.getIntegerValueField(.keyboardEventKeycode)
         let target: Int64
         if keyDown {
@@ -3064,9 +3085,13 @@ final class TerminalTapController {
         // layout, which is the one the user overrode — re-derive it from the keycode.
         // Modifier combos are excluded (they are shortcuts, not text) and an
         // unmappable key keeps the OS's character, so this can only ever narrow to
-        // plain ASCII the pinned layout actually defines.
+        // plain ASCII the pinned layout actually defines. Hardware keys only: a
+        // process that posts text sets the character itself, often on keycode 0 with
+        // a unicode payload, and re-deriving from that keycode typed Colemak's "a"
+        // in place of whatever it sent.
         var ch = Character(scalar)
         if let translator = KeyboardLayoutOverride.translator,
+           SyntheticKeyboard.isHardware(event),
            flags.intersection([.maskCommand, .maskControl, .maskAlternate]).isEmpty,
            let remapped = translator.character(keyCode: UInt16(keyCode),
                                                shift: flags.contains(.maskShift)) {
