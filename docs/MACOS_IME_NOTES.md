@@ -1356,3 +1356,26 @@ pid read back equal to the poster's). Keyboards, Karabiner-style virtual HID
 included, arrive with 0. So both remaps now run only on pid 0, and a synthetic
 ⌘ + keycode 9 pasted in TextEdit after the change. Not usable on the IMKit path:
 Chromium/Electron hand real keys to the input method stamped with VTX's own pid.
+
+## A wedged ⌃Space switcher left TIS answering differently per process — 2026-11-18
+
+Symptom: input source could not be switched (stuck on ABC). After that was cleared,
+the menu and the actual typing disagreed, first one way and then the other: the menu
+said ABC while keys came out on DH-Việt, then the menu said VTX Colemak while keys
+came out QWERTY. Finder's rename field did not accept typing.
+
+Measured: `TextInputSwitcher` (running since 08:15) showed the HUD on ⌃Space but
+selected nothing, and ignored SIGTERM. It only exited on `kill -9`. VTX itself was
+fine: one process, one LaunchServices registration, both modes `enabled=Y`, and
+`TISSelectInputSource` from a script selected Colemak. After the kill, TIS answered
+inconsistently from a shell: `TISCreateInputSourceList` returned nil, then 09:49
+`TISCopyCurrentKeyboardInputSource` = vi-colemak, then 09:50 = ABC with neither VTX
+mode found, while VTX kept receiving IMK `Set value for tag`. VTX decides whether to
+remap (tap `imeActive`, IMK mode → pinned layout) from those TIS answers, so it
+followed the wrong one each time.
+
+Did NOT fix it: killing TextInputSwitcher and TextInputMenuAgent, restarting Finder
+(its rename field did start accepting typing again), or restarting VTX. Fixed by
+logout/login. Rule: when menu and typing disagree and the TIS reads from a shell
+disagree with each other, stop changing VTX and log out. Nothing in VTX's code was at
+fault.
