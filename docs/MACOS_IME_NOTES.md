@@ -1379,3 +1379,33 @@ Did NOT fix it: killing TextInputSwitcher and TextInputMenuAgent, restarting Fin
 logout/login. Rule: when menu and typing disagree and the TIS reads from a shell
 disagree with each other, stop changing VTX and log out. Nothing in VTX's code was at
 fault.
+
+## Chrome ignores AXManualAccessibility; its page tree needs AXEnhancedUserInterface — 2026-11-24
+
+Symptom: on beartype.pages.dev (Chrome page content) the last letter of every test went
+missing and the result was not saved. The debug log showed every `field-scan` in Chrome as
+`roles=[no-focused-element]` and every key as `tap-emit mode=emptyReset`: the field detector
+could not see the page, fell back to the omnibox strategy, and the page received the U+202F
+dance on each keystroke.
+
+Measured on Chrome 158.0.8127.37, macOS 27.2.1, from a trusted process:
+
+- `AXManualAccessibility` read and write both return -25205 (attribute unsupported). The
+  attribute is Electron's; Chrome never knew it. The poke VTX had relied on did nothing.
+- App-scoped `AXFocusedUIElement` → -25212 (no value). Walking the focused window: 55
+  elements, all toolbar, no `AXWebArea`.
+- Write `AXEnhancedUserInterface = true` → returns -25208, but read-back is 1, and a few
+  seconds later the window holds 131 elements including `AXWebArea`. The return code lies;
+  read the value back.
+- Write it back to false → tree gone at once (55 elements again). It must stay on.
+- With it on, `field-scan` read `host=beartype.pages.dev roles=[AXTextArea→…→AXWebArea]`,
+  321 keys went `tap-emit mode=backspace`, none `emptyReset`, and the last letter stopped
+  disappearing.
+
+Fix: `FocusedFieldDetector.ensureChromiumEnhancedUI` reads and, if needed, sets
+`AXEnhancedUserInterface` on every field scan for Chromium bundles (detected by a
+`<Name> Framework.framework` in `Contents/Frameworks`). Read-and-set every scan rather than
+once per pid, because window managers flip the attribute around resizes. Known cost of the
+attribute: Chrome runs its full accessibility mode, and window animations can change.
+Google Docs / Sheets / Chrome Remote Desktop field detection depended on the same tree, so
+it had been dead on this Chrome too.

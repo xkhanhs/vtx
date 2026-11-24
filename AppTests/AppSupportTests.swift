@@ -716,6 +716,16 @@ extension AppSupportTests {
         XCTAssertFalse(FocusedFieldDetector.lazyAXPokeWanted(reEditEnabled: false, routesTap: false))
     }
 
+    /// Chrome ignores AXManualAccessibility, so Chromium browsers get
+    /// AXEnhancedUserInterface to build their page tree. Detected by the engine
+    /// framework the bundle ships; WebKit/Gecko browsers must not be touched.
+    func testChromiumBundleDetection() {
+        XCTAssertTrue(FocusedFieldDetector.isChromiumBundle(frameworkNames: ["Google Chrome Framework.framework"]))
+        XCTAssertTrue(FocusedFieldDetector.isChromiumBundle(frameworkNames: ["Sparkle.framework", "Brave Browser Framework.framework"]))
+        XCTAssertFalse(FocusedFieldDetector.isChromiumBundle(frameworkNames: ["XUL.framework", "libmozglue.dylib"]))
+        XCTAssertFalse(FocusedFieldDetector.isChromiumBundle(frameworkNames: []))
+    }
+
     /// reEditWord gates TWO reach-back behaviors — re-edit ("toan"+s→toán) and the ⌫
     /// re-open of PR #42 ("tháy ␣"+⌫+a→thấy, issue #40). Default flipped ON 14/08/2026
     /// after PR #42 replaced the GUESS that caused the 04/08 revert with a verified

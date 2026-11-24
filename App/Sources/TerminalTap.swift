@@ -937,6 +937,50 @@ enum FocusedFieldDetector {
         guard let app = NSWorkspace.shared.frontmostApplication,
               AppState.shared.usesAxDetect(app.bundleIdentifier) else { return }
         pokeFrontmostLazyAX()
+        ensureChromiumEnhancedUI(app)
+    }
+
+    /// Google Chrome does NOT know AXManualAccessibility (that switch is Electron's):
+    /// on Chrome 158 / macOS 27.2 both the read and the write answer -25205
+    /// (attribute unsupported), the window tree held 55 toolbar elements and no
+    /// AXWebArea, and every page field read "no-focused-element" — so every page got
+    /// the omnibox's U+202F dance and beartype lost its last letter (2026-11-24).
+    /// Chrome builds the page tree for a client that sets AXEnhancedUserInterface.
+    /// That write answers -25208 yet takes effect (read-back 1, tree grew to 131
+    /// elements with AXWebArea), so the read-back is the evidence, never the return
+    /// code. Setting it back to false tears the tree down at once, so it must stay
+    /// on — and another process (window managers flip it around a resize) may clear
+    /// it, hence read-and-set on every scan instead of once per pid. Scan queue
+    /// only, never the keystroke path.
+    private static var chromiumPids: [pid_t: Bool] = [:]   // guarded by `lock`
+    private static func ensureChromiumEnhancedUI(_ app: NSRunningApplication) {
+        let pid = app.processIdentifier
+        let isChromium: Bool = lock.withLock { chromiumPids[pid] } ?? {
+            let dir = app.bundleURL?.appendingPathComponent("Contents/Frameworks")
+            let names = dir.flatMap { try? FileManager.default.contentsOfDirectory(atPath: $0.path) } ?? []
+            let v = isChromiumBundle(frameworkNames: names)
+            lock.withLock { chromiumPids[pid] = v }
+            return v
+        }()
+        guard isChromium else { return }
+        let el = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(el, 0.05)
+        var v: CFTypeRef?
+        if AXUIElementCopyAttributeValue(el, "AXEnhancedUserInterface" as CFString, &v) == .success,
+           (v as? Bool) == true { return }
+        _ = AXUIElementSetAttributeValue(el, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
+        if AppState.shared.debugLogging {
+            var after: CFTypeRef?
+            AXUIElementCopyAttributeValue(el, "AXEnhancedUserInterface" as CFString, &after)
+            DebugLog.log("enhanced-ui \(app.bundleIdentifier ?? "?"): set, read-back=\((after as? Bool).map { "\($0)" } ?? "nil")")
+        }
+    }
+
+    /// A Chromium browser ships its engine as `<Name> Framework.framework` (Google
+    /// Chrome Framework, Brave Browser Framework, Microsoft Edge Framework…). WebKit
+    /// and Gecko browsers don't, and their page tree is already readable.
+    static func isChromiumBundle(frameworkNames: [String]) -> Bool {
+        frameworkNames.contains { $0.hasSuffix(" Framework.framework") }
     }
 
     /// Once-per-pid AXManualAccessibility poke for the FRONTMOST app, whatever its
