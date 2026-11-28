@@ -79,6 +79,9 @@ SecureInputMonitor.shared.start()
 // 15/08/2026). Xem StickyInputSource.swift.
 StickyInputSource.shared.start()
 
+// Giữ ⌥ phải trên AULA + mũi tên/End = âm lượng/độ sáng/tắt tiếng (MediaKeyChord.swift).
+HIDRightOptionWatcher.shared.start()
+
 // Accessibility permission toggled (System Settings): react IMMEDIATELY, not on the
 // next keystroke. Revoke while the tap is live used to leave a tap macOS keeps
 // disabling while we kept re-enabling — a ping-pong that wedged ALL input (keyboard

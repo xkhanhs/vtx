@@ -2821,6 +2821,17 @@ final class TerminalTapController {
             return nil
         }
 
+        // ⌥ phải trên AULA + mũi tên/End = phím media (MediaKeyChord). Cũng trước gate
+        // imeActive: chỉnh âm lượng không phụ thuộc bộ gõ đang chọn. Nuốt cả keyUp.
+        if let media = MediaKeyChord.key(keycode: keycode, flags: event.flags,
+                                         rightOptionOnTarget: HIDRightOptionWatcher.shared.isHeld) {
+            swallowedDirectKeys.insert(keycode)
+            if media.repeats || event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
+                DispatchQueue.main.async { MediaKeyChord.post(media) }
+            }
+            return nil
+        }
+
         var wakeWatchdog = false
         let needsEngineReset: Bool = stateLock.withLock {
             if Self.stampsLiveness(imeActive: active) {

@@ -1409,3 +1409,26 @@ once per pid, because window managers flip the attribute around resizes. Known c
 attribute: Chrome runs its full accessibility mode, and window animations can change.
 Google Docs / Sheets / Chrome Remote Desktop field detection depended on the same tree, so
 it had been dead on this Chrome too.
+
+## Knowing which keyboard sent a key: CGEvent cannot, IOHID can (2026-11-28)
+
+Right ⌥ + arrows/End on the AULA keyboard now drive volume, brightness and mute
+(`MediaKeyChord.swift`). It had been a Karabiner rule, but Karabiner's app bundle was found
+emptied (`Contents/` only, "executable is missing") and its bundled restore tarball was
+corrupt (`tar: Special header too large`), so nothing was being remapped at all.
+
+The rule had to stay AULA-only: on the MacBook and on Klor/Corne, ⌥← / ⌥→ is word jump. A
+`CGEvent` in the tap carries no device identity. `keyboardEventKeyboardType` is the layout
+type, the same for the built-in keyboard and the AULA. What does work:
+
+- An `IOHIDManager` matched on the AULA vendor/product (0x3554/0xfa09 2.4G receiver,
+  0xfa07 Bluetooth), with input-value matching on usage 0x07/0xE6 (Right Alt). It only
+  observes; nothing is seized. `IOHIDManagerOpen` returned `kIOReturnSuccess` without a new
+  prompt, because VTX already holds the listen-event grant the tap uses.
+- The tap then requires the right-⌥ device bit (`NX_DEVICERALTKEYMASK`, 0x40) in the flags
+  AND the watcher saying an AULA right ⌥ is down. The arrow arrives many milliseconds after
+  the modifier, so there is no ordering race between the HID callback and the tap.
+- The AULA's Fn never reaches the Mac (the firmware consumes it), so it cannot be the hold key.
+
+The media keys are posted as `NSSystemDefined` subtype 8 events with `NX_KEYTYPE_*` and
+empty modifier flags. With ⌥ in the flags macOS opens Sound/Displays settings instead.
